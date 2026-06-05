@@ -1,0 +1,551 @@
+/**
+ * sheetsService.ts — COMPLETE FILE WITH LINE ITEMS FIX
+ * ─────────────────────────────────────────────────────
+ * THE BUG THAT WAS KILLING ITEMS:
+ *
+ * Your Google Sheet has a separate "Invoice_Items" tab.
+ * The Apps Script fetchDataAll returns it as json.data.invoice_items[]
+ * BUT the old sheetsService only looked inside row.Invoice_Items_JSON
+ * (an embedded column that doesn't exist in your sheet).
+ * Result: invoice_items array was ALWAYS empty on load.
+ *
+ * THE FIX: After the invoices loop, read json.data.invoice_items
+ * as a standalone array and push every row into invoice_items[].
+ * Both paths are kept so nothing breaks if Invoice_Items_JSON exists.
+ * ─────────────────────────────────────────────────────
+ */
+
+import { initializeApp } from 'firebase/app';
+import {
+  getAuth, signInWithPopup, GoogleAuthProvider,
+  onAuthStateChanged, User, signOut
+} from 'firebase/auth';
+import {
+  DatabaseState, Invoice, InvoiceItem,
+  Customer, CompanyProfile, Employee, Payslip
+} from './types';
+import firebaseConfig from '../firebase-applet-config.json';
+
+// ── Firebase init ─────────────────────────────────────────────
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+const provider = new GoogleAuthProvider();
+provider.addScope('https://www.googleapis.com/auth/spreadsheets');
+
+let isSigningIn = false;
+let cachedAccessToken: string | null =
+  typeof window !== 'undefined'
+    ? localStorage.getItem('connected_google_access_token')
+    : null;
+
+// ── Auth ──────────────────────────────────────────────────────
+export const initAuth = (
+  onAuthSuccess: (user: User, token: string) => void,
+  onAuthFailure: () => void
+) => {
+  return onAuthStateChanged(auth, async (user: User | null) => {
+    if (user) {
+      const storedToken =
+        typeof window !== 'undefined'
+          ? localStorage.getItem('connected_google_access_token')
+          : null;
+      if (storedToken) {
+        cachedAccessToken = storedToken;
+        onAuthSuccess(user, storedToken);
+      } else if (cachedAccessToken) {
+        onAuthSuccess(user, cachedAccessToken);
+      } else {
+        onAuthFailure();
+      }
+    } else {
+      cachedAccessToken = null;
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('connected_google_access_token');
+      }
+      onAuthFailure();
+    }
+  });
+};
+
+export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
+  try {
+    isSigningIn = true;
+    const result = await signInWithPopup(auth, provider);
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    if (!credential?.accessToken) {
+      throw new Error('Failed to retrieve Google Sheets access token back from auth provider.');
+    }
+    cachedAccessToken = credential.accessToken;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('connected_google_access_token', cachedAccessToken);
+    }
+    return { user: result.user, accessToken: cachedAccessToken };
+  } catch (error: any) {
+    console.error('Sign-in error details: ', error);
+    throw error;
+  } finally {
+    isSigningIn = false;
+  }
+};
+
+export const getAccessToken = async (): Promise<string | null> => cachedAccessToken;
+
+export const logout = async () => {
+  await signOut(auth);
+  cachedAccessToken = null;
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('connected_google_access_token');
+  }
+};
+
+// ── Row mappers ───────────────────────────────────────────────
+const mapInvoicesToRows = (invoices: Invoice[], profiles?: CompanyProfile[]): any[][] => {
+  return invoices.map(i => {
+    let companyName: string = i.Company;
+    if (profiles) {
+      const match = profiles.find(p => p.id === i.Company);
+      if (match?.store_name) companyName = match.store_name;
+      else if (match?.name) companyName = match.name;
+    }
+    return [
+      i.Invoice_ID, i.Date, companyName, i.Customer_Name, i.Status,
+      i.Total_Amount, i.Discount_Value || 0,
+      i.Subtotal_Amount || i.Total_Amount, i.Notes || '',
+      i.Customer_Contact || '-', i.Customer_Address || '-'
+    ];
+  });
+};
+
+const mapItemsToRows = (items: InvoiceItem[]): any[][] =>
+  items.map(t => [t.Item_ID, t.Invoice_ID, t.Item_Name, t.Quantity, t.Price, t.Subtotal]);
+
+const mapCustomersToRows = (customers: Customer[]): any[][] =>
+  customers.map(c => [c.Customer_Name, c.Contact || '-', c.Customer_Type, c.Address || '-']);
+
+const getSheetRowsAsObjects = (headers: string[], values: any[][]): any[] => {
+  if (!values || values.length === 0) return [];
+  return values.map(row => {
+    const obj: any = {};
+    headers.forEach((h, idx) => { obj[h] = row[idx] !== undefined ? row[idx] : ''; });
+    return obj;
+  });
+};
+
+const isMissingSheetError = (errorMsg: string): boolean => {
+  const l = errorMsg.toLowerCase();
+  return l.includes('unable to parse') || l.includes('not found') || l.includes('range');
+};
+
+// ── initializeSheetsDatabase ──────────────────────────────────
+export const initializeSheetsDatabase = async (
+  spreadsheetId: string, token: string
+): Promise<boolean> => {
+  try {
+    const payload = { action: 'initializeDatabase', spreadsheetId };
+    const savedApiUrl = getApiUrl();
+    const response = await fetch(
+      `${savedApiUrl}?action=initializeDatabase&spreadsheetId=${encodeURIComponent(spreadsheetId)}`,
+      {
+        method: 'POST', redirect: 'follow',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      }
+    );
+    if (!response.ok) throw new Error('Sync failed: ' + response.statusText);
+    const json = await response.json();
+    return !!json.success;
+  } catch (err) {
+    console.error('Error initializing database:', err);
+    return false;
+  }
+};
+
+// ── fetchDataAll — THE FIXED VERSION ─────────────────────────
+export const fetchDataAll = async (
+  spreadsheetId: string,
+  token: string,
+  profiles?: CompanyProfile[],
+  branchFilter?: string
+): Promise<DatabaseState & { profiles?: CompanyProfile[] }> => {
+  const url = `${getApiUrl()}?action=fetchDataAll&spreadsheetId=${spreadsheetId}&t=${new Date().getTime()}`;
+
+  const res = await fetch(url, { method: 'GET', redirect: 'follow' });
+  if (!res.ok) throw new Error(`Google Sheets Fetch Error: ${res.statusText}`);
+
+  const text = await res.text();
+  let json: any;
+  try {
+    json = JSON.parse(text);
+  } catch (err: any) {
+    console.error('Raw response from fetchDataAll:', text);
+    throw new Error(`Google Sheets Fetch Error: Invalid JSON. ${err.message}`);
+  }
+
+  if (!json?.success) {
+    throw new Error(json?.error || 'Google Sheets Fetch Error: Web app reported failure.');
+  }
+
+  // ── Customers ────────────────────────────────────────────
+  const rawCustomers = json.data?.customers || [];
+  let customers: Customer[] = rawCustomers.map((row: any) => ({
+    Customer_Name: String(row.Customer_Name || ''),
+    Contact: String(row.Contact || '-'),
+    Customer_Type: (row.Customer_Type === 'New' ? 'New' : 'Regular') as 'Regular' | 'New',
+    Address: String(row.Address || '-'),
+    Branch_Location: String(row.Branch_Location || '')
+  })).filter((c: any) => c.Customer_Name);
+
+  // ── Invoices + inline items ──────────────────────────────
+  const rawInvoices = json.data?.invoices || [];
+  const invoice_items: InvoiceItem[] = [];
+  // Track which Invoice_IDs got items from the inline JSON column
+  const coveredByInlineJSON = new Set<string>();
+
+  let invoices: Invoice[] = rawInvoices.map((row: any) => {
+    const custName = String(row.Customer_Name || '');
+    const matchedCustomer = customers.find(
+      c => (c.Customer_Name || '').toLowerCase() === custName.toLowerCase()
+    );
+    const resolvedType = matchedCustomer ? matchedCustomer.Customer_Type : 'Regular';
+
+    let resolvedCompany: 'Bistro' | 'Nasi Kandar' = 'Bistro';
+    const rowComp = String(row.Company || '').trim().toLowerCase();
+    const invId = String(row.Invoice_ID || '');
+
+    if (profiles && profiles.length > 0) {
+      const bProfile = profiles.find(p => p.id === 'Bistro');
+      const nkProfile = profiles.find(p => p.id === 'Nasi Kandar');
+      const bPrefix = bProfile?.series_format || 'BIS';
+      const nkPrefix = nkProfile?.series_format || 'NK';
+
+      if (
+        invId.startsWith(bPrefix) || invId.startsWith('LEG-BIS') ||
+        rowComp === (bProfile?.store_name || '').trim().toLowerCase() ||
+        rowComp === (bProfile?.name || '').trim().toLowerCase()
+      ) {
+        resolvedCompany = 'Bistro';
+      } else if (
+        invId.startsWith(nkPrefix) || invId.startsWith('LEG-NK') ||
+        rowComp === (nkProfile?.store_name || '').trim().toLowerCase() ||
+        rowComp === (nkProfile?.name || '').trim().toLowerCase()
+      ) {
+        resolvedCompany = 'Nasi Kandar';
+      } else {
+        resolvedCompany = (
+          invId.includes('NK') || rowComp === 'nasi kandar' ||
+          rowComp.indexOf('nasi') !== -1
+        ) ? 'Nasi Kandar' : 'Bistro';
+      }
+    } else {
+      if (
+        invId.includes('NK') || invId.startsWith('LEG-NK') ||
+        rowComp === 'nasi kandar' || rowComp.indexOf('nasi') !== -1
+      ) {
+        resolvedCompany = 'Nasi Kandar';
+      }
+    }
+
+    // ── Source A: Invoice_Items_JSON inline column ────────
+    if (row.Invoice_Items_JSON) {
+      try {
+        const parsedItems = JSON.parse(row.Invoice_Items_JSON);
+        if (Array.isArray(parsedItems) && parsedItems.length > 0) {
+          parsedItems.forEach((item: any) => {
+            invoice_items.push({
+              Item_ID:    String(item.Item_ID || ''),
+              Invoice_ID: String(row.Invoice_ID || invId),
+              Item_Name:  String(item.Item_Name || ''),
+              Quantity:   Number(item.Quantity) || 0,
+              Price:      Number(item.Price) || 0,
+              Subtotal:   Number(item.Subtotal) || 0,
+            });
+          });
+          // Mark as covered so the separate tab doesn't double-add
+          coveredByInlineJSON.add(invId);
+        }
+      } catch (e) {
+        console.warn('Could not parse Invoice_Items_JSON for invoice', invId);
+      }
+    }
+
+    return {
+      Invoice_ID: invId,
+      Date: (() => {
+        const val = String(row.Date || '');
+        if (val.includes('T')) return val.split('T')[0];
+        if (val.length >= 10) return val.substring(0, 10);
+        return val;
+      })(),
+      Company: resolvedCompany,
+      Customer_Name: custName,
+      Customer_Type: resolvedType as 'Regular' | 'New',
+      Status: (row.Status === 'Pending' ? 'Pending' : 'Paid') as 'Paid' | 'Pending',
+      Total_Amount: Number(row.Total_Amount) || 0,
+      Discount_Type: 'none' as const,
+      Discount_Value: Number(row.Discount_Value) || 0,
+      Subtotal_Amount: Number(row.Subtotal_Amount) || Number(row.Total_Amount) || 0,
+      Currency_Symbol: 'RM',
+      Is_Past_Entry: false,
+      Customer_Contact: String(row.Customer_Contact || '-'),
+      Customer_Address: String(row.Customer_Address || '-'),
+      Template: 'modern' as const,
+      Notes: String(row.Notes || ''),
+      Branch_Location: String(row.Branch_Location || '')
+    };
+  }).filter((inv: any) => inv.Invoice_ID);
+
+  // ── Source B: Standalone Invoice_Items tab ────────────
+  // This is the primary source for your sheet layout.
+  // Only skips an invoice if Source A already covered it.
+  const rawStandaloneItems: any[] = json.data?.invoice_items || [];
+  console.log(`[sheetsService] Standalone invoice_items rows from sheet: ${rawStandaloneItems.length}`);
+
+  rawStandaloneItems.forEach((row: any) => {
+    const invId   = String(row.Invoice_ID || '').trim();
+    const itemId  = String(row.Item_ID    || '').trim();
+    const itemName = String(row.Item_Name || '').trim();
+
+    // Skip completely blank rows
+    if (!invId && !itemId) return;
+
+    // Skip if already loaded from inline JSON for this invoice
+    if (coveredByInlineJSON.has(invId)) return;
+
+    invoice_items.push({
+      Item_ID:    itemId  || `ITEM-AUTO-${Math.random().toString(36).slice(2, 7)}`,
+      Invoice_ID: invId,
+      Item_Name:  itemName,
+      Quantity:   Number(row.Quantity) || 0,
+      Price:      Number(row.Price)    || 0,
+      Subtotal:   Number(row.Subtotal) || 0,
+    });
+  });
+
+  console.log(`[sheetsService] Total invoice_items loaded: ${invoice_items.length}`);
+
+  // ── Employees ────────────────────────────────────────────
+  const rawEmployees = json.data?.employees || [];
+  let employees: Employee[] = rawEmployees.map((row: any) => ({
+    Employee_ID:    String(row.Employee_ID || ''),
+    Employee_Name:  String(row.Employee_Name || ''),
+    IC_Passport:    String(row.IC_Passport || ''),
+    Position:       String(row.Position || ''),
+    Assigned_Outlet:(row.Assigned_Outlet === 'Nasi Kandar' ? 'Nasi Kandar' : 'Bistro') as 'Bistro' | 'Nasi Kandar',
+    Basic_Salary:   Number(row.Basic_Salary) || 0,
+    Bank_Details:   String(row.Bank_Details || ''),
+    Branch_Location:String(row.Branch_Location || ''),
+    Citizenship:    (row.Citizenship === 'Foreigner' ? 'Foreigner' : 'Malaysian/PR') as 'Malaysian/PR' | 'Foreigner'
+  })).filter((e: any) => e.Employee_ID);
+
+  // ── Payslips ─────────────────────────────────────────────
+  const rawPayslips = json.data?.payslips || [];
+  let payslips: Payslip[] = rawPayslips.map((row: any) => ({
+    Payslip_ID:               String(row.Payslip_ID || ''),
+    Employee_ID:              String(row.Employee_ID || ''),
+    Issue_Date:               String(row.Issue_Date || ''),
+    Month_Year:               String(row.Month_Year || ''),
+    Basic_Pay:                Number(row.Basic_Pay) || 0,
+    Custom_Allowances:        Number(row.Custom_Allowances) || 0,
+    Total_Allowances:         Number(row.Total_Allowances) || 0,
+    Employee_EPF:             Number(row.Employee_EPF) || 0,
+    Employer_EPF:             Number(row.Employer_EPF) || 0,
+    Employee_SOCSO:           Number(row.Employee_SOCSO) || 0,
+    Employer_SOCSO:           Number(row.Employer_SOCSO) || 0,
+    Employee_EIS:             Number(row.Employee_EIS) || 0,
+    Employer_EIS:             Number(row.Employer_EIS) || 0,
+    Total_Statutory_Deductions: Number(row.Total_Statutory_Deductions) || 0,
+    Custom_Deductions:        Number(row.Custom_Deductions) || 0,
+    Final_Net_Pay:            Number(row.Final_Net_Pay) || 0,
+    Branch_Location:          String(row.Branch_Location || ''),
+    Is_Saved: row.Is_Saved === true || String(row.Is_Saved).toLowerCase() === 'true',
+    Allowances_JSON:          String(row.Allowances_JSON || ''),
+    Deductions_JSON:          String(row.Deductions_JSON || '')
+  })).filter((p: any) => p.Payslip_ID);
+
+  // ── Branch filter (if provided) ──────────────────────────
+  if (branchFilter) {
+    invoices     = invoices.filter(i  => (i.Branch_Location  || '').toLowerCase() === branchFilter.toLowerCase());
+    customers    = customers.filter(c  => (c.Branch_Location  || '').toLowerCase() === branchFilter.toLowerCase());
+    employees    = employees.filter(e  => (e.Branch_Location  || '').toLowerCase() === branchFilter.toLowerCase());
+    payslips     = payslips.filter(p   => (p.Branch_Location  || '').toLowerCase() === branchFilter.toLowerCase());
+    // DO NOT filter invoice_items by branch — they don't have Branch_Location
+    // They are linked to invoices by Invoice_ID which is already filtered above
+  }
+
+  return { invoices, invoice_items, customers, employees, payslips, profiles: [] };
+};
+
+// ── syncStateToSheets ─────────────────────────────────────────
+export const syncStateToSheets = async (
+  spreadsheetId: string,
+  token: string,
+  db: DatabaseState,
+  profiles?: CompanyProfile[],
+  activeBranchLocation?: string
+): Promise<void> => {
+  let allInvoices: any[]  = [];
+  let allCustomers: any[] = [];
+  let allEmployees: any[] = [];
+  let allPayslips: any[]  = [];
+
+  const targetBranch = activeBranchLocation || 'A1 Bistro';
+
+  // Fetch current sheet state for non-destructive merge
+  try {
+    const url = `${getApiUrl()}?action=fetchDataAll&spreadsheetId=${spreadsheetId}&t=${new Date().getTime()}`;
+    const res = await fetch(url);
+    if (res.ok) {
+      const json = await res.json();
+      if (json?.success) {
+        allInvoices  = json.data?.invoices  || [];
+        allCustomers = json.data?.customers || [];
+        allEmployees = json.data?.employees || [];
+        allPayslips  = json.data?.payslips  || [];
+      }
+    }
+  } catch (err) {
+    console.warn('Could not fetch old sheet records for merge:', err);
+  }
+
+  const otherInvoices  = allInvoices.filter(i  => (i.Branch_Location  || '').toLowerCase() !== targetBranch.toLowerCase());
+  const otherCustomers = allCustomers.filter(c  => (c.Branch_Location  || '').toLowerCase() !== targetBranch.toLowerCase());
+  const otherEmployees = allEmployees.filter(e  => (e.Branch_Location  || '').toLowerCase() !== targetBranch.toLowerCase());
+  const otherPayslips  = allPayslips.filter(p   => (p.Branch_Location  || '').toLowerCase() !== targetBranch.toLowerCase());
+
+  const currentInvoicesFormatted = db.invoices.map(inv => {
+    let companyName: string = inv.Company;
+    if (profiles) {
+      const match = profiles.find(p => p.id === inv.Company);
+      if (match?.store_name) companyName = match.store_name;
+      else if (match?.name) companyName = match.name;
+    }
+    const matchingItems = db.invoice_items?.filter(item => item.Invoice_ID === inv.Invoice_ID) || [];
+    return {
+      Invoice_ID: inv.Invoice_ID, Date: inv.Date, Company: companyName,
+      Customer_Name: inv.Customer_Name, Status: inv.Status,
+      Total_Amount: inv.Total_Amount, Discount_Value: inv.Discount_Value || 0,
+      Subtotal_Amount: inv.Subtotal_Amount || inv.Total_Amount,
+      Notes: inv.Notes || '', Customer_Contact: inv.Customer_Contact || '-',
+      Customer_Address: inv.Customer_Address || '-', Branch_Location: targetBranch,
+      Invoice_Items_JSON: JSON.stringify(matchingItems)
+    };
+  });
+
+  const currentCustomersFormatted = db.customers.map(cust => ({
+    Customer_Name: cust.Customer_Name, Contact: cust.Contact || '-',
+    Customer_Type: cust.Customer_Type || 'Regular', Address: cust.Address || '-',
+    Branch_Location: targetBranch
+  }));
+
+  const currentEmployeesFormatted = db.employees?.map(emp => ({
+    Employee_ID: emp.Employee_ID, Employee_Name: emp.Employee_Name,
+    IC_Passport: emp.IC_Passport, Position: emp.Position,
+    Assigned_Outlet: emp.Assigned_Outlet, Basic_Salary: emp.Basic_Salary,
+    Bank_Details: emp.Bank_Details, Branch_Location: targetBranch,
+    Citizenship: emp.Citizenship || 'Malaysian/PR'
+  })) || [];
+
+  const currentPayslipsFormatted = db.payslips?.map(ps => ({
+    Payslip_ID: ps.Payslip_ID, Employee_ID: ps.Employee_ID,
+    Issue_Date: ps.Issue_Date, Month_Year: ps.Month_Year,
+    Basic_Pay: ps.Basic_Pay, Custom_Allowances: ps.Custom_Allowances,
+    Total_Allowances: ps.Total_Allowances, Employee_EPF: ps.Employee_EPF,
+    Employer_EPF: ps.Employer_EPF, Employee_SOCSO: ps.Employee_SOCSO,
+    Employer_SOCSO: ps.Employer_SOCSO, Employee_EIS: ps.Employee_EIS,
+    Employer_EIS: ps.Employer_EIS, Total_Statutory_Deductions: ps.Total_Statutory_Deductions,
+    Custom_Deductions: ps.Custom_Deductions, Final_Net_Pay: ps.Final_Net_Pay,
+    Branch_Location: targetBranch, Is_Saved: ps.Is_Saved,
+    Allowances_JSON: ps.Allowances_JSON || '', Deductions_JSON: ps.Deductions_JSON || ''
+  })) || [];
+
+  // Also send the invoice_items as a flat array for the separate sheet tab
+  const currentItemsFormatted = db.invoice_items?.map(item => ({
+    Item_ID: item.Item_ID, Invoice_ID: item.Invoice_ID, Item_Name: item.Item_Name,
+    Quantity: item.Quantity, Price: item.Price, Subtotal: item.Subtotal
+  })) || [];
+
+  const payload = {
+    action: 'syncData',
+    spreadsheetId,
+    db: {
+      invoices:      [...otherInvoices,  ...currentInvoicesFormatted],
+      customers:     [...otherCustomers, ...currentCustomersFormatted],
+      employees:     [...otherEmployees, ...currentEmployeesFormatted],
+      payslips:      [...otherPayslips,  ...currentPayslipsFormatted],
+      invoice_items: currentItemsFormatted  // ← sends flat items to the sheet tab too
+    }
+  };
+
+  const savedApiUrl = getApiUrl();
+  const response = await fetch(
+    `${savedApiUrl}?action=syncData&spreadsheetId=${encodeURIComponent(spreadsheetId)}`,
+    {
+      method: 'POST', redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Apps Script Sync Error:', errorText);
+    throw new Error('Sync failed: ' + response.statusText);
+  }
+
+  const json = await response.json();
+  if (!json?.success) {
+    throw new Error((json?.error) || 'Failed to save via Apps Script.');
+  }
+};
+
+// ── API URL helpers ───────────────────────────────────────────
+export const DEFAULT_API_URL =
+  'https://script.google.com/macros/s/AKfycbwvv6xIpTxH8U3QvPfIZGuRzXfBm-k4bLCVIx_TF5c6qdtVlnhGobUivjwh4gQ9Dnuxyw/exec';
+
+export const getApiUrl = (): string => {
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem('gas_api_url');
+    if (stored?.trim()) return stored.trim();
+  }
+  return DEFAULT_API_URL;
+};
+
+export const setApiUrl = (url: string) => {
+  if (typeof window !== 'undefined') {
+    if (url?.trim()) localStorage.setItem('gas_api_url', url.trim());
+    else localStorage.removeItem('gas_api_url');
+  }
+};
+
+export const API_URL = DEFAULT_API_URL;
+
+// ── App config helpers ────────────────────────────────────────
+export const fetchAppConfigFromAppsScript = async (): Promise<any> => {
+  const url = `${getApiUrl()}?action=getConfig&t=${new Date().getTime()}`;
+  const res = await fetch(url, { method: 'GET', redirect: 'follow' });
+  if (!res.ok) throw new Error(`Apps Script Config Fetch Error: ${res.statusText}`);
+  const text = await res.text();
+  let json: any;
+  try { json = JSON.parse(text); } catch (err: any) {
+    throw new Error(`Apps Script Config Parse Error: ${err.message}`);
+  }
+  if (json?.success) return json.data;
+  throw new Error((json?.error) || 'Failed to retrieve configuration from Apps Script.');
+};
+
+export const saveAppConfigToAppsScript = async (config: any): Promise<void> => {
+  const payload = { action: 'saveConfig', config };
+  const response = await fetch(`${getApiUrl()}?action=saveConfig`, {
+    method: 'POST', redirect: 'follow',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Apps Script Error:', errorText);
+    throw new Error('Sync failed: ' + response.statusText);
+  }
+  const json = await response.json();
+  if (!json?.success) throw new Error((json?.error) || 'Failed to save configuration via Apps Script.');
+};

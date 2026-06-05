@@ -1,0 +1,6 @@
+{
+  "name": "Biz Eazy Invoicing",
+  "description": "High-efficiency, responsive custom invoicing application for Bistro and Nasi Kandar, complete with Google Sheets backend integration instructions and complete codebases.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

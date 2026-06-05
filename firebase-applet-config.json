@@ -1,0 +1,10 @@
+{
+  "projectId": "bizeazy-invoicing",
+  "appId": "1:623950903574:web:9205918708009f0dd3b837",
+  "apiKey": "AIzaSyD6zBebofFmDl_I-W9FGEGuK1pDrIqF-_k",
+  "authDomain": "bizeazy-invoicing.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "bizeazy-invoicing.firebasestorage.app",
+  "messagingSenderId": "623950903574",
+  "measurementId": "G-4PM2SB4J9H"
+}
