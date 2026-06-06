@@ -1,0 +1,2 @@
+-- Supabase migration/schema removed at user's request to focus on Google Sheets backend.
+-- To restore later, retrieve original file from version control or request a restore.

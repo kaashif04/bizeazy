@@ -82,6 +82,7 @@ export interface Employee {
   Branch_Location: string;
   Citizenship?: 'Malaysian/PR' | 'Foreigner';
   Age?: number;
+  Joining_Date?: string;        // ISO date string e.g. "2026-05-15"
 }
 
 export interface Payslip {
@@ -105,6 +106,9 @@ export interface Payslip {
   Is_Saved: boolean;
   Allowances_JSON?: string;
   Deductions_JSON?: string;
+  Payment_Transferred?: boolean;  // true once employer marks payment made
+  Transfer_Date?: string;         // manually entered after payment e.g. "15 June 2026"
+  Is_Payment_Due?: boolean;       // computed flag: month ended, payment not yet made
 }
 
 export interface DatabaseState {

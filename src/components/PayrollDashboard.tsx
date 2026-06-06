@@ -54,6 +54,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
   const [empSalary, setEmpSalary] = useState<number>(1700);
   const [empCitizenship, setEmpCitizenship] = useState<'Malaysian/PR' | 'Foreigner'>('Malaysian/PR');
   const [empAge, setEmpAge] = useState<number>(30);
+  const [empJoiningDate, setEmpJoiningDate] = useState<string>('');
 
   // Payslip Generator Workspace State
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
@@ -75,6 +76,10 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
   // Active Payslip Preview Modal State
   const [previewPayslip, setPreviewPayslip] = useState<Payslip | null>(null);
   const [previewEmployee, setPreviewEmployee] = useState<Employee | null>(null);
+
+  // Mark Payment modal state
+  const [markPaymentPayslip, setMarkPaymentPayslip] = useState<Payslip | null>(null);
+  const [transferDateInput, setTransferDateInput] = useState<string>('');
 
   // --- DERIVED RENDER STATES ---
   // Only show employees whose Branch_Location matches our current active branch
@@ -102,6 +107,81 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
     const isBistro = activeBranchLocation.toLowerCase().indexOf('bistro') !== -1;
     return profiles.find(p => isBistro ? p.id === 'Bistro' : p.id === 'Nasi Kandar') || profiles[0];
   }, [profiles, activeBranchLocation]);
+
+  // --- PAYROLL COMPLIANCE REMINDERS (Malaysian Employment Act: 7-day rule) ---
+  const getPayrollReminders = () => {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth(); // 0-indexed
+    const reminders: {
+      employee: Employee;
+      monthLabel: string;
+      daysUntilDeadline: number;
+      isOverdue: boolean;
+      payslipExists: boolean;
+      payslipSaved: boolean;
+      paymentDone: boolean;
+    }[] = [];
+
+    activeBranchEmployees.forEach(emp => {
+      if (!emp.Joining_Date) return;
+      const joining = new Date(emp.Joining_Date);
+
+      // Check last 2 months (current and previous) for unpaid
+      [-1, 0].forEach(offset => {
+        const checkMonth = currentMonth + offset;
+        const checkYear = checkMonth < 0 ? currentYear - 1 : currentYear;
+        const normalizedMonth = checkMonth < 0 ? checkMonth + 12 : checkMonth;
+
+        // Employee must have joined by the start of this month
+        const monthStart = new Date(checkYear, normalizedMonth, 1);
+        if (joining > monthStart) return; // not yet eligible
+
+        // Month must have ended
+        const monthEnd = new Date(checkYear, normalizedMonth + 1, 0); // last day
+        if (today <= monthEnd) return; // month not over yet
+
+        // 7-day payment deadline
+        const deadline = new Date(monthEnd);
+        deadline.setDate(deadline.getDate() + 7);
+        const daysUntilDeadline = Math.ceil(
+          (deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+        );
+
+        const months = ["January","February","March","April","May",
+          "June","July","August","September","October","November","December"];
+        const monthLabel = `${months[normalizedMonth]} ${checkYear}`;
+
+        // Check if payslip exists and is saved
+        const existingPayslip = activeBranchPayslips.find(
+          p => p.Employee_ID === emp.Employee_ID &&
+          (() => {
+            const raw = p.Month_Year || '';
+            if (raw.includes('T') || /^\d{4}-\d{2}/.test(raw)) {
+              const d = new Date(raw);
+              if (!isNaN(d.getTime())) {
+                return d.getMonth() === normalizedMonth &&
+                       d.getFullYear() === checkYear;
+              }
+            }
+            return raw === monthLabel;
+          })()
+        );
+
+        reminders.push({
+          employee: emp,
+          monthLabel,
+          daysUntilDeadline,
+          isOverdue: daysUntilDeadline < 0,
+          payslipExists: !!existingPayslip,
+          payslipSaved: existingPayslip?.Is_Saved || false,
+          paymentDone: existingPayslip?.Payment_Transferred || false,
+        });
+      });
+    });
+
+    return reminders.sort((a, b) => a.daysUntilDeadline - b.daysUntilDeadline);
+  };
 
   // --- STATUTORY MALAYSIAN CALCULATOR FUNCTIONS (2026 update) ---
   /**
@@ -231,6 +311,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       setEmpSalary(employee.Basic_Salary);
       setEmpCitizenship(employee.Citizenship || 'Malaysian/PR');
       setEmpAge(Number((employee as any).Age) || 30);
+      setEmpJoiningDate(employee.Joining_Date || '');
     } else {
       setEditingEmployee(null);
       setEmpName('');
@@ -240,6 +321,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       setEmpSalary(1700);
       setEmpCitizenship('Malaysian/PR');
       setEmpAge(30);
+      setEmpJoiningDate('');
     }
     setIsEmployeeModalOpen(true);
   };
@@ -276,6 +358,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               Bank_Details: empBank,
               Citizenship: empCitizenship,
               Age: empAge,
+              Joining_Date: empJoiningDate,
             }
           : emp
       );
@@ -294,6 +377,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
         Branch_Location: activeBranchLocation,
         Citizenship: empCitizenship,
         Age: empAge,
+        Joining_Date: empJoiningDate,
       };
       updatedEmployees.push(newEmp);
       triggerToast("Adding new Employee to the roster...", "info");
@@ -619,6 +703,131 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
         />
       </div>
 
+      {/* ── Malaysian Payroll Compliance Reminders ── */}
+      {(() => {
+        const reminders = getPayrollReminders();
+        if (reminders.length === 0) return null;
+        return (
+          <div className={`rounded-2xl border p-4 mb-4 space-y-2 ${
+            isDarkMode
+              ? 'bg-slate-900/50 border-slate-800'
+              : 'bg-amber-50/60 border-amber-200'
+          }`}>
+            <div className="flex items-center gap-2 mb-3">
+              <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none"
+                   stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667
+                     1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34
+                     16c-.77 1.333.192 3 1.732 3z"/>
+              </svg>
+              <p className={`text-xs font-bold uppercase tracking-wider ${
+                isDarkMode ? 'text-amber-400' : 'text-amber-700'
+              }`}>
+                Payroll Compliance Reminders (Malaysian Employment Act)
+              </p>
+            </div>
+            {reminders.map((r, i) => (
+              <div key={i} className={`flex items-center justify-between gap-3
+                p-3 rounded-xl border ${
+                r.isOverdue
+                  ? (isDarkMode
+                      ? 'bg-rose-950/30 border-rose-800'
+                      : 'bg-rose-50 border-rose-200')
+                  : r.daysUntilDeadline <= 2
+                  ? (isDarkMode
+                      ? 'bg-amber-950/30 border-amber-800'
+                      : 'bg-amber-50 border-amber-200')
+                  : (isDarkMode
+                      ? 'bg-slate-800 border-slate-700'
+                      : 'bg-white border-gray-200')
+              }`}>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className={`text-xs font-black ${
+                      isDarkMode ? 'text-white' : 'text-gray-900'
+                    }`}>{r.employee.Employee_Name}</p>
+                    <span className={`text-[9px] font-bold px-2 py-0.5
+                      rounded-full ${
+                      isDarkMode
+                        ? 'bg-slate-700 text-slate-300'
+                        : 'bg-gray-100 text-gray-600'
+                    }`}>{r.monthLabel}</span>
+                    {r.paymentDone && (
+                      <span className="text-[9px] font-bold px-2 py-0.5
+                        rounded-full bg-emerald-100 text-emerald-700
+                        dark:bg-emerald-900/40 dark:text-emerald-400">
+                        ✓ Payment Confirmed
+                      </span>
+                    )}
+                  </div>
+                  <p className={`text-[10px] mt-0.5 ${
+                    r.isOverdue
+                      ? 'text-rose-500 font-bold'
+                      : r.daysUntilDeadline <= 2
+                      ? 'text-amber-600 dark:text-amber-400 font-bold'
+                      : (isDarkMode ? 'text-slate-400' : 'text-gray-500')
+                  }`}>
+                    {r.paymentDone
+                      ? 'Wages transferred — payslip archived.'
+                      : r.isOverdue
+                      ? `⚠ OVERDUE by ${Math.abs(r.daysUntilDeadline)} day${Math.abs(r.daysUntilDeadline) !== 1 ? 's' : ''} — must pay immediately`
+                      : `Payment due in ${r.daysUntilDeadline} day${r.daysUntilDeadline !== 1 ? 's' : ''} (7-day rule)`}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {!r.payslipSaved && (
+                    <button
+                      onClick={() => {
+                        triggerToast(`Generate payslip for ${r.employee.Employee_Name} first before marking payment.`, 'error');
+                      }}
+                      className="px-3 py-1.5 text-[10px] font-bold rounded-lg
+                        cursor-pointer bg-indigo-600 hover:bg-indigo-700
+                        text-white transition-colors"
+                    >
+                      Generate Payslip
+                    </button>
+                  )}
+                  {r.payslipSaved && !r.paymentDone && (
+                    <button
+                      onClick={() => {
+                        const ps = activeBranchPayslips.find(
+                          p => p.Employee_ID === r.employee.Employee_ID &&
+                          (() => {
+                            const raw = p.Month_Year || '';
+                            if (raw.includes('T') || /^\d{4}-\d{2}/.test(raw)) {
+                              const d = new Date(raw);
+                              if (!isNaN(d.getTime())) {
+                                const months = ["January","February","March",
+                                  "April","May","June","July","August",
+                                  "September","October","November","December"];
+                                return `${months[d.getMonth()]} ${d.getFullYear()}` === r.monthLabel;
+                              }
+                            }
+                            return raw === r.monthLabel;
+                          })() && p.Is_Saved
+                        );
+                        if (ps) {
+                          setMarkPaymentPayslip(ps);
+                          setTransferDateInput(new Date().toLocaleDateString('en-MY', {
+                            day: '2-digit', month: 'long', year: 'numeric'
+                          }));
+                        }
+                      }}
+                      className="px-3 py-1.5 text-[10px] font-bold rounded-lg
+                        cursor-pointer bg-emerald-600 hover:bg-emerald-700
+                        text-white transition-colors"
+                    >
+                      ✓ Mark Payment Made
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* Roster Grid and Table */}
       {filteredEmployees.length === 0 ? (
         <div className={`p-10 text-center rounded-2xl border border-dashed ${isDarkMode ? 'border-slate-800 bg-slate-900/30' : 'border-slate-350 bg-white shadow-sm'}`}>
@@ -804,6 +1013,17 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                         return raw || '-';
                       })()}</p>
                       <div className="text-[11px] font-bold text-indigo-500 mt-0.5">RM {slip.Final_Net_Pay.toFixed(2)}</div>
+                      {slip.Payment_Transferred ? (
+                        <span className="text-[9px] font-bold text-emerald-600
+                          dark:text-emerald-400 flex items-center gap-1">
+                          ✓ Wages Transferred {slip.Transfer_Date ? `· ${slip.Transfer_Date}` : ''}
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-bold text-amber-500
+                          dark:text-amber-400">
+                          ⏳ Payment Pending
+                        </span>
+                      )}
                     </div>
                     <button
                       onClick={() => {
@@ -949,6 +1169,25 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                   />
                 </div>
                 <p className="text-[9px] text-slate-500 dark:text-slate-400 font-semibold mt-1">Malaysian national minimum wage requirement is RM 1,700.</p>
+              </div>
+
+              <div>
+                <label className="block text-[9px] font-bold text-gray-400
+                  uppercase mb-1">Joining Date *</label>
+                <input
+                  type="date"
+                  value={empJoiningDate}
+                  onChange={e => setEmpJoiningDate(e.target.value)}
+                  max={new Date().toISOString().split('T')[0]}
+                  className={`w-full px-2.5 py-2 text-xs rounded-lg border
+                    focus:outline-none focus:ring-1 focus:ring-indigo-500
+                    ${isDarkMode
+                      ? 'bg-slate-900 border-slate-700 text-slate-100'
+                      : 'bg-white border-gray-200 text-gray-800'}`}
+                />
+                <p className="text-[9px] text-slate-400 mt-0.5">
+                  Used to calculate first payslip eligibility
+                </p>
               </div>
 
               <div>
@@ -1382,6 +1621,19 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
         {previewEmployee.Bank_Details || "Maybank Account"}
       </span>
     </p>
+    {previewPayslip.Transfer_Date && (
+      <p className="text-xs text-gray-700 dark:text-slate-400 font-medium">
+        Wage Transfer Date:{' '}
+        <strong className="text-emerald-700 dark:text-emerald-400 font-black">
+          {previewPayslip.Transfer_Date}
+        </strong>
+      </p>
+    )}
+    {!previewPayslip.Transfer_Date && (
+      <p className="text-xs text-gray-400 italic mt-1">
+        Transfer Date: _______________________ (complete after payment)
+      </p>
+    )}
   </div>
 </div>
 
@@ -1587,6 +1839,87 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               </div>
             </div>
           </div>{/* end A4 card */}
+        </div>
+      )}
+
+      {/* ── Mark Payment Made modal ── */}
+      {markPaymentPayslip && (
+        <div className="fixed inset-0 z-[60] bg-black/60 flex items-center
+                        justify-center p-4">
+          <div className={`w-full max-w-sm rounded-2xl shadow-xl p-6 ${
+            isDarkMode
+              ? 'bg-slate-900 border border-slate-800 text-slate-100'
+              : 'bg-white border border-slate-200 text-slate-900'
+          }`}>
+            <h3 className="text-sm font-bold text-emerald-600 mb-1">
+              Confirm Wage Transfer
+            </h3>
+            <p className={`text-xs mb-4 ${
+              isDarkMode ? 'text-slate-400' : 'text-slate-500'
+            }`}>
+              Payslip ID: {markPaymentPayslip.Payslip_ID}<br/>
+              This action records that wages have been physically transferred
+              to the employee. This cannot be undone.
+            </p>
+
+            <div className="mb-4">
+              <label className="block text-[9px] font-bold text-gray-400
+                uppercase mb-1.5">Transfer Date (write on payslip)</label>
+              <input
+                type="text"
+                value={transferDateInput}
+                onChange={e => setTransferDateInput(e.target.value)}
+                placeholder="e.g. 07 June 2026"
+                className={`w-full px-3 py-2 text-xs rounded-lg border
+                  focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                  isDarkMode
+                    ? 'bg-slate-800 border-slate-700 text-slate-100'
+                    : 'bg-gray-50 border-gray-200 text-gray-900'
+                }`}
+              />
+              <p className="text-[9px] text-slate-400 mt-1">
+                This date will appear on the payslip printout as the
+                wage transfer date.
+              </p>
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => {
+                  setMarkPaymentPayslip(null);
+                  setTransferDateInput('');
+                }}
+                className={`px-4 py-2 text-xs font-bold rounded-xl border
+                  cursor-pointer ${
+                  isDarkMode
+                    ? 'border-slate-700 text-slate-300 hover:bg-slate-800'
+                    : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                }`}
+              >Cancel</button>
+              <button
+                onClick={() => {
+                  const nextDb = {
+                    ...db,
+                    payslips: db.payslips.map(p =>
+                      p.Payslip_ID === markPaymentPayslip.Payslip_ID
+                        ? { ...p, Payment_Transferred: true, Transfer_Date: transferDateInput }
+                        : p
+                    )
+                  };
+                  setDb(nextDb);
+                  triggerToast('Payment confirmed and recorded.', 'success');
+                  setMarkPaymentPayslip(null);
+                  setTransferDateInput('');
+                  syncStateToSheets(spreadsheetId, accessToken, nextDb, profiles, activeBranchLocation)
+                    .catch(() => triggerToast('Sync failed.', 'error'));
+                }}
+                className="px-4 py-2 text-xs font-bold rounded-xl cursor-pointer
+                  bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                ✓ Confirm Payment Made
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
