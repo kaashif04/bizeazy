@@ -5,6 +5,7 @@ import {
   Briefcase, FileText, Check, DollarSign, HelpCircle, Save 
 } from 'lucide-react';
 import { DatabaseState, Employee, Payslip, CompanyProfile } from '../types';
+import { saveEmployeeExtras, savePayslipExtras } from '../sheetsService';
 
 interface PayrollDashboardProps {
   db: DatabaseState;
@@ -80,6 +81,9 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
   // Mark Payment modal state
   const [markPaymentPayslip, setMarkPaymentPayslip] = useState<Payslip | null>(null);
   const [transferDateInput, setTransferDateInput] = useState<string>('');
+
+  // Archive filter — separate from the generator's selectedMonthYear so they don't interfere
+  const [archiveFilterMonth, setArchiveFilterMonth] = useState('__all__');
 
   // --- DERIVED RENDER STATES ---
   // Only show employees whose Branch_Location matches our current active branch
@@ -386,6 +390,18 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
     const nextDb = { ...db, employees: updatedEmployees };
     setDb(nextDb);
     setIsEmployeeModalOpen(false);
+
+    // Persist fields the Apps Script schema doesn't have columns for
+    const savedEmp = nextDb.employees.find(e =>
+      editingEmployee ? e.Employee_ID === editingEmployee.Employee_ID : e.Employee_Name === empName
+    );
+    if (savedEmp) {
+      saveEmployeeExtras(savedEmp.Employee_ID, {
+        Citizenship: savedEmp.Citizenship,
+        Age: savedEmp.Age,
+        Joining_Date: savedEmp.Joining_Date,
+      });
+    }
 
     // Save to server
     try {
@@ -809,9 +825,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                         );
                         if (ps) {
                           setMarkPaymentPayslip(ps);
-                          setTransferDateInput(new Date().toLocaleDateString('en-MY', {
-                            day: '2-digit', month: 'long', year: 'numeric'
-                          }));
+                          setTransferDateInput(new Date().toISOString().slice(0, 10));
                         }
                       }}
                       className="px-3 py-1.5 text-[10px] font-bold rounded-lg
@@ -942,14 +956,14 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
           <div className="flex items-center gap-2">
             <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Filter Month:</label>
             <select
-              value={selectedMonthYear}
-              onChange={e => setSelectedMonthYear(e.target.value)}
+              value={archiveFilterMonth}
+              onChange={e => setArchiveFilterMonth(e.target.value)}
               className={`text-xs font-semibold rounded-lg border px-2.5 py-1.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
                 isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-gray-200 text-gray-800'
               }`}
             >
               <option value="__all__">All Months</option>
-              {Array.from(new Set(activeBranchPayslips.map(p => {
+              {Array.from(new Set(activeBranchPayslips.filter(p => p.Is_Saved).map(p => {
                 const raw = p.Month_Year || '';
                 if (raw.includes('T') || /^\d{4}-\d{2}/.test(raw)) {
                   const d = new Date(raw);
@@ -970,9 +984,10 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
           </div>
         </div>
         {(() => {
-          const filtered = selectedMonthYear === '__all__'
-            ? activeBranchPayslips
-            : activeBranchPayslips.filter(p => {
+          const savedPayslips = activeBranchPayslips.filter(p => p.Is_Saved);
+          const filtered = archiveFilterMonth === '__all__'
+            ? savedPayslips
+            : savedPayslips.filter(p => {
                 const raw = p.Month_Year || '';
                 let label = raw;
                 if (raw.includes('T') || /^\d{4}-\d{2}/.test(raw)) {
@@ -981,13 +996,13 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                     label = d.toLocaleDateString('en-MY', { month: 'long', year: 'numeric' });
                   }
                 }
-                return label === selectedMonthYear;
+                return label === archiveFilterMonth;
               });
           if (filtered.length === 0) {
             return (
               <div className="text-center py-6">
                 <p className="text-[11px] text-slate-400 font-medium">
-                  No saved payslips found{selectedMonthYear !== '__all__' ? ` for ${selectedMonthYear}` : ''} in this branch.
+                  No saved payslips found{archiveFilterMonth !== '__all__' ? ` for ${archiveFilterMonth}` : ''} in this branch.
                 </p>
               </div>
             );
@@ -1025,20 +1040,33 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                         </span>
                       )}
                     </div>
-                    <button
-                      onClick={() => {
-                        if (matchedEmp) {
-                          setPreviewEmployee(matchedEmp);
-                          setPreviewPayslip(slip);
-                        } else {
-                          triggerToast("Cannot find related roster registration.", "error");
-                        }
-                      }}
-                      className="flex p-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400 rounded-md text-[10px] font-bold items-center gap-1 transition-colors cursor-pointer shrink-0"
-                    >
-                      <FileText className="w-3.5 h-3.5" />
-                      <span>View</span>
-                    </button>
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      <button
+                        onClick={() => {
+                          if (matchedEmp) {
+                            setPreviewEmployee(matchedEmp);
+                            setPreviewPayslip(slip);
+                          } else {
+                            triggerToast("Cannot find related roster registration.", "error");
+                          }
+                        }}
+                        className="flex p-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400 rounded-md text-[10px] font-bold items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>View</span>
+                      </button>
+                      {!slip.Payment_Transferred && (
+                        <button
+                          onClick={() => {
+                            setMarkPaymentPayslip(slip);
+                            setTransferDateInput(new Date().toISOString().slice(0, 10));
+                          }}
+                          className="flex p-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 rounded-md text-[10px] font-bold items-center gap-1 transition-colors cursor-pointer"
+                        >
+                          <span>✓ Mark Paid</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -1144,7 +1172,11 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                   value={empAge}
                   onChange={(e) => setEmpAge(Number(e.target.value))}
                   placeholder="e.g. 35"
-                  className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none bg-gray-50 border-gray-200`}
+                  className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none ${
+                    isDarkMode
+                      ? 'bg-slate-950 border-slate-800 text-slate-100'
+                      : 'bg-gray-50 border-gray-200 text-gray-900'
+                  }`}
                 />
                 <p className="text-[9px] text-slate-400 mt-0.5">
                   Affects EPF bracket (60+), SOCSO category, and EIS eligibility (18–60 locals only)
@@ -1282,7 +1314,59 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {activeBranchEmployees.map((emp) => {
+                    {(() => {
+                      const _mths = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+                      const [_ms, _ys] = selectedMonthYear.split(' ');
+                      const _mi = _mths.indexOf(_ms);
+                      const _yr = parseInt(_ys, 10);
+                      const _mStart = new Date(_yr, _mi, 1);
+                      const _today = new Date();
+                      const _mEnd = new Date(_yr, _mi + 1, 0);
+                      const _ended = _today > _mEnd;
+                      const _ddlDate = _ended ? new Date(_mEnd.getTime()) : null;
+                      if (_ddlDate) _ddlDate.setDate(_ddlDate.getDate() + 7);
+                      const _daysLeft = _ddlDate
+                        ? Math.ceil((_ddlDate.getTime() - _today.getTime()) / 86400000)
+                        : null;
+                      const _overdue = _daysLeft !== null && _daysLeft < 0;
+
+                      const eligible = activeBranchEmployees.filter(emp => {
+                        if (emp.Joining_Date) {
+                          // Parse as local date to avoid UTC timezone shift
+                          const parts = emp.Joining_Date.split('-');
+                          const jy = parseInt(parts[0], 10);
+                          const jm = parseInt(parts[1], 10) - 1; // 0-indexed
+                          const jd = parseInt(parts[2], 10);
+                          const j = new Date(jy, jm, jd);
+                          // Must have joined before this month started
+                          if (j > _mStart) return false;
+                          // For ongoing months: enforce 1-month working stage from joining date
+                          // Employee's first eligible date = joining date + 1 calendar month
+                          if (_mEnd >= _today) {
+                            const firstEligible = new Date(jy, jm + 1, jd);
+                            if (firstEligible > _today) return false;
+                          }
+                        }
+                        // Employees with no joining date are included (backward compat)
+                        return !activeBranchPayslips.some(p => {
+                          if (!p.Is_Saved) return false;
+                          const raw = p.Month_Year || '';
+                          let lbl = raw;
+                          if (raw.includes('T') || /^\d{4}-\d{2}/.test(raw)) {
+                            const d = new Date(raw);
+                            if (!isNaN(d.getTime())) lbl = `${_mths[d.getMonth()]} ${d.getFullYear()}`;
+                          }
+                          return p.Employee_ID === emp.Employee_ID && lbl === selectedMonthYear;
+                        });
+                      });
+
+                      if (eligible.length === 0) return (
+                        <tr><td colSpan={6} className="px-4 py-8 text-center text-[11px] text-slate-400 font-medium">
+                          No employees are due for payment this month — all payslips are saved, or no employees have completed their first month yet.
+                        </td></tr>
+                      );
+
+                      return eligible.map((emp) => {
                       const allowancesList = allowancesMap[emp.Employee_ID] || [];
                       const deductionsList = deductionsMap[emp.Employee_ID] || [];
                       
@@ -1309,6 +1393,15 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                               <span>•</span>
                               <span className="font-bold text-slate-505 dark:text-slate-400 text-[9px] uppercase">{citizenship === 'Foreigner' ? 'Foreigner' : 'Malaysian'}</span>
                             </div>
+                            {_daysLeft !== null && (
+                              <div className={`text-[9px] font-bold mt-1 ${
+                                _overdue ? 'text-rose-500' : _daysLeft <= 2 ? 'text-amber-500' : 'text-slate-400 dark:text-slate-500'
+                              }`}>
+                                {_overdue
+                                  ? `⚠ Payment overdue by ${Math.abs(_daysLeft)} day${Math.abs(_daysLeft) !== 1 ? 's' : ''}`
+                                  : `⏱ Pay within ${_daysLeft} day${_daysLeft !== 1 ? 's' : ''} (7-day rule)`}
+                              </div>
+                            )}
                           </td>
                           <td className="px-4 py-3 font-mono text-slate-900 dark:text-white font-bold">RM {emp.Basic_Salary.toFixed(2)}</td>
                           <td className="px-4 py-3 min-w-[280px]">
@@ -1410,7 +1503,8 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                           </td>
                         </tr>
                       );
-                    })}
+                    });
+                    })()}
                   </tbody>
                 </table>
               </div>
@@ -1495,6 +1589,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               #printable-payslip [class*="text-white"] { color: #111827 !important; }
               #printable-payslip [class*="text-emerald"] { color: #059669 !important; }
               #printable-payslip [class*="text-rose"] { color: #dc2626 !important; }
+              #printable-payslip .payslip-badge { color: white !important; }
               .no-print { display: none !important; visibility: hidden !important; }
               * { -webkit-print-color-adjust: exact !important;
                   print-color-adjust: exact !important; }
@@ -1531,9 +1626,9 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h1 className="text-lg font-black tracking-tight text-gray-900 dark:text-white uppercase">
-                    {activeOutletProfile.name}
+                    {activeOutletProfile.company_name || activeOutletProfile.name}
                   </h1>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase">{activeOutletProfile.company_name || 'Culinary Holdings Group'}</p>
+                  <p className="text-[10px] text-gray-500 font-bold uppercase">{activeOutletProfile.store_name || activeOutletProfile.name}</p>
                   <p className="text-xs text-gray-400 dark:text-gray-400 max-w-sm mt-1 leading-relaxed">
                     {activeOutletProfile.address}
                   </p>
@@ -1543,7 +1638,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                 </div>
 
                 <div className="text-right">
-                  <span className="inline-block px-3 py-1 bg-indigo-600 text-white font-black tracking-widest text-[10px] rounded-md border border-indigo-600">
+                  <span className="payslip-badge inline-block px-3 py-1 bg-indigo-600 font-black tracking-widest text-[10px] rounded-md border border-indigo-600" style={{ color: 'white' }}>
                     PAYSLIP RECORD
                   </span>
                   <div className="text-xs font-bold text-gray-900 dark:text-slate-100 mt-2">
@@ -1610,12 +1705,6 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       </strong>
     </p>
     <p className="text-xs text-gray-700 dark:text-slate-400 font-medium">
-      Selected Branch:{" "}
-      <strong className="text-gray-950 dark:text-white">
-        {previewPayslip.Branch_Location}
-      </strong>
-    </p>
-    <p className="text-xs text-gray-700 dark:text-slate-400 font-medium">
       Bank Account Details:{" "}
       <span className="font-bold text-gray-950 dark:text-white">
         {previewEmployee.Bank_Details || "Maybank Account"}
@@ -1630,8 +1719,8 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       </p>
     )}
     {!previewPayslip.Transfer_Date && (
-      <p className="text-xs text-gray-400 italic mt-1">
-        Transfer Date: _______________________ (complete after payment)
+      <p className="text-xs text-gray-700 dark:text-slate-300 font-bold mt-1">
+        Transfer Date: _______________________
       </p>
     )}
   </div>
@@ -1763,19 +1852,9 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                 </div>
               </div>
 
-              {/* Signature lines */}
-              <div className="grid grid-cols-2 gap-12 mt-10">
-                <div className="text-center">
-                  <div className={`border-t pt-3 ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`}>
-                    <p className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>
-                      Issued By: HR Department
-                    </p>
-                    <p className={`text-[9px] mt-1 ${isDarkMode ? 'text-slate-500' : 'text-gray-400'}`}>
-                      {activeOutletProfile?.company_name || activeOutletProfile?.name || activeBranchLocation}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-center">
+              {/* Signature line */}
+              <div className="flex justify-end mt-10">
+                <div className="text-center w-64">
                   <div className={`border-t pt-3 ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`}>
                     <p className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>
                       Received By: Employee Signature
@@ -1864,13 +1943,12 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
 
             <div className="mb-4">
               <label className="block text-[9px] font-bold text-gray-400
-                uppercase mb-1.5">Transfer Date (write on payslip)</label>
+                uppercase mb-1.5">Date of Payment</label>
               <input
-                type="text"
+                type="date"
                 value={transferDateInput}
                 onChange={e => setTransferDateInput(e.target.value)}
-                placeholder="e.g. 07 June 2026"
-                className={`w-full px-3 py-2 text-xs rounded-lg border
+                className={`w-full px-3 py-2 text-sm rounded-lg border
                   focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
                   isDarkMode
                     ? 'bg-slate-800 border-slate-700 text-slate-100'
@@ -1878,8 +1956,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                 }`}
               />
               <p className="text-[9px] text-slate-400 mt-1">
-                This date will appear on the payslip printout as the
-                wage transfer date.
+                This date will appear on the payslip as the wage transfer date.
               </p>
             </div>
 
@@ -1898,15 +1975,27 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               >Cancel</button>
               <button
                 onClick={() => {
+                  if (!transferDateInput) {
+                    triggerToast('Please select a payment date.', 'warning');
+                    return;
+                  }
+                  const [y, m, d] = transferDateInput.split('-').map(Number);
+                  const formatted = new Date(y, m - 1, d).toLocaleDateString('en-MY', {
+                    day: '2-digit', month: 'long', year: 'numeric'
+                  });
                   const nextDb = {
                     ...db,
                     payslips: db.payslips.map(p =>
                       p.Payslip_ID === markPaymentPayslip.Payslip_ID
-                        ? { ...p, Payment_Transferred: true, Transfer_Date: transferDateInput }
+                        ? { ...p, Payment_Transferred: true, Transfer_Date: formatted }
                         : p
                     )
                   };
                   setDb(nextDb);
+                  savePayslipExtras(markPaymentPayslip.Payslip_ID, {
+                    Payment_Transferred: true,
+                    Transfer_Date: formatted,
+                  });
                   triggerToast('Payment confirmed and recorded.', 'success');
                   setMarkPaymentPayslip(null);
                   setTransferDateInput('');

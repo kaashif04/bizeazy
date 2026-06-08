@@ -335,7 +335,9 @@ export const fetchDataAll = async (
     Basic_Salary:   Number(row.Basic_Salary) || 0,
     Bank_Details:   String(row.Bank_Details || ''),
     Branch_Location:String(row.Branch_Location || ''),
-    Citizenship:    (row.Citizenship === 'Foreigner' ? 'Foreigner' : 'Malaysian/PR') as 'Malaysian/PR' | 'Foreigner'
+    Citizenship:    (String(row.Citizenship || '').trim() === 'Foreigner' ? 'Foreigner' : 'Malaysian/PR') as 'Malaysian/PR' | 'Foreigner',
+    Age:            row.Age !== undefined && row.Age !== '' ? Number(row.Age) : undefined,
+    Joining_Date:   row.Joining_Date ? String(row.Joining_Date) : undefined,
   })).filter((e: any) => e.Employee_ID);
 
   // ── Payslips ─────────────────────────────────────────────
@@ -360,7 +362,10 @@ export const fetchDataAll = async (
     Branch_Location:          String(row.Branch_Location || ''),
     Is_Saved: row.Is_Saved === true || String(row.Is_Saved).toLowerCase() === 'true',
     Allowances_JSON:          String(row.Allowances_JSON || ''),
-    Deductions_JSON:          String(row.Deductions_JSON || '')
+    Deductions_JSON:          String(row.Deductions_JSON || ''),
+    Payment_Transferred: row.Payment_Transferred === true || String(row.Payment_Transferred || '').toLowerCase() === 'true',
+    Transfer_Date:       row.Transfer_Date ? String(row.Transfer_Date) : undefined,
+    Is_Payment_Due:      row.Is_Payment_Due === true || String(row.Is_Payment_Due || '').toLowerCase() === 'true',
   })).filter((p: any) => p.Payslip_ID);
 
   // ── Branch filter (if provided) ──────────────────────────
@@ -373,7 +378,54 @@ export const fetchDataAll = async (
     // They are linked to invoices by Invoice_ID which is already filtered above
   }
 
+  // ── Merge localStorage extras (fields not persisted by the Apps Script) ──
+  // Citizenship, Age, Joining_Date, Payment_Transferred, Transfer_Date are not
+  // columns in the current Google Sheet schema.  We save them locally so they
+  // survive a "Refresh Data" without requiring any Apps Script changes.
+  if (typeof window !== 'undefined') {
+    try {
+      const empExtras: Record<string, any> = JSON.parse(localStorage.getItem('bizeazy_employee_extras') || '{}');
+      employees = employees.map(emp => {
+        const extra = empExtras[emp.Employee_ID];
+        return extra ? { ...emp, ...extra } : emp;
+      });
+
+      const psExtras: Record<string, any> = JSON.parse(localStorage.getItem('bizeazy_payslip_extras') || '{}');
+      payslips = payslips.map(ps => {
+        const extra = psExtras[ps.Payslip_ID];
+        return extra ? { ...ps, ...extra } : ps;
+      });
+    } catch {
+      // localStorage unavailable or corrupt — continue without extras
+    }
+  }
+
   return { invoices, invoice_items, customers, employees, payslips, profiles: [] };
+};
+
+// ── localStorage helpers for fields not yet in the Apps Script schema ────────
+export const saveEmployeeExtras = (
+  employeeId: string,
+  extras: { Citizenship?: string; Age?: number; Joining_Date?: string }
+) => {
+  if (typeof window === 'undefined') return;
+  try {
+    const all: Record<string, any> = JSON.parse(localStorage.getItem('bizeazy_employee_extras') || '{}');
+    all[employeeId] = { ...(all[employeeId] || {}), ...extras };
+    localStorage.setItem('bizeazy_employee_extras', JSON.stringify(all));
+  } catch {}
+};
+
+export const savePayslipExtras = (
+  payslipId: string,
+  extras: { Payment_Transferred?: boolean; Transfer_Date?: string }
+) => {
+  if (typeof window === 'undefined') return;
+  try {
+    const all: Record<string, any> = JSON.parse(localStorage.getItem('bizeazy_payslip_extras') || '{}');
+    all[payslipId] = { ...(all[payslipId] || {}), ...extras };
+    localStorage.setItem('bizeazy_payslip_extras', JSON.stringify(all));
+  } catch {}
 };
 
 // ── syncStateToSheets ─────────────────────────────────────────
@@ -443,7 +495,9 @@ export const syncStateToSheets = async (
     IC_Passport: emp.IC_Passport, Position: emp.Position,
     Assigned_Outlet: emp.Assigned_Outlet, Basic_Salary: emp.Basic_Salary,
     Bank_Details: emp.Bank_Details, Branch_Location: targetBranch,
-    Citizenship: emp.Citizenship || 'Malaysian/PR'
+    Citizenship: emp.Citizenship || 'Malaysian/PR',
+    Age: emp.Age ?? '',
+    Joining_Date: emp.Joining_Date || '',
   })) || [];
 
   const currentPayslipsFormatted = db.payslips?.map(ps => ({
@@ -456,7 +510,10 @@ export const syncStateToSheets = async (
     Employer_EIS: ps.Employer_EIS, Total_Statutory_Deductions: ps.Total_Statutory_Deductions,
     Custom_Deductions: ps.Custom_Deductions, Final_Net_Pay: ps.Final_Net_Pay,
     Branch_Location: targetBranch, Is_Saved: ps.Is_Saved,
-    Allowances_JSON: ps.Allowances_JSON || '', Deductions_JSON: ps.Deductions_JSON || ''
+    Allowances_JSON: ps.Allowances_JSON || '', Deductions_JSON: ps.Deductions_JSON || '',
+    Payment_Transferred: ps.Payment_Transferred || false,
+    Transfer_Date: ps.Transfer_Date || '',
+    Is_Payment_Due: ps.Is_Payment_Due || false,
   })) || [];
 
   // Also send the invoice_items as a flat array for the separate sheet tab
@@ -465,15 +522,46 @@ export const syncStateToSheets = async (
     Quantity: item.Quantity, Price: item.Price, Subtotal: item.Subtotal
   })) || [];
 
+  // Normalise other-branch rows so they have the same keys as the current-branch rows.
+  // This matters because some Apps Scripts derive sheet column headers from the first row
+  // in the array.  By putting currentBranch first and filling missing keys on otherBranch
+  // rows, every row has an identical schema and no column gets silently dropped.
+  const normalizedOtherEmployees = otherEmployees.map((e: any) => ({
+    Employee_ID: e.Employee_ID || '', Employee_Name: e.Employee_Name || '',
+    IC_Passport: e.IC_Passport || '', Position: e.Position || '',
+    Assigned_Outlet: e.Assigned_Outlet || 'Bistro', Basic_Salary: e.Basic_Salary || 0,
+    Bank_Details: e.Bank_Details || '', Branch_Location: e.Branch_Location || '',
+    Citizenship: e.Citizenship || 'Malaysian/PR',
+    Age: e.Age ?? '', Joining_Date: e.Joining_Date || '',
+  }));
+
+  const normalizedOtherPayslips = otherPayslips.map((p: any) => ({
+    Payslip_ID: p.Payslip_ID || '', Employee_ID: p.Employee_ID || '',
+    Issue_Date: p.Issue_Date || '', Month_Year: p.Month_Year || '',
+    Basic_Pay: p.Basic_Pay || 0, Custom_Allowances: p.Custom_Allowances || 0,
+    Total_Allowances: p.Total_Allowances || 0, Employee_EPF: p.Employee_EPF || 0,
+    Employer_EPF: p.Employer_EPF || 0, Employee_SOCSO: p.Employee_SOCSO || 0,
+    Employer_SOCSO: p.Employer_SOCSO || 0, Employee_EIS: p.Employee_EIS || 0,
+    Employer_EIS: p.Employer_EIS || 0,
+    Total_Statutory_Deductions: p.Total_Statutory_Deductions || 0,
+    Custom_Deductions: p.Custom_Deductions || 0, Final_Net_Pay: p.Final_Net_Pay || 0,
+    Branch_Location: p.Branch_Location || '', Is_Saved: p.Is_Saved || false,
+    Allowances_JSON: p.Allowances_JSON || '', Deductions_JSON: p.Deductions_JSON || '',
+    Payment_Transferred: p.Payment_Transferred === true || String(p.Payment_Transferred || '').toLowerCase() === 'true',
+    Transfer_Date: p.Transfer_Date || '', Is_Payment_Due: false,
+  }));
+
   const payload = {
     action: 'syncData',
     spreadsheetId,
     db: {
-      invoices:      [...otherInvoices,  ...currentInvoicesFormatted],
-      customers:     [...otherCustomers, ...currentCustomersFormatted],
-      employees:     [...otherEmployees, ...currentEmployeesFormatted],
-      payslips:      [...otherPayslips,  ...currentPayslipsFormatted],
-      invoice_items: currentItemsFormatted  // ← sends flat items to the sheet tab too
+      // Current-branch rows go FIRST so Apps Scripts that derive column headers from
+      // the first row will always see the full schema including new fields.
+      invoices:      [...currentInvoicesFormatted,  ...otherInvoices],
+      customers:     [...currentCustomersFormatted, ...otherCustomers],
+      employees:     [...currentEmployeesFormatted, ...normalizedOtherEmployees],
+      payslips:      [...currentPayslipsFormatted,  ...normalizedOtherPayslips],
+      invoice_items: currentItemsFormatted
     }
   };
 

@@ -478,6 +478,8 @@ export default function InvoicingModule({
   const [newItemName, setNewItemName] = useState('');
   const [newItemQty, setNewItemQty] = useState(1);
   const [newItemPrice, setNewItemPrice] = useState(0);
+  const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
+  const [editItem, setEditItem] = useState<LineItem>({ name: '', qty: 1, price: 0 });
   const [saveCustomer, setSaveCustomer] = useState(false);
   const [discountType, setDiscountType] = useState<'none'|'percentage'|'fixed'>('none');
   const [discountValue, setDiscountValue] = useState<number>(0);
@@ -1049,7 +1051,7 @@ export default function InvoicingModule({
             </div>
 
             {/* Body */}
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr] gap-6">
 
                 {/* Left: metadata */}
@@ -1185,14 +1187,14 @@ export default function InvoicingModule({
                     {includeExtraCharge && (
                       <div className="space-y-2">
                         {extraCharges.map((charge, idx) => (
-                          <div key={idx} className="flex gap-1.5 items-center">
+                          <div key={idx} className="flex flex-wrap gap-1.5 items-center">
                             <select
                               value={['Delivery','Packaging','Service'].includes(charge.label) ? charge.label : 'Custom'}
                               onChange={e => {
                                 const val = e.target.value;
                                 setExtraCharges(prev => prev.map((c, i) => i === idx ? { ...c, label: val === 'Custom' ? '' : val } : c));
                               }}
-                              className={`w-24 px-2 py-1.5 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'}`}
+                              className={`px-2 py-1.5 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'}`}
                             >
                               <option value="Delivery">Delivery</option>
                               <option value="Packaging">Packaging</option>
@@ -1205,7 +1207,7 @@ export default function InvoicingModule({
                                 placeholder="Label"
                                 value={charge.label}
                                 onChange={e => setExtraCharges(prev => prev.map((c, i) => i === idx ? { ...c, label: e.target.value } : c))}
-                                className={`w-24 px-2 py-1.5 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'}`}
+                                className={`w-28 px-2 py-1.5 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'}`}
                               />
                             )}
                             <input
@@ -1215,7 +1217,7 @@ export default function InvoicingModule({
                               placeholder="0"
                               className={`w-20 px-2 py-1.5 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono ${isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'}`}
                             />
-                            <span className={`text-[10px] font-bold w-10 ${charge.amount === 0 ? 'text-emerald-600' : 'text-gray-400 dark:text-slate-500'}`}>
+                            <span className={`text-[10px] font-bold ${charge.amount === 0 ? 'text-emerald-600' : 'text-gray-400 dark:text-slate-500'}`}>
                               {charge.amount === 0 ? 'FREE' : `RM ${charge.amount.toFixed(2)}`}
                             </span>
                             {extraCharges.length > 1 && (
@@ -1305,7 +1307,7 @@ export default function InvoicingModule({
                       className={`grid text-[9px] font-bold uppercase tracking-wider px-2 py-1 ${
                         isDarkMode ? 'text-slate-500' : 'text-gray-400'
                       }`}
-                      style={{ gridTemplateColumns: '1fr 56px 88px 76px 32px' }}
+                      style={{ gridTemplateColumns: '1fr 48px 72px 68px 52px' }}
                     >
                       <span>Description</span>
                       <span className="text-center">Qty</span>
@@ -1318,35 +1320,103 @@ export default function InvoicingModule({
                   {/* All rows — no scroll, plain list */}
                   <div className="space-y-1">
                     {lineItems.map((item, idx) => (
-                      <div
-                        key={idx}
-                        className={`grid items-center gap-2 px-2 py-1.5 rounded-lg ${
-                          isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-gray-50'
-                        }`}
-                        style={{ gridTemplateColumns: '1fr 56px 88px 76px 32px' }}
-                      >
-                        <span className={`text-[11px] font-medium truncate ${isDarkMode ? 'text-slate-200' : 'text-gray-800'}`}>
-                          {item.name}
-                        </span>
-                        <span className={`text-[11px] font-mono text-center ${isDarkMode ? 'text-slate-300' : 'text-gray-600'}`}>
-                          {item.qty}
-                        </span>
-                        <span className={`text-[11px] font-mono text-right ${isDarkMode ? 'text-slate-300' : 'text-gray-600'}`}>
-                          {Number(item.price || 0).toFixed(2)}
-                        </span>
-                        <span className={`text-[11px] font-mono font-bold text-right ${isDarkMode ? 'text-slate-100' : 'text-gray-900'}`}>
-                          {((item.qty || 0) * (item.price || 0)).toFixed(2)}
-                        </span>
-                        <div className="flex items-center justify-center">
-                          <button
-                            type="button"
-                            onClick={() => removeLineItem(idx)}
-                            className="text-rose-400 hover:text-rose-600 cursor-pointer p-1 rounded hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                      editingItemIdx === idx ? (
+                        /* ── Inline edit row ── */
+                        <div
+                          key={idx}
+                          className={`flex flex-wrap gap-1.5 items-center px-2 py-2 rounded-lg ${
+                            isDarkMode ? 'bg-slate-800/60' : 'bg-indigo-50'
+                          }`}
+                        >
+                          <input
+                            type="text"
+                            value={editItem.name}
+                            onChange={e => setEditItem(prev => ({ ...prev, name: e.target.value }))}
+                            placeholder="Description"
+                            className={`flex-1 min-w-[120px] px-2 py-1 text-[11px] rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                              isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
+                            }`}
+                          />
+                          <input
+                            type="number" min="0" step="any"
+                            value={editItem.qty || ''}
+                            onChange={e => setEditItem(prev => ({ ...prev, qty: Number(e.target.value) }))}
+                            placeholder="Qty"
+                            className={`w-14 px-2 py-1 text-[11px] text-center rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                              isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
+                            }`}
+                          />
+                          <input
+                            type="number" min="0" step="any"
+                            value={editItem.price || ''}
+                            onChange={e => setEditItem(prev => ({ ...prev, price: Number(e.target.value) }))}
+                            placeholder="Price"
+                            className={`w-20 px-2 py-1 text-[11px] text-right rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                              isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
+                            }`}
+                          />
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!editItem.name.trim()) return;
+                                setLineItems(prev => prev.map((it, i) => i === idx ? { ...editItem } : it));
+                                setEditingItemIdx(null);
+                              }}
+                              className="px-2 py-1 text-[10px] font-bold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingItemIdx(null)}
+                              className={`px-2 py-1 text-[10px] font-bold rounded-lg border cursor-pointer ${
+                                isDarkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-gray-200 text-gray-600 hover:bg-gray-100'
+                              }`}
+                            >
+                              ✕
+                            </button>
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        /* ── Display row ── */
+                        <div
+                          key={idx}
+                          className={`grid items-center gap-2 px-2 py-1.5 rounded-lg ${
+                            isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-gray-50'
+                          }`}
+                          style={{ gridTemplateColumns: '1fr 48px 72px 68px 52px' }}
+                        >
+                          <span className={`text-[11px] font-medium truncate ${isDarkMode ? 'text-slate-200' : 'text-gray-800'}`}>
+                            {item.name}
+                          </span>
+                          <span className={`text-[11px] font-mono text-center ${isDarkMode ? 'text-slate-300' : 'text-gray-600'}`}>
+                            {item.qty}
+                          </span>
+                          <span className={`text-[11px] font-mono text-right ${isDarkMode ? 'text-slate-300' : 'text-gray-600'}`}>
+                            {Number(item.price || 0).toFixed(2)}
+                          </span>
+                          <span className={`text-[11px] font-mono font-bold text-right ${isDarkMode ? 'text-slate-100' : 'text-gray-900'}`}>
+                            {((item.qty || 0) * (item.price || 0)).toFixed(2)}
+                          </span>
+                          <div className="flex items-center justify-center gap-0.5">
+                            <button
+                              type="button"
+                              onClick={() => { setEditItem({ ...item }); setEditingItemIdx(idx); }}
+                              className="text-indigo-400 hover:text-indigo-600 cursor-pointer p-1 rounded hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
+                            >
+                              <Edit className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeLineItem(idx)}
+                              className="text-rose-400 hover:text-rose-600 cursor-pointer p-1 rounded hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      )
                     ))}
                     {lineItems.length === 0 && (
                       <p className={`text-[10px] text-center py-3 ${isDarkMode ? 'text-slate-600' : 'text-gray-400'}`}>
