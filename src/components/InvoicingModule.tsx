@@ -1259,46 +1259,47 @@ export default function InvoicingModule({
                 <div className="flex flex-col gap-2">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400">Line Items *</label>
 
-                  {/* Add row input */}
-                  <div
-                    className={`grid items-center gap-2 p-2 rounded-xl border ${
-                      isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-gray-50 border-gray-200'
-                    }`}
-                    style={{ gridTemplateColumns: '1fr 64px 88px auto' }}
-                  >
+                  {/* Add row input — stacked on mobile, single row on desktop */}
+                  <div className={`flex flex-col gap-1.5 p-2 rounded-xl border ${
+                    isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-gray-50 border-gray-200'
+                  }`}>
+                    {/* Description — full width */}
                     <input
                       type="text"
                       placeholder="Item description"
                       value={newItemName}
                       onChange={e => setNewItemName(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addNewItem(); } }}
-                      className={`px-2.5 py-1.5 text-[11px] rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                      className={`w-full px-2.5 py-1.5 text-[11px] rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
                         isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
                       }`}
                     />
-                    <input
-                      type="number" placeholder="Qty" min="0" step="any"
-                      value={newItemQty || ''}
-                      onChange={e => setNewItemQty(Number(e.target.value))}
-                      className={`px-2 py-1.5 text-[11px] text-center rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
-                      }`}
-                    />
-                    <input
-                      type="number" placeholder="Price RM" min="0" step="any"
-                      value={newItemPrice || ''}
-                      onChange={e => setNewItemPrice(Number(e.target.value))}
-                      className={`px-2 py-1.5 text-[11px] text-right rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
-                      }`}
-                    />
-                    <button
-                      type="button"
-                      onClick={addNewItem}
-                      className="w-8 h-8 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center cursor-pointer"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
+                    {/* Qty + Price + Add button — always fits */}
+                    <div className="flex gap-1.5 items-center">
+                      <input
+                        type="number" placeholder="Qty" min="0" step="any"
+                        value={newItemQty || ''}
+                        onChange={e => setNewItemQty(Number(e.target.value))}
+                        className={`w-20 px-2 py-1.5 text-[11px] text-center rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                          isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
+                        }`}
+                      />
+                      <input
+                        type="number" placeholder="Price RM" min="0" step="any"
+                        value={newItemPrice || ''}
+                        onChange={e => setNewItemPrice(Number(e.target.value))}
+                        className={`flex-1 px-2 py-1.5 text-[11px] text-right rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                          isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={addNewItem}
+                        className="shrink-0 w-8 h-8 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Column headers */}
