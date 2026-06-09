@@ -137,21 +137,16 @@ function fetchDataAll(spreadsheetId) {
   try {
     var ss = getDatabase(spreadsheetId);
 
+    // Always migrate schema first — adds any missing columns/sheets without
+    // destroying existing data. This ensures new columns (Age, Joining_Date,
+    // Payment_Transferred, Transfer_Date) exist before we read row headers.
+    initializeDatabase(spreadsheetId);
+
     var invoicesTab     = ss.getSheetByName("Invoices");
     var customersTab    = ss.getSheetByName("Patrons") || ss.getSheetByName("Customers");
     var employeesTab    = ss.getSheetByName("Employees");
     var payslipsTab     = ss.getSheetByName("Payslips");
-    var invoiceItemsTab = ss.getSheetByName("Invoice_Items");  // ← NEW
-
-    // Auto-create missing sheets
-    if (!invoicesTab || !customersTab || !employeesTab || !payslipsTab) {
-      initializeDatabase(spreadsheetId);
-      invoicesTab     = ss.getSheetByName("Invoices");
-      customersTab    = ss.getSheetByName("Patrons") || ss.getSheetByName("Customers");
-      employeesTab    = ss.getSheetByName("Employees");
-      payslipsTab     = ss.getSheetByName("Payslips");
-      invoiceItemsTab = ss.getSheetByName("Invoice_Items");
-    }
+    var invoiceItemsTab = ss.getSheetByName("Invoice_Items");
 
     return {
       success: true,
@@ -160,7 +155,7 @@ function fetchDataAll(spreadsheetId) {
         customers:     customersTab    ? getSheetRowsAsObjects(customersTab)    : [],
         employees:     employeesTab    ? getSheetRowsAsObjects(employeesTab)    : [],
         payslips:      payslipsTab     ? getSheetRowsAsObjects(payslipsTab)     : [],
-        invoice_items: invoiceItemsTab ? getSheetRowsAsObjects(invoiceItemsTab) : []  // ← NEW
+        invoice_items: invoiceItemsTab ? getSheetRowsAsObjects(invoiceItemsTab) : []
       }
     };
   } catch (err) {
@@ -174,6 +169,10 @@ function syncData(payload, spreadsheetId) {
   var lock = LockService.getScriptLock();
   try {
     lock.waitLock(30000);
+    // Migrate schema before writing — ensures column headers exist so values
+    // written to columns 21-22 (Payment_Transferred, Transfer_Date, etc.)
+    // are correctly labelled and readable on the next fetchDataAll.
+    initializeDatabase(spreadsheetId);
     var ss = getDatabase(spreadsheetId);
 
     // ── Invoices ──
