@@ -326,47 +326,106 @@ export const fetchDataAll = async (
 
   // ── Employees ────────────────────────────────────────────
   const rawEmployees = json.data?.employees || [];
-  let employees: Employee[] = rawEmployees.map((row: any) => ({
-    Employee_ID:    String(row.Employee_ID || ''),
-    Employee_Name:  String(row.Employee_Name || ''),
-    IC_Passport:    String(row.IC_Passport || ''),
-    Position:       String(row.Position || ''),
-    Assigned_Outlet:(row.Assigned_Outlet === 'Nasi Kandar' ? 'Nasi Kandar' : 'Bistro') as 'Bistro' | 'Nasi Kandar',
-    Basic_Salary:   Number(row.Basic_Salary) || 0,
-    Bank_Details:   String(row.Bank_Details || ''),
-    Branch_Location:String(row.Branch_Location || ''),
-    Citizenship:    (String(row.Citizenship || '').trim() === 'Foreigner' ? 'Foreigner' : 'Malaysian/PR') as 'Malaysian/PR' | 'Foreigner',
-    Age:            row.Age !== undefined && row.Age !== '' ? Number(row.Age) : undefined,
-    Joining_Date:   row.Joining_Date ? String(row.Joining_Date) : undefined,
-  })).filter((e: any) => e.Employee_ID);
+  let employees: Employee[] = rawEmployees.map((row: any) => {
+    // Strip any legacy ||bm: encoding from Bank_Details (old persistence hack)
+    const rawBank = String(row.Bank_Details || '');
+    const bmIdx = rawBank.indexOf('||bm:');
+    const bankDetails = bmIdx >= 0 ? rawBank.substring(0, bmIdx) : rawBank;
+
+    // Prefer dedicated columns (new Apps Script writes them directly).
+    // Fall back to ||bm: decoded values for rows written by the old encoding.
+    let citizenship: 'Malaysian/PR' | 'Foreigner' = 'Malaysian/PR';
+    let age: number | undefined;
+    let joiningDate: string | undefined;
+
+    if (bmIdx >= 0) {
+      const meta = rawBank.substring(bmIdx + 5).split('|');
+      if (meta[0]) citizenship = (meta[0] === 'F' ? 'Foreigner' : 'Malaysian/PR') as 'Malaysian/PR' | 'Foreigner';
+      if (meta[1]) age = Number(meta[1]) || undefined;
+      if (meta[2]) joiningDate = meta[2] || undefined;
+    }
+    // Dedicated columns win over the legacy encoding
+    const rowCitizenship = String(row.Citizenship || '').trim();
+    if (rowCitizenship === 'Foreigner' || rowCitizenship === 'Malaysian/PR') {
+      citizenship = rowCitizenship as 'Malaysian/PR' | 'Foreigner';
+    }
+    if (row.Age !== undefined && row.Age !== null && row.Age !== '') {
+      age = Number(row.Age) || undefined;
+    }
+    if (row.Joining_Date) {
+      joiningDate = String(row.Joining_Date);
+    }
+
+    return {
+      Employee_ID:    String(row.Employee_ID || ''),
+      Employee_Name:  String(row.Employee_Name || ''),
+      IC_Passport:    String(row.IC_Passport || ''),
+      Position:       String(row.Position || ''),
+      Assigned_Outlet:(row.Assigned_Outlet === 'Nasi Kandar' ? 'Nasi Kandar' : 'Bistro') as 'Bistro' | 'Nasi Kandar',
+      Basic_Salary:   Number(row.Basic_Salary) || 0,
+      Bank_Details:   bankDetails,
+      Branch_Location:String(row.Branch_Location || ''),
+      Citizenship:    citizenship,
+      Age:            age,
+      Joining_Date:   joiningDate,
+    };
+  }).filter((e: any) => e.Employee_ID);
 
   // ── Payslips ─────────────────────────────────────────────
   const rawPayslips = json.data?.payslips || [];
-  let payslips: Payslip[] = rawPayslips.map((row: any) => ({
-    Payslip_ID:               String(row.Payslip_ID || ''),
-    Employee_ID:              String(row.Employee_ID || ''),
-    Issue_Date:               String(row.Issue_Date || ''),
-    Month_Year:               String(row.Month_Year || ''),
-    Basic_Pay:                Number(row.Basic_Pay) || 0,
-    Custom_Allowances:        Number(row.Custom_Allowances) || 0,
-    Total_Allowances:         Number(row.Total_Allowances) || 0,
-    Employee_EPF:             Number(row.Employee_EPF) || 0,
-    Employer_EPF:             Number(row.Employer_EPF) || 0,
-    Employee_SOCSO:           Number(row.Employee_SOCSO) || 0,
-    Employer_SOCSO:           Number(row.Employer_SOCSO) || 0,
-    Employee_EIS:             Number(row.Employee_EIS) || 0,
-    Employer_EIS:             Number(row.Employer_EIS) || 0,
-    Total_Statutory_Deductions: Number(row.Total_Statutory_Deductions) || 0,
-    Custom_Deductions:        Number(row.Custom_Deductions) || 0,
-    Final_Net_Pay:            Number(row.Final_Net_Pay) || 0,
-    Branch_Location:          String(row.Branch_Location || ''),
-    Is_Saved: row.Is_Saved === true || String(row.Is_Saved).toLowerCase() === 'true',
-    Allowances_JSON:          String(row.Allowances_JSON || ''),
-    Deductions_JSON:          String(row.Deductions_JSON || ''),
-    Payment_Transferred: row.Payment_Transferred === true || String(row.Payment_Transferred || '').toLowerCase() === 'true',
-    Transfer_Date:       row.Transfer_Date ? String(row.Transfer_Date) : undefined,
-    Is_Payment_Due:      row.Is_Payment_Due === true || String(row.Is_Payment_Due || '').toLowerCase() === 'true',
-  })).filter((p: any) => p.Payslip_ID);
+  let payslips: Payslip[] = rawPayslips.map((row: any) => {
+    // Strip legacy _bm_paid entries from Deductions_JSON (old persistence hack)
+    // and prefer dedicated Payment_Transferred / Transfer_Date columns.
+    const rawDeductionsJSON = String(row.Deductions_JSON || '');
+    let deductionsJSON = rawDeductionsJSON;
+    let paymentTransferred = false;
+    let transferDate: string | undefined;
+
+    try {
+      const deductions = JSON.parse(rawDeductionsJSON || '[]');
+      if (Array.isArray(deductions)) {
+        const payMeta = deductions.find((d: any) => '_bm_paid' in d);
+        if (payMeta) {
+          paymentTransferred = payMeta._bm_paid === true;
+          transferDate = payMeta._bm_date || undefined;
+          deductionsJSON = JSON.stringify(deductions.filter((d: any) => !('_bm_paid' in d)));
+        }
+      }
+    } catch { /* malformed JSON — keep raw string as-is */ }
+
+    // Dedicated columns win over the legacy encoding
+    if (row.Payment_Transferred === true || String(row.Payment_Transferred || '').toLowerCase() === 'true') {
+      paymentTransferred = true;
+    }
+    if (row.Transfer_Date) {
+      transferDate = String(row.Transfer_Date);
+    }
+    return {
+      Payslip_ID:               String(row.Payslip_ID || ''),
+      Employee_ID:              String(row.Employee_ID || ''),
+      Issue_Date:               String(row.Issue_Date || ''),
+      Month_Year:               String(row.Month_Year || ''),
+      Basic_Pay:                Number(row.Basic_Pay) || 0,
+      Custom_Allowances:        Number(row.Custom_Allowances) || 0,
+      Total_Allowances:         Number(row.Total_Allowances) || 0,
+      Employee_EPF:             Number(row.Employee_EPF) || 0,
+      Employer_EPF:             Number(row.Employer_EPF) || 0,
+      Employee_SOCSO:           Number(row.Employee_SOCSO) || 0,
+      Employer_SOCSO:           Number(row.Employer_SOCSO) || 0,
+      Employee_EIS:             Number(row.Employee_EIS) || 0,
+      Employer_EIS:             Number(row.Employer_EIS) || 0,
+      Total_Statutory_Deductions: Number(row.Total_Statutory_Deductions) || 0,
+      Custom_Deductions:        Number(row.Custom_Deductions) || 0,
+      Final_Net_Pay:            Number(row.Final_Net_Pay) || 0,
+      Branch_Location:          String(row.Branch_Location || ''),
+      Is_Saved: row.Is_Saved === true || String(row.Is_Saved).toLowerCase() === 'true',
+      Allowances_JSON:          String(row.Allowances_JSON || ''),
+      Deductions_JSON:          deductionsJSON,
+      Payment_Transferred:      paymentTransferred,
+      Transfer_Date:            transferDate,
+      Is_Payment_Due:      row.Is_Payment_Due === true || String(row.Is_Payment_Due || '').toLowerCase() === 'true',
+    };
+  }).filter((p: any) => p.Payslip_ID);
 
   // ── Branch filter (if provided) ──────────────────────────
   if (branchFilter) {
@@ -494,27 +553,34 @@ export const syncStateToSheets = async (
     Employee_ID: emp.Employee_ID, Employee_Name: emp.Employee_Name,
     IC_Passport: emp.IC_Passport, Position: emp.Position,
     Assigned_Outlet: emp.Assigned_Outlet, Basic_Salary: emp.Basic_Salary,
-    Bank_Details: emp.Bank_Details, Branch_Location: targetBranch,
+    Bank_Details: emp.Bank_Details || '',
+    Branch_Location: targetBranch,
     Citizenship: emp.Citizenship || 'Malaysian/PR',
-    Age: emp.Age ?? '',
+    Age: emp.Age !== undefined ? emp.Age : '',
     Joining_Date: emp.Joining_Date || '',
   })) || [];
 
-  const currentPayslipsFormatted = db.payslips?.map(ps => ({
-    Payslip_ID: ps.Payslip_ID, Employee_ID: ps.Employee_ID,
-    Issue_Date: ps.Issue_Date, Month_Year: ps.Month_Year,
-    Basic_Pay: ps.Basic_Pay, Custom_Allowances: ps.Custom_Allowances,
-    Total_Allowances: ps.Total_Allowances, Employee_EPF: ps.Employee_EPF,
-    Employer_EPF: ps.Employer_EPF, Employee_SOCSO: ps.Employee_SOCSO,
-    Employer_SOCSO: ps.Employer_SOCSO, Employee_EIS: ps.Employee_EIS,
-    Employer_EIS: ps.Employer_EIS, Total_Statutory_Deductions: ps.Total_Statutory_Deductions,
-    Custom_Deductions: ps.Custom_Deductions, Final_Net_Pay: ps.Final_Net_Pay,
-    Branch_Location: targetBranch, Is_Saved: ps.Is_Saved,
-    Allowances_JSON: ps.Allowances_JSON || '', Deductions_JSON: ps.Deductions_JSON || '',
-    Payment_Transferred: ps.Payment_Transferred || false,
-    Transfer_Date: ps.Transfer_Date || '',
-    Is_Payment_Due: ps.Is_Payment_Due || false,
-  })) || [];
+  const currentPayslipsFormatted = db.payslips?.map(ps => {
+    // Strip any legacy _bm_paid entries from Deductions_JSON before saving
+    let deductionsArr: any[] = [];
+    try { deductionsArr = JSON.parse(ps.Deductions_JSON || '[]').filter((d: any) => !('_bm_paid' in d)); } catch { /* keep empty */ }
+    return {
+      Payslip_ID: ps.Payslip_ID, Employee_ID: ps.Employee_ID,
+      Issue_Date: ps.Issue_Date, Month_Year: ps.Month_Year,
+      Basic_Pay: ps.Basic_Pay, Custom_Allowances: ps.Custom_Allowances,
+      Total_Allowances: ps.Total_Allowances, Employee_EPF: ps.Employee_EPF,
+      Employer_EPF: ps.Employer_EPF, Employee_SOCSO: ps.Employee_SOCSO,
+      Employer_SOCSO: ps.Employer_SOCSO, Employee_EIS: ps.Employee_EIS,
+      Employer_EIS: ps.Employer_EIS, Total_Statutory_Deductions: ps.Total_Statutory_Deductions,
+      Custom_Deductions: ps.Custom_Deductions, Final_Net_Pay: ps.Final_Net_Pay,
+      Branch_Location: targetBranch, Is_Saved: ps.Is_Saved,
+      Allowances_JSON: ps.Allowances_JSON || '',
+      Deductions_JSON: JSON.stringify(deductionsArr),
+      Payment_Transferred: ps.Payment_Transferred || false,
+      Transfer_Date: ps.Transfer_Date || '',
+      Is_Payment_Due: ps.Is_Payment_Due || false,
+    };
+  }) || [];
 
   // Also send the invoice_items as a flat array for the separate sheet tab
   const currentItemsFormatted = db.invoice_items?.map(item => ({
@@ -526,30 +592,71 @@ export const syncStateToSheets = async (
   // This matters because some Apps Scripts derive sheet column headers from the first row
   // in the array.  By putting currentBranch first and filling missing keys on otherBranch
   // rows, every row has an identical schema and no column gets silently dropped.
-  const normalizedOtherEmployees = otherEmployees.map((e: any) => ({
-    Employee_ID: e.Employee_ID || '', Employee_Name: e.Employee_Name || '',
-    IC_Passport: e.IC_Passport || '', Position: e.Position || '',
-    Assigned_Outlet: e.Assigned_Outlet || 'Bistro', Basic_Salary: e.Basic_Salary || 0,
-    Bank_Details: e.Bank_Details || '', Branch_Location: e.Branch_Location || '',
-    Citizenship: e.Citizenship || 'Malaysian/PR',
-    Age: e.Age ?? '', Joining_Date: e.Joining_Date || '',
-  }));
+  const normalizedOtherEmployees = otherEmployees.map((e: any) => {
+    // Decode other-branch rows: prefer dedicated columns, fall back to ||bm: for old data
+    const rawBank = String(e.Bank_Details || '');
+    const bmIdx = rawBank.indexOf('||bm:');
+    const cleanBank = bmIdx >= 0 ? rawBank.substring(0, bmIdx) : rawBank;
 
-  const normalizedOtherPayslips = otherPayslips.map((p: any) => ({
-    Payslip_ID: p.Payslip_ID || '', Employee_ID: p.Employee_ID || '',
-    Issue_Date: p.Issue_Date || '', Month_Year: p.Month_Year || '',
-    Basic_Pay: p.Basic_Pay || 0, Custom_Allowances: p.Custom_Allowances || 0,
-    Total_Allowances: p.Total_Allowances || 0, Employee_EPF: p.Employee_EPF || 0,
-    Employer_EPF: p.Employer_EPF || 0, Employee_SOCSO: p.Employee_SOCSO || 0,
-    Employer_SOCSO: p.Employer_SOCSO || 0, Employee_EIS: p.Employee_EIS || 0,
-    Employer_EIS: p.Employer_EIS || 0,
-    Total_Statutory_Deductions: p.Total_Statutory_Deductions || 0,
-    Custom_Deductions: p.Custom_Deductions || 0, Final_Net_Pay: p.Final_Net_Pay || 0,
-    Branch_Location: p.Branch_Location || '', Is_Saved: p.Is_Saved || false,
-    Allowances_JSON: p.Allowances_JSON || '', Deductions_JSON: p.Deductions_JSON || '',
-    Payment_Transferred: p.Payment_Transferred === true || String(p.Payment_Transferred || '').toLowerCase() === 'true',
-    Transfer_Date: p.Transfer_Date || '', Is_Payment_Due: false,
-  }));
+    let citizenship = 'Malaysian/PR';
+    let age: number | string = '';
+    let joiningDate = '';
+
+    if (bmIdx >= 0) {
+      const meta = rawBank.substring(bmIdx + 5).split('|');
+      if (meta[0]) citizenship = meta[0] === 'F' ? 'Foreigner' : 'Malaysian/PR';
+      if (meta[1]) age = Number(meta[1]) || '';
+      if (meta[2]) joiningDate = meta[2];
+    }
+    if (String(e.Citizenship || '').trim()) citizenship = String(e.Citizenship).trim();
+    if (e.Age !== undefined && e.Age !== null && e.Age !== '') age = Number(e.Age) || '';
+    if (e.Joining_Date) joiningDate = String(e.Joining_Date);
+
+    return {
+      Employee_ID: e.Employee_ID || '', Employee_Name: e.Employee_Name || '',
+      IC_Passport: e.IC_Passport || '', Position: e.Position || '',
+      Assigned_Outlet: e.Assigned_Outlet || 'Bistro', Basic_Salary: e.Basic_Salary || 0,
+      Bank_Details: cleanBank,
+      Branch_Location: e.Branch_Location || '',
+      Citizenship: citizenship,
+      Age: age,
+      Joining_Date: joiningDate,
+    };
+  });
+
+  const normalizedOtherPayslips = otherPayslips.map((p: any) => {
+    // Decode other-branch rows: strip legacy _bm_paid, prefer dedicated columns
+    let deductionsArr: any[] = [];
+    let isPaid = p.Payment_Transferred === true || String(p.Payment_Transferred || '').toLowerCase() === 'true';
+    let transferDate = p.Transfer_Date || '';
+    try {
+      const parsed = JSON.parse(p.Deductions_JSON || '[]');
+      if (Array.isArray(parsed)) {
+        const payMeta = parsed.find((d: any) => '_bm_paid' in d);
+        if (payMeta && !isPaid) {
+          isPaid = payMeta._bm_paid === true;
+          if (!transferDate) transferDate = payMeta._bm_date || '';
+        }
+        deductionsArr = parsed.filter((d: any) => !('_bm_paid' in d));
+      }
+    } catch { /* keep empty */ }
+    return {
+      Payslip_ID: p.Payslip_ID || '', Employee_ID: p.Employee_ID || '',
+      Issue_Date: p.Issue_Date || '', Month_Year: p.Month_Year || '',
+      Basic_Pay: p.Basic_Pay || 0, Custom_Allowances: p.Custom_Allowances || 0,
+      Total_Allowances: p.Total_Allowances || 0, Employee_EPF: p.Employee_EPF || 0,
+      Employer_EPF: p.Employer_EPF || 0, Employee_SOCSO: p.Employee_SOCSO || 0,
+      Employer_SOCSO: p.Employer_SOCSO || 0, Employee_EIS: p.Employee_EIS || 0,
+      Employer_EIS: p.Employer_EIS || 0,
+      Total_Statutory_Deductions: p.Total_Statutory_Deductions || 0,
+      Custom_Deductions: p.Custom_Deductions || 0, Final_Net_Pay: p.Final_Net_Pay || 0,
+      Branch_Location: p.Branch_Location || '', Is_Saved: p.Is_Saved || false,
+      Allowances_JSON: p.Allowances_JSON || '',
+      Deductions_JSON: JSON.stringify(deductionsArr),
+      Payment_Transferred: isPaid,
+      Transfer_Date: transferDate, Is_Payment_Due: false,
+    };
+  });
 
   const payload = {
     action: 'syncData',

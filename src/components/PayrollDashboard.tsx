@@ -62,7 +62,10 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
   const [selectedMonthYear, setSelectedMonthYear] = useState(() => {
     const d = new Date();
     const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    return `${months[d.getMonth()]} ${d.getFullYear()}`;
+    // Default to previous month — current month hasn't ended so payslips aren't due yet
+    const prevMonth = d.getMonth() === 0 ? 11 : d.getMonth() - 1;
+    const prevYear = d.getMonth() === 0 ? d.getFullYear() - 1 : d.getFullYear();
+    return `${months[prevMonth]} ${prevYear}`;
   });
 
   // Working inputs for payslips generation
@@ -469,7 +472,10 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
 
       if (savedSlip && savedSlip.Deductions_JSON) {
         try {
-          freshDeductions[e.Employee_ID] = JSON.parse(savedSlip.Deductions_JSON);
+          const parsed = JSON.parse(savedSlip.Deductions_JSON);
+          freshDeductions[e.Employee_ID] = Array.isArray(parsed)
+            ? parsed.filter((d: any) => !('_bm_paid' in d))
+            : parsed;
         } catch {
           freshDeductions[e.Employee_ID] = [{ description: 'Custom Deduction', amount: savedSlip.Custom_Deductions }];
         }
@@ -1285,18 +1291,25 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                     isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-300'
                   }`}
                 >
-                  <option value="January 2026">January 2026</option>
-                  <option value="February 2026">February 2026</option>
-                  <option value="March 2026">March 2026</option>
-                  <option value="April 2026">April 2026</option>
-                  <option value="May 2026">May 2026</option>
-                  <option value="June 2026">June 2026</option>
-                  <option value="July 2026">July 2026</option>
-                  <option value="August 2026">August 2026</option>
-                  <option value="September 2026">September 2026</option>
-                  <option value="October 2026">October 2026</option>
-                  <option value="November 2026">November 2026</option>
-                  <option value="December 2026">December 2026</option>
+                  {(() => {
+                    const _mths = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+                    const _now = new Date();
+                    // Only show months that have fully ended (up to last month)
+                    const _lastMonth = _now.getMonth() === 0 ? 11 : _now.getMonth() - 1;
+                    const _lastYear = _now.getMonth() === 0 ? _now.getFullYear() - 1 : _now.getFullYear();
+                    const opts: React.ReactElement[] = [];
+                    // Go back up to 24 months from the last ended month
+                    for (let i = 0; i < 24; i++) {
+                      let m = _lastMonth - i;
+                      let y = _lastYear;
+                      if (m < 0) { m += 12; y -= 1; }
+                      // Don't go before Jan 2026
+                      if (y < 2026 || (y === 2026 && m < 0)) break;
+                      const lbl = `${_mths[m]} ${y}`;
+                      opts.push(<option key={lbl} value={lbl}>{lbl}</option>);
+                    }
+                    return opts;
+                  })()}
                 </select>
               </div>
 
@@ -1319,7 +1332,6 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       const [_ms, _ys] = selectedMonthYear.split(' ');
                       const _mi = _mths.indexOf(_ms);
                       const _yr = parseInt(_ys, 10);
-                      const _mStart = new Date(_yr, _mi, 1);
                       const _today = new Date();
                       const _mEnd = new Date(_yr, _mi + 1, 0);
                       const _ended = _today > _mEnd;
@@ -1331,6 +1343,9 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       const _overdue = _daysLeft !== null && _daysLeft < 0;
 
                       const eligible = activeBranchEmployees.filter(emp => {
+                        // Rule 1: Selected month must have fully ended — no current/future months
+                        if (_today <= _mEnd) return false;
+
                         if (emp.Joining_Date) {
                           // Parse as local date to avoid UTC timezone shift
                           const parts = emp.Joining_Date.split('-');
@@ -1338,16 +1353,18 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                           const jm = parseInt(parts[1], 10) - 1; // 0-indexed
                           const jd = parseInt(parts[2], 10);
                           const j = new Date(jy, jm, jd);
-                          // Must have joined before this month started
-                          if (j > _mStart) return false;
-                          // For ongoing months: enforce 1-month working stage from joining date
-                          // Employee's first eligible date = joining date + 1 calendar month
-                          if (_mEnd >= _today) {
-                            const firstEligible = new Date(jy, jm + 1, jd);
-                            if (firstEligible > _today) return false;
-                          }
+
+                          // Rule 2: Employee must have joined on or before the last day of the month
+                          // (allows partial-month payslips for employees who joined mid-month)
+                          if (j > _mEnd) return false;
+
+                          // Rule 3: 1-month working stage — today must be >= joining date + 1 calendar month
+                          // e.g. joins May 15 → first payslip available June 15
+                          const firstEligible = new Date(jy, jm + 1, jd);
+                          if (_today < firstEligible) return false;
                         }
-                        // Employees with no joining date are included (backward compat)
+
+                        // Rule 4: No saved payslip already exists for this employee + month
                         return !activeBranchPayslips.some(p => {
                           if (!p.Is_Saved) return false;
                           const raw = p.Month_Year || '';
@@ -1743,7 +1760,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       if (previewPayslip.Allowances_JSON) {
                         try { list = JSON.parse(previewPayslip.Allowances_JSON); } catch {}
                       }
-                      list = list.filter((item: any) => item.description.trim() || item.amount > 0);
+                      list = list.filter((item: any) => !('_bm_paid' in item) && (item.description?.trim() || item.amount > 0));
                       if (list.length > 0) {
                         return list.map((item: any, idx: number) => (
                           <div key={idx} className="flex justify-between text-gray-900 dark:text-gray-200">
@@ -1794,7 +1811,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       if (previewPayslip.Deductions_JSON) {
                         try { list = JSON.parse(previewPayslip.Deductions_JSON); } catch {}
                       }
-                      list = list.filter((item: any) => item.description.trim() || item.amount > 0);
+                      list = list.filter((item: any) => !('_bm_paid' in item) && (item.description?.trim() || item.amount > 0));
                       if (list.length > 0) {
                         return list.map((item: any, idx: number) => (
                           <div key={idx} className="flex justify-between text-gray-900 dark:text-gray-200">

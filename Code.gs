@@ -222,7 +222,7 @@ function syncData(payload, spreadsheetId) {
       patronsSheet.getRange(2, 1, custRows.length, custRows[0].length).setValues(custRows);
     }
 
-    // ── Employees (now includes Citizenship) ──
+    // ── Employees ──
     var employeesSheet = ss.getSheetByName("Employees");
     if (employeesSheet && payload.employees && payload.employees.length > 0) {
       if (employeesSheet.getLastRow() > 1)
@@ -232,13 +232,15 @@ function syncData(payload, spreadsheetId) {
           emp.Employee_ID || '', emp.Employee_Name || '', emp.IC_Passport || '',
           emp.Position || '', emp.Assigned_Outlet || 'Bistro',
           Number(emp.Basic_Salary) || 0, emp.Bank_Details || '',
-          emp.Branch_Location || '', emp.Citizenship || 'Malaysian/PR'  // ← col 9
+          emp.Branch_Location || '', emp.Citizenship || 'Malaysian/PR',
+          (emp.Age !== undefined && emp.Age !== null && emp.Age !== '') ? Number(emp.Age) : '',
+          emp.Joining_Date || ''
         ];
       });
       employeesSheet.getRange(2, 1, empRows.length, empRows[0].length).setValues(empRows);
     }
 
-    // ── Payslips (now includes Allowances_JSON + Deductions_JSON) ──
+    // ── Payslips ──
     var payslipsSheet = ss.getSheetByName("Payslips");
     if (payslipsSheet && payload.payslips && payload.payslips.length > 0) {
       if (payslipsSheet.getLastRow() > 1)
@@ -253,7 +255,8 @@ function syncData(payload, spreadsheetId) {
           Number(p.Total_Statutory_Deductions) || 0, Number(p.Custom_Deductions) || 0,
           Number(p.Final_Net_Pay) || 0, p.Branch_Location || '',
           p.Is_Saved ? true : false,
-          p.Allowances_JSON || '', p.Deductions_JSON || ''  // ← cols 19-20
+          p.Allowances_JSON || '', p.Deductions_JSON || '',
+          p.Payment_Transferred ? true : false, p.Transfer_Date || ''
         ];
       });
       payslipsSheet.getRange(2, 1, psRows.length, psRows[0].length).setValues(psRows);
@@ -312,21 +315,25 @@ function initializeDatabase(spreadsheetId) {
       }
     }
 
-    // Employees (includes Citizenship)
+    // Employees
     var employeesTab = ss.getSheetByName("Employees");
     if (!employeesTab) {
       employeesTab = ss.insertSheet("Employees");
       employeesTab.appendRow([
         'Employee_ID','Employee_Name','IC_Passport','Position','Assigned_Outlet',
-        'Basic_Salary','Bank_Details','Branch_Location','Citizenship'
+        'Basic_Salary','Bank_Details','Branch_Location','Citizenship','Age','Joining_Date'
       ]);
     } else {
       var empHeaders = employeesTab.getRange(1,1,1,employeesTab.getLastColumn()).getValues()[0];
-      if (empHeaders.indexOf('Citizenship') === -1)
-        employeesTab.getRange(1, empHeaders.length + 1).setValue('Citizenship');
+      ['Citizenship','Age','Joining_Date'].forEach(function(col) {
+        if (empHeaders.indexOf(col) === -1) {
+          employeesTab.getRange(1, empHeaders.length + 1).setValue(col);
+          empHeaders.push(col);
+        }
+      });
     }
 
-    // Payslips (includes Allowances_JSON + Deductions_JSON)
+    // Payslips
     var payslipsTab = ss.getSheetByName("Payslips");
     if (!payslipsTab) {
       payslipsTab = ss.insertSheet("Payslips");
@@ -336,14 +343,16 @@ function initializeDatabase(spreadsheetId) {
         'Employee_EPF','Employer_EPF','Employee_SOCSO','Employer_SOCSO',
         'Employee_EIS','Employer_EIS','Total_Statutory_Deductions',
         'Custom_Deductions','Final_Net_Pay','Branch_Location','Is_Saved',
-        'Allowances_JSON','Deductions_JSON'
+        'Allowances_JSON','Deductions_JSON','Payment_Transferred','Transfer_Date'
       ]);
     } else {
       var psHeaders = payslipsTab.getRange(1,1,1,payslipsTab.getLastColumn()).getValues()[0];
-      if (psHeaders.indexOf('Allowances_JSON') === -1) {
-        payslipsTab.getRange(1, psHeaders.length + 1).setValue('Allowances_JSON');
-        payslipsTab.getRange(1, psHeaders.length + 2).setValue('Deductions_JSON');
-      }
+      ['Allowances_JSON','Deductions_JSON','Payment_Transferred','Transfer_Date'].forEach(function(col) {
+        if (psHeaders.indexOf(col) === -1) {
+          payslipsTab.getRange(1, psHeaders.length + 1).setValue(col);
+          psHeaders.push(col);
+        }
+      });
     }
 
     return { success: true };
