@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { User } from 'firebase/auth';
 import {
   initAuth, googleSignIn, logout as firebaseLogout,
@@ -11,7 +11,7 @@ import InvoicingModule from './components/InvoicingModule';
 import {
   LayoutDashboard, FileText, Users, LogOut, Moon, Sun, RefreshCw,
   Building2, TrendingUp, Clock, Loader2, X, AlertTriangle, ArrowRight,
-  CreditCard, Settings, Menu,
+  CreditCard, Settings, Menu, Upload,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -242,6 +242,29 @@ function CompanyProfilesModal({
   const [nk, setNk] = useState({ ...init('Nasi Kandar') });
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'Bistro' | 'Nasi Kandar'>('Bistro');
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxPx = 160;
+        const scale = Math.min(maxPx / img.width, maxPx / img.height, 1);
+        canvas.width  = Math.round(img.width  * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
+        setter('logo_url', canvas.toDataURL('image/jpeg', 0.8));
+      };
+      img.src = ev.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+    // reset so re-uploading the same file triggers onChange again
+    e.target.value = '';
+  };
 
   const update = (
     setter: React.Dispatch<React.SetStateAction<CompanyProfile>>,
@@ -278,7 +301,6 @@ function CompanyProfilesModal({
     { key: 'phone', label: 'Phone', placeholder: '+60 4-234 5678' },
     { key: 'currency_symbol', label: 'Currency Symbol', placeholder: 'RM' },
     { key: 'series_format', label: 'Invoice Prefix / Series', placeholder: 'BIS-26-', hint: 'e.g. BIS-26- → BIS-26-0001' },
-    { key: 'logo_url', label: 'Logo Image URL', placeholder: 'https://example.com/logo.png', hint: 'Direct image URL only (no Base64)' },
     { key: 'payment_info', label: 'Remittance / Bank Details', placeholder: 'Public Bank : 3814096800', hint: 'Shown under "Remittance Instructions" in the invoice PDF' },
     { key: 'footer_text', label: 'Invoice Footer / Terms', placeholder: 'Thank you for dining with us!' },
   ];
@@ -333,6 +355,50 @@ function CompanyProfilesModal({
               {hint && <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-0.5">{hint}</p>}
             </div>
           ))}
+
+          {/* Logo upload */}
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">
+              Company Logo
+            </label>
+            <div className="flex items-center gap-3">
+              <div className={`w-14 h-14 rounded-xl border flex items-center justify-center flex-shrink-0 overflow-hidden ${isDark ? 'border-slate-700 bg-slate-950' : 'border-gray-200 bg-gray-50'}`}>
+                {current.logo_url ? (
+                  <img src={current.logo_url} alt="Logo" className="w-full h-full object-contain p-1" />
+                ) : (
+                  <Building2 className="w-6 h-6 text-gray-300 dark:text-slate-600" />
+                )}
+              </div>
+              <div className="flex flex-col gap-1.5 flex-1">
+                <input
+                  type="file"
+                  ref={logoInputRef}
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleLogoUpload}
+                />
+                <button
+                  type="button"
+                  onClick={() => logoInputRef.current?.click()}
+                  className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-colors ${isDark ? 'border-slate-700 text-slate-300 hover:bg-slate-800' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+                >
+                  <Upload className="w-3 h-3" />
+                  {current.logo_url ? 'Change Logo' : 'Upload Logo'}
+                </button>
+                {current.logo_url && (
+                  <button
+                    type="button"
+                    onClick={() => setter('logo_url', '')}
+                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer text-red-500 border-red-200 dark:border-red-900/40 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  >
+                    <X className="w-3 h-3" />
+                    Remove
+                  </button>
+                )}
+              </div>
+            </div>
+            <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-1">Auto-resized on upload. Saves with your profile to Google Sheets.</p>
+          </div>
 
           <div className={`flex items-center justify-end gap-2 pt-3 border-t ${isDark ? 'border-slate-800' : 'border-gray-100'}`}>
             <button

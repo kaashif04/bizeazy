@@ -67,7 +67,10 @@ function generatePDF(invoice: Invoice, items: InvoiceItem[], profile: CompanyPro
   // ── HEADER: logo + company names (left) | address + contact (right) ─────────
   let logoLoaded = false;
   const logoUrl = (profile.logo_url || '').trim();
-  if (logoUrl.startsWith('http')) {
+  if (logoUrl.startsWith('data:image')) {
+    const fmt = logoUrl.includes('image/png') ? 'PNG' : 'JPEG';
+    try { doc.addImage(logoUrl, fmt, 14, 10, 22, 22); logoLoaded = true; } catch {}
+  } else if (logoUrl.startsWith('http')) {
     try { doc.addImage(logoUrl, 'PNG', 14, 10, 22, 22); logoLoaded = true; } catch {}
   }
   const nameX = logoLoaded ? 40 : 14;
