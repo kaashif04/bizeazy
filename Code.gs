@@ -270,89 +270,69 @@ function syncData(payload, spreadsheetId) {
 }
 
 // ─── initializeDatabase ───────────────────────────────────────
+// Always writes the FULL expected header row and clears any extra columns
+// beyond it. This fixes misaligned sheets caused by incremental header
+// appends landing in the wrong positions (e.g. Nationality vs Citizenship,
+// empty-header columns shifting Payment_Transferred out of range).
 function initializeDatabase(spreadsheetId) {
   try {
     var ss = getDatabase(spreadsheetId);
 
-    // Invoices
+    function enforceHeaders(tab, expected) {
+      tab.getRange(1, 1, 1, expected.length).setValues([expected]);
+      var last = tab.getLastColumn();
+      if (last > expected.length) {
+        tab.getRange(1, expected.length + 1, 1, last - expected.length).clearContent();
+      }
+    }
+
+    // ── Invoices ──
     var invoicesTab = ss.getSheetByName("Invoices");
-    if (!invoicesTab) {
-      invoicesTab = ss.insertSheet("Invoices");
-      invoicesTab.appendRow([
-        'Invoice_ID','Date','Company','Customer_Name','Status','Total_Amount',
-        'Discount_Value','Subtotal_Amount','Notes','Customer_Contact',
-        'Customer_Address','Branch_Location','Invoice_Items_JSON'
-      ]);
-    } else {
-      var invHeaders = invoicesTab.getRange(1,1,1,invoicesTab.getLastColumn()).getValues()[0];
-      if (invHeaders.indexOf('Branch_Location') === -1) {
-        invoicesTab.getRange(1, invHeaders.length + 1).setValue('Branch_Location');
-        invoicesTab.getRange(1, invHeaders.length + 2).setValue('Invoice_Items_JSON');
-      }
-    }
+    if (!invoicesTab) invoicesTab = ss.insertSheet("Invoices");
+    enforceHeaders(invoicesTab, [
+      'Invoice_ID','Date','Company','Customer_Name','Status','Total_Amount',
+      'Discount_Value','Subtotal_Amount','Notes','Customer_Contact',
+      'Customer_Address','Branch_Location','Invoice_Items_JSON'
+    ]);
 
-    // Invoice_Items (standalone tab — NEW)
+    // ── Invoice_Items ──
     var itemsTab = ss.getSheetByName("Invoice_Items");
-    if (!itemsTab) {
-      itemsTab = ss.insertSheet("Invoice_Items");
-      itemsTab.appendRow(['Item_ID','Invoice_ID','Item_Name','Quantity','Price','Subtotal']);
-    }
+    if (!itemsTab) itemsTab = ss.insertSheet("Invoice_Items");
+    enforceHeaders(itemsTab, ['Item_ID','Invoice_ID','Item_Name','Quantity','Price','Subtotal']);
 
-    // Patrons / Customers
-    var patronsTab = ss.getSheetByName("Patrons");
+    // ── Patrons / Customers ──
+    var patronsTab = ss.getSheetByName("Patrons") || ss.getSheetByName("Customers");
     if (!patronsTab) {
-      var oldCustomers = ss.getSheetByName("Customers");
-      if (oldCustomers) {
-        oldCustomers.setName("Patrons");
-        patronsTab = oldCustomers;
-        var custHeaders = patronsTab.getRange(1,1,1,patronsTab.getLastColumn()).getValues()[0];
-        if (custHeaders.indexOf('Branch_Location') === -1)
-          patronsTab.getRange(1, custHeaders.length + 1).setValue('Branch_Location');
-      } else {
-        patronsTab = ss.insertSheet("Patrons");
-        patronsTab.appendRow(['Customer_Name','Contact','Customer_Type','Address','Branch_Location']);
-      }
+      patronsTab = ss.insertSheet("Patrons");
+    } else if (patronsTab.getName() === 'Customers') {
+      patronsTab.setName("Patrons");
     }
+    enforceHeaders(patronsTab, ['Customer_Name','Contact','Customer_Type','Address','Branch_Location']);
 
-    // Employees
+    // ── Employees ──
+    // Enforcing exact order fixes the legacy "Nationality" column at pos 9
+    // that shifted Citizenship/Age/Joining_Date one slot too far to the right.
     var employeesTab = ss.getSheetByName("Employees");
-    if (!employeesTab) {
-      employeesTab = ss.insertSheet("Employees");
-      employeesTab.appendRow([
-        'Employee_ID','Employee_Name','IC_Passport','Position','Assigned_Outlet',
-        'Basic_Salary','Bank_Details','Branch_Location','Citizenship','Age','Joining_Date'
-      ]);
-    } else {
-      var empHeaders = employeesTab.getRange(1,1,1,employeesTab.getLastColumn()).getValues()[0];
-      ['Citizenship','Age','Joining_Date'].forEach(function(col) {
-        if (empHeaders.indexOf(col) === -1) {
-          employeesTab.getRange(1, empHeaders.length + 1).setValue(col);
-          empHeaders.push(col);
-        }
-      });
-    }
+    if (!employeesTab) employeesTab = ss.insertSheet("Employees");
+    enforceHeaders(employeesTab, [
+      'Employee_ID','Employee_Name','IC_Passport','Position','Assigned_Outlet',
+      'Basic_Salary','Bank_Details','Branch_Location','Citizenship','Age','Joining_Date'
+    ]);
 
-    // Payslips
+    // ── Payslips ──
+    // Enforcing exact order fixes the two empty-header columns (S, T) that
+    // pushed Allowances_JSON and Deductions_JSON headers to the wrong positions,
+    // causing Payment_Transferred to land under the wrong label and read as empty.
     var payslipsTab = ss.getSheetByName("Payslips");
-    if (!payslipsTab) {
-      payslipsTab = ss.insertSheet("Payslips");
-      payslipsTab.appendRow([
-        'Payslip_ID','Employee_ID','Issue_Date','Month_Year',
-        'Basic_Pay','Custom_Allowances','Total_Allowances',
-        'Employee_EPF','Employer_EPF','Employee_SOCSO','Employer_SOCSO',
-        'Employee_EIS','Employer_EIS','Total_Statutory_Deductions',
-        'Custom_Deductions','Final_Net_Pay','Branch_Location','Is_Saved',
-        'Allowances_JSON','Deductions_JSON','Payment_Transferred','Transfer_Date'
-      ]);
-    } else {
-      var psHeaders = payslipsTab.getRange(1,1,1,payslipsTab.getLastColumn()).getValues()[0];
-      ['Allowances_JSON','Deductions_JSON','Payment_Transferred','Transfer_Date'].forEach(function(col) {
-        if (psHeaders.indexOf(col) === -1) {
-          payslipsTab.getRange(1, psHeaders.length + 1).setValue(col);
-          psHeaders.push(col);
-        }
-      });
-    }
+    if (!payslipsTab) payslipsTab = ss.insertSheet("Payslips");
+    enforceHeaders(payslipsTab, [
+      'Payslip_ID','Employee_ID','Issue_Date','Month_Year',
+      'Basic_Pay','Custom_Allowances','Total_Allowances',
+      'Employee_EPF','Employer_EPF','Employee_SOCSO','Employer_SOCSO',
+      'Employee_EIS','Employer_EIS','Total_Statutory_Deductions',
+      'Custom_Deductions','Final_Net_Pay','Branch_Location','Is_Saved',
+      'Allowances_JSON','Deductions_JSON','Payment_Transferred','Transfer_Date'
+    ]);
 
     return { success: true };
   } catch (err) {
