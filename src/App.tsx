@@ -247,6 +247,7 @@ function CompanyProfilesModal({
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const keepPng = file.type === 'image/png';
     const reader = new FileReader();
     reader.onload = (ev) => {
       const img = new Image();
@@ -256,13 +257,22 @@ function CompanyProfilesModal({
         const scale = Math.min(maxPx / img.width, maxPx / img.height, 1);
         canvas.width  = Math.round(img.width  * scale);
         canvas.height = Math.round(img.height * scale);
-        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
-        setter('logo_url', canvas.toDataURL('image/jpeg', 0.8));
+        const ctx = canvas.getContext('2d')!;
+        if (!keepPng) {
+          // Non-PNG formats have no transparency — fill white so JPEG has no black background
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        // PNG keeps the alpha channel intact; canvas default is transparent
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        setter('logo_url', keepPng
+          ? canvas.toDataURL('image/png')
+          : canvas.toDataURL('image/jpeg', 0.85)
+        );
       };
       img.src = ev.target?.result as string;
     };
     reader.readAsDataURL(file);
-    // reset so re-uploading the same file triggers onChange again
     e.target.value = '';
   };
 
