@@ -79,11 +79,23 @@ function getDatabase(spreadsheetId) {
 function getSheetRowsAsObjects(sheet) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
+  var tz = sheet.getParent().getSpreadsheetTimeZone();
   var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   var values  = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
   return values.map(function(row) {
     var obj = {};
-    headers.forEach(function(h, idx) { obj[h] = row[idx] !== undefined ? row[idx] : ''; });
+    headers.forEach(function(h, idx) {
+      var v = row[idx];
+      // Sheets silently auto-converts date-like strings (e.g. "2026-05-15") into
+      // real Date objects on write. Reading those back as JS Dates then JSON-
+      // serializes into a UTC timestamp that doesn't match the plain yyyy-MM-dd
+      // string the frontend (and <input type="date">) expects — making the field
+      // look empty/wrong every time, even though the value was saved correctly.
+      if (v instanceof Date) {
+        v = Utilities.formatDate(v, tz, 'yyyy-MM-dd');
+      }
+      obj[h] = v !== undefined ? v : '';
+    });
     return obj;
   });
 }
@@ -286,6 +298,15 @@ function initializeDatabase(spreadsheetId) {
       }
     }
 
+    // Forces a column to Plain Text format so Sheets stops silently
+    // auto-converting date-like strings (e.g. "2026-05-15") into real Date
+    // cells, which previously caused fields like Joining_Date to round-trip
+    // as shifted/garbled timestamps instead of the plain string we wrote.
+    function forceTextColumn(tab, colIndex) {
+      var maxRows = Math.max(tab.getMaxRows(), 2);
+      tab.getRange(2, colIndex, maxRows - 1, 1).setNumberFormat('@');
+    }
+
     // ── Invoices ──
     var invoicesTab = ss.getSheetByName("Invoices");
     if (!invoicesTab) invoicesTab = ss.insertSheet("Invoices");
@@ -294,6 +315,7 @@ function initializeDatabase(spreadsheetId) {
       'Discount_Value','Subtotal_Amount','Notes','Customer_Contact',
       'Customer_Address','Branch_Location','Invoice_Items_JSON'
     ]);
+    forceTextColumn(invoicesTab, 2); // Date
 
     // ── Invoice_Items ──
     var itemsTab = ss.getSheetByName("Invoice_Items");
@@ -318,6 +340,7 @@ function initializeDatabase(spreadsheetId) {
       'Employee_ID','Employee_Name','IC_Passport','Position','Assigned_Outlet',
       'Basic_Salary','Bank_Details','Branch_Location','Citizenship','Age','Joining_Date'
     ]);
+    forceTextColumn(employeesTab, 11); // Joining_Date
 
     // ── Payslips ──
     // Enforcing exact order fixes the two empty-header columns (S, T) that
@@ -333,6 +356,8 @@ function initializeDatabase(spreadsheetId) {
       'Custom_Deductions','Final_Net_Pay','Branch_Location','Is_Saved',
       'Allowances_JSON','Deductions_JSON','Payment_Transferred','Transfer_Date'
     ]);
+    forceTextColumn(payslipsTab, 3);  // Issue_Date
+    forceTextColumn(payslipsTab, 22); // Transfer_Date
 
     return { success: true };
   } catch (err) {
