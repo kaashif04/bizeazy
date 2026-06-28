@@ -1626,62 +1626,17 @@ export default function App() {
                     print-color-adjust: exact !important;
                   }
                 }
-                #invoice-print-area {
-                  transform-origin: top center;
-                  width: 210mm !important;
-                  min-height: 297mm !important;
-                  height: auto !important;
-                }
+                /* On screen, just fill the available width up to a real A4 width and let it
+                   scroll vertically — the Tailwind classes (w-full max-w-[210mm]) already do
+                   this. No scale-down transform here: shrinking the whole page to fit a phone
+                   screen made every line of text microscopic. Only @media print forces the
+                   literal 210mm size. */
                 @media screen and (max-width: 767px) {
                   #preview-stage-container {
                     display: block !important;
                     overflow-x: hidden !important;
                     padding-left: 0 !important;
                     padding-right: 0 !important;
-                  }
-                }
-                @media screen and (max-width: 379px) {
-                  #invoice-print-area {
-                    left: 50% !important;
-                    position: relative !important;
-                    transform: translateX(-50%) scale(0.38) !important;
-                    margin-bottom: -180mm !important;
-                  }
-                }
-                @media screen and (min-width: 380px) and (max-width: 479px) {
-                  #invoice-print-area {
-                    left: 50% !important;
-                    position: relative !important;
-                    transform: translateX(-50%) scale(0.44) !important;
-                    margin-bottom: -160mm !important;
-                  }
-                }
-                @media screen and (min-width: 480px) and (max-width: 639px) {
-                  #invoice-print-area {
-                    left: 50% !important;
-                    position: relative !important;
-                    transform: translateX(-50%) scale(0.56) !important;
-                    margin-bottom: -130mm !important;
-                  }
-                }
-                @media screen and (min-width: 640px) and (max-width: 767px) {
-                  #invoice-print-area {
-                    left: 50% !important;
-                    position: relative !important;
-                    transform: translateX(-50%) scale(0.70) !important;
-                    margin-bottom: -90mm !important;
-                  }
-                }
-                @media screen and (min-width: 768px) and (max-width: 1023px) {
-                  #invoice-print-area {
-                    transform: scale(0.78) !important;
-                    margin-bottom: -65mm !important;
-                  }
-                }
-                @media screen and (min-width: 1024px) and (max-width: 1200px) {
-                  #invoice-print-area {
-                    transform: scale(0.85) !important;
-                    margin-bottom: -44mm !important;
                   }
                 }
               `}} />

@@ -263,28 +263,10 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
              boundary — push the whole block to the next page instead of cutting it off. */
           .print-keep-together { break-inside: avoid-page; page-break-inside: avoid; }
         }
-        #quotation-print-area {
-          transform-origin: top center;
-          width: 210mm !important; min-height: 297mm !important; height: auto !important;
-        }
-        @media screen and (max-width: 379px) {
-          #quotation-print-area { left: 50% !important; position: relative !important; transform: translateX(-50%) scale(0.38) !important; margin-bottom: -180mm !important; }
-        }
-        @media screen and (min-width: 380px) and (max-width: 479px) {
-          #quotation-print-area { left: 50% !important; position: relative !important; transform: translateX(-50%) scale(0.44) !important; margin-bottom: -160mm !important; }
-        }
-        @media screen and (min-width: 480px) and (max-width: 639px) {
-          #quotation-print-area { left: 50% !important; position: relative !important; transform: translateX(-50%) scale(0.56) !important; margin-bottom: -130mm !important; }
-        }
-        @media screen and (min-width: 640px) and (max-width: 767px) {
-          #quotation-print-area { left: 50% !important; position: relative !important; transform: translateX(-50%) scale(0.70) !important; margin-bottom: -90mm !important; }
-        }
-        @media screen and (min-width: 768px) and (max-width: 1023px) {
-          #quotation-print-area { transform: scale(0.78) !important; margin-bottom: -65mm !important; }
-        }
-        @media screen and (min-width: 1024px) and (max-width: 1200px) {
-          #quotation-print-area { transform: scale(0.85) !important; margin-bottom: -44mm !important; }
-        }
+        /* On screen, just fill the available width up to a real A4 width and let it scroll
+           vertically — the Tailwind classes (w-full max-w-[210mm]) already do this. No
+           scale-down transform here: shrinking the whole page to fit a phone screen made
+           every line of text microscopic. Only @media print forces the literal 210mm size. */
       `}} />
 
       <div id="quotation-preview-dialog" className="bg-gray-100 text-slate-900 w-full max-w-5xl rounded-2xl shadow-2xl flex flex-col overflow-hidden text-left h-[90vh]">
@@ -543,28 +525,10 @@ function KitchenSheetModal({ data, onClose }: { data: PreviewData; onClose: () =
           }
           .print-keep-together { break-inside: avoid-page; page-break-inside: avoid; }
         }
-        #kitchen-sheet-print-area {
-          transform-origin: top center;
-          width: 210mm !important; min-height: 297mm !important; height: auto !important;
-        }
-        @media screen and (max-width: 379px) {
-          #kitchen-sheet-print-area { left: 50% !important; position: relative !important; transform: translateX(-50%) scale(0.38) !important; margin-bottom: -180mm !important; }
-        }
-        @media screen and (min-width: 380px) and (max-width: 479px) {
-          #kitchen-sheet-print-area { left: 50% !important; position: relative !important; transform: translateX(-50%) scale(0.44) !important; margin-bottom: -160mm !important; }
-        }
-        @media screen and (min-width: 480px) and (max-width: 639px) {
-          #kitchen-sheet-print-area { left: 50% !important; position: relative !important; transform: translateX(-50%) scale(0.56) !important; margin-bottom: -130mm !important; }
-        }
-        @media screen and (min-width: 640px) and (max-width: 767px) {
-          #kitchen-sheet-print-area { left: 50% !important; position: relative !important; transform: translateX(-50%) scale(0.70) !important; margin-bottom: -90mm !important; }
-        }
-        @media screen and (min-width: 768px) and (max-width: 1023px) {
-          #kitchen-sheet-print-area { transform: scale(0.78) !important; margin-bottom: -65mm !important; }
-        }
-        @media screen and (min-width: 1024px) and (max-width: 1200px) {
-          #kitchen-sheet-print-area { transform: scale(0.85) !important; margin-bottom: -44mm !important; }
-        }
+        /* On screen, just fill the available width up to a real A4 width and let it scroll
+           vertically — the Tailwind classes (w-full max-w-[210mm]) already do this. No
+           scale-down transform here: shrinking the whole page to fit a phone screen made
+           every line of text microscopic. Only @media print forces the literal 210mm size. */
       `}} />
 
       <div id="kitchen-sheet-dialog" className="bg-gray-100 text-slate-900 w-full max-w-5xl rounded-2xl shadow-2xl flex flex-col overflow-hidden text-left h-[90vh]">
@@ -1253,13 +1217,13 @@ export default function QuotationModule({
             {filtered.map(q => {
               const expired = isExpired(q.Valid_Until);
               return (
-                <div key={q.Quotation_ID} className={`p-4 ${isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-gray-50/60'}`}>
+                <div key={q.Quotation_ID} className={`p-4 space-y-3 ${isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-gray-50/60'}`}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-xs font-black font-mono ${isDarkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>{q.Quotation_ID}</span>
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className={`text-xs font-black font-mono break-all ${isDarkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>{q.Quotation_ID}</span>
                         {q.Valid_Until && (
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
                             expired ? 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400'
                           }`}>{expired ? 'Expired' : 'Active'}</span>
                         )}
@@ -1267,21 +1231,31 @@ export default function QuotationModule({
                       <p className={`text-xs font-semibold truncate ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{q.Customer_Name}</p>
                       <p className={`text-[10px] mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{q.Date}</p>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className={`text-sm font-black font-mono ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{currency} {Number(q.Total_Amount).toFixed(2)}</p>
-                      <div className="flex items-center gap-1.5 mt-2 justify-end flex-wrap">
-                        {q.Converted_Invoice_ID ? (
-                          <span className="px-2 py-1 text-[10px] font-bold rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400">
-                            Converted → {q.Converted_Invoice_ID}
-                          </span>
-                        ) : (
-                          <button onClick={() => handleConvertToInvoice(q)} className="px-2.5 py-1 text-[10px] font-bold rounded-lg cursor-pointer transition-colors bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40">Convert</button>
-                        )}
-                        <button onClick={() => openKitchenSheet(q)} className={`px-2.5 py-1 text-[10px] font-bold rounded-lg cursor-pointer transition-colors ${isDarkMode ? 'bg-amber-950/30 text-amber-400 hover:bg-amber-900/40' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'}`}>Kitchen Sheet</button>
-                        <button onClick={() => openPreview(q)} className={`px-2.5 py-1 text-[10px] font-bold rounded-lg cursor-pointer transition-colors ${isDarkMode ? 'bg-slate-700 text-indigo-400 hover:bg-slate-600' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'}`}>Preview</button>
-                        <button onClick={() => openModal(q)} className={`px-2.5 py-1 text-[10px] font-bold rounded-lg cursor-pointer transition-colors ${isDarkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>Edit</button>
-                      </div>
+                    <p className={`text-sm font-black font-mono shrink-0 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{currency} {Number(q.Total_Amount).toFixed(2)}</p>
+                  </div>
+
+                  {q.Converted_Invoice_ID && (
+                    <div className="px-2.5 py-1.5 text-[10px] font-bold rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-center">
+                      Converted → {q.Converted_Invoice_ID}
                     </div>
+                  )}
+
+                  {/* Actions — own row, evenly spaced, so they don't crowd the ID/customer text */}
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button onClick={() => openModal(q)} className={`flex items-center justify-center gap-1.5 px-2 py-1.5 text-[10px] font-bold rounded-lg cursor-pointer transition-colors ${isDarkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                      <Edit className="w-3 h-3" /> Edit
+                    </button>
+                    <button onClick={() => openPreview(q)} className={`flex items-center justify-center gap-1.5 px-2 py-1.5 text-[10px] font-bold rounded-lg cursor-pointer transition-colors ${isDarkMode ? 'bg-indigo-950/40 text-indigo-400 hover:bg-indigo-900/50' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'}`}>
+                      <Eye className="w-3 h-3" /> Preview
+                    </button>
+                    <button onClick={() => openKitchenSheet(q)} className={`flex items-center justify-center gap-1.5 px-2 py-1.5 text-[10px] font-bold rounded-lg cursor-pointer transition-colors ${isDarkMode ? 'bg-amber-950/30 text-amber-400 hover:bg-amber-900/40' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'}`}>
+                      <ChefHat className="w-3 h-3" /> Kitchen Sheet
+                    </button>
+                    {!q.Converted_Invoice_ID && (
+                      <button onClick={() => handleConvertToInvoice(q)} className={`flex items-center justify-center gap-1.5 px-2 py-1.5 text-[10px] font-bold rounded-lg cursor-pointer transition-colors ${isDarkMode ? 'bg-emerald-950/30 text-emerald-400 hover:bg-emerald-900/40' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}>
+                        <ArrowRightCircle className="w-3 h-3" /> Convert
+                      </button>
+                    )}
                   </div>
                 </div>
               );
