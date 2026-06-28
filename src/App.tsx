@@ -1667,7 +1667,7 @@ export default function App() {
                   <div id="preview-stage-container" className="bg-slate-800 p-2 sm:p-8 rounded-2xl overflow-auto w-full">
                     <div
                       id="invoice-print-area"
-                      className={`bg-white w-full max-w-[210mm] mx-auto text-gray-800 shadow-2xl relative min-h-[297mm] flex flex-col justify-between transition-all border border-gray-300 ${customStyles.padding || 'p-8'} ${customStyles.body_size || 'text-xs'}`}
+                      className={`bg-white w-full max-w-[210mm] mx-auto text-gray-800 shadow-2xl relative overflow-hidden min-h-[297mm] flex flex-col justify-between transition-all border border-gray-300 ${customStyles.padding || 'p-8'} ${customStyles.body_size || 'text-xs'}`}
                       style={{
                         borderColor: customStyles.primary_color,
                         fontFamily: customStyles.font_family === 'Space Grotesk' ? '"Space Grotesk", sans-serif' :
@@ -1687,33 +1687,44 @@ export default function App() {
                           </div>
                         )}
 
-                        {/* Header: logo + company + address */}
-                        <div className={`mt-4 flex gap-4 mb-6 ${
-                          customStyles.layout_order === 'logo-right' ? 'flex-row-reverse justify-between items-start' :
-                          customStyles.layout_order === 'stacked' ? 'flex-col items-center justify-center text-center' :
-                          'flex-row justify-between items-start'
+                        {/* Header: logo + company + address. Always stacked on narrow
+                            phones — there isn't enough width to fit a company name AND a
+                            full address side-by-side without squeezing one into an
+                            unreadable vertical ladder. The chosen layout_order only
+                            applies from the sm: breakpoint up. */}
+                        <div className={`mt-4 flex flex-col items-center text-center gap-3 mb-6 sm:gap-4 ${
+                          customStyles.layout_order === 'logo-right' ? 'sm:flex-row-reverse sm:justify-between sm:items-start sm:text-left' :
+                          customStyles.layout_order === 'stacked' ? 'sm:flex-col sm:items-center sm:justify-center sm:text-center' :
+                          'sm:flex-row sm:justify-between sm:items-start sm:text-left'
                         }`}>
-                          <div className={`flex gap-4 items-center ${customStyles.layout_order === 'stacked' ? 'flex-col' : 'flex-row'}`}>
+                          <div className={`flex gap-4 items-center min-w-0 ${customStyles.layout_order === 'stacked' ? 'flex-col' : 'flex-row'}`}>
                             {profile?.logo_url && (profile.logo_url.startsWith('http') || profile.logo_url.startsWith('data:image')) ? (
-                              <img src={profile.logo_url} alt="Logo" className="max-h-20 w-auto max-w-[140px] object-contain" referrerPolicy="no-referrer" />
+                              <img src={profile.logo_url} alt="Logo" className="max-h-20 w-auto max-w-[140px] object-contain shrink-0" referrerPolicy="no-referrer" />
                             ) : (
-                              <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white font-black text-xl uppercase shadow-lg" style={{ backgroundColor: customStyles.primary_color }}>
+                              <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white font-black text-xl uppercase shadow-lg shrink-0" style={{ backgroundColor: customStyles.primary_color }}>
                                 {profile?.logo_url ? profile.logo_url.substring(0, 2) : (invoice.Company === 'Bistro' ? 'LB' : 'NK')}
                               </div>
                             )}
-                            <div className={customStyles.layout_order === 'stacked' ? 'text-center' : 'text-left'}>
-                              {parentCompanyName && <p className="text-[9px] font-extrabold uppercase text-gray-400 tracking-wider mb-0.5">{parentCompanyName}</p>}
-                              <h1 className={`font-black tracking-tight text-gray-900 leading-tight ${customStyles.title_size || 'text-2xl'}`}>
+                            <div className="min-w-0">
+                              {parentCompanyName && <p className="text-[9px] font-extrabold uppercase text-gray-400 tracking-wider mb-0.5 break-words">{parentCompanyName}</p>}
+                              <h1 className={`font-black tracking-tight text-gray-900 leading-tight break-words ${customStyles.title_size || 'text-2xl'}`}>
                                 {profile?.name || (invoice.Company === 'Bistro' ? 'La Bistro Cafe' : 'Nasi Kandar Heritage')}
                               </h1>
                               {storeOutletName && (
-                                <p className="text-[10px] font-bold mt-0.5 uppercase" style={{ color: customStyles.primary_color }}>
+                                <p className="text-[10px] font-bold mt-0.5 uppercase break-words" style={{ color: customStyles.primary_color }}>
                                   Outlet: {storeOutletName}
                                 </p>
                               )}
                             </div>
                           </div>
-                          <div className={`text-[10px] text-gray-500 leading-relaxed space-y-0.5 shrink-0 ${customStyles.layout_order === 'stacked' ? 'text-center' : customStyles.layout_order === 'logo-right' ? 'text-left' : 'text-right'}`}>
+                          {/* min-w-0 (not shrink-0) lets this wrap instead of forcing the
+                              header row wider than the page — flex items default to a
+                              content-based minimum width that ignores normal text wrapping
+                              unless this is set. Centered + full-width on mobile; reverts to
+                              the chosen layout's side-aligned, width-capped column from sm: up. */}
+                          <div className={`text-[10px] text-gray-500 leading-relaxed space-y-0.5 min-w-0 break-words text-center sm:max-w-[55%] ${
+                            customStyles.layout_order === 'logo-right' ? 'sm:text-left' : customStyles.layout_order === 'stacked' ? 'sm:text-center' : 'sm:text-right'
+                          }`}>
                             <p className="font-semibold text-gray-700">{profile?.address}</p>
                             <p>Contact: {profile?.phone} | {profile?.email}</p>
                           </div>
