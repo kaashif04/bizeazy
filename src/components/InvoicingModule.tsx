@@ -38,7 +38,7 @@ interface LineItem {
 }
 
 // ─── Invoice ID generator ─────────────────────────────────────────────────────
-function generateInvoiceId(
+export function generateInvoiceId(
   outlet: 'Bistro' | 'Nasi Kandar',
   profiles: CompanyProfile[],
   existingInvoices: Invoice[],
@@ -1085,7 +1085,7 @@ export default function InvoicingModule({
                   {/* Date */}
                   <div>
                     <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">Invoice Date *</label>
-                    <input type="date" value={modalDate} onChange={e => setModalDate(e.target.value)} className={inputClass} required />
+                    <input type="date" value={modalDate} onChange={e => setModalDate(e.target.value)} className={`${inputClass} ${isDarkMode ? '[color-scheme:dark]' : '[color-scheme:light]'}`} required />
                   </div>
 
                   {/* Customer with autocomplete */}
@@ -1548,7 +1548,7 @@ export default function InvoicingModule({
                     Cancel
                   </button>
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       if (!custName.trim()) return;
                       const newCustomer = {
                         Customer_Name: custName.trim(),
@@ -1557,21 +1557,24 @@ export default function InvoicingModule({
                         Customer_Type: custType,
                         Branch_Location: activeBranchLocation,
                       };
-                      if (editingCustomer) {
-                        setDb(prev => ({
-                          ...prev,
-                          customers: prev.customers.map((c: any) =>
-                            c.Customer_Name === editingCustomer.Customer_Name ? newCustomer : c
-                          )
-                        }));
-                      } else {
-                        setDb(prev => ({
-                          ...prev,
-                          customers: [...prev.customers, newCustomer]
-                        }));
-                      }
+                      const nextDb: DatabaseState = {
+                        ...db,
+                        customers: editingCustomer
+                          ? db.customers.map((c: any) => c.Customer_Name === editingCustomer.Customer_Name ? newCustomer : c)
+                          : [...db.customers, newCustomer],
+                      };
+                      setDb(nextDb);
                       setIsCustomerFormOpen(false);
                       setEditingCustomer(null);
+                      try {
+                        setIsSyncing(true);
+                        await syncStateToSheets(spreadsheetId, accessToken, nextDb, profiles, activeBranchLocation);
+                        triggerToast(`Customer "${newCustomer.Customer_Name}" saved to Google Sheets!`, 'success');
+                      } catch (err: any) {
+                        triggerToast(`Saved locally but Sheets Sync failed: ${err.message}`, 'error');
+                      } finally {
+                        setIsSyncing(false);
+                      }
                     }}
                     className="px-3 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer">
                     {editingCustomer ? 'Save Changes' : 'Add Customer'}
@@ -1620,12 +1623,21 @@ export default function InvoicingModule({
                               className="text-indigo-500 hover:text-indigo-700 font-bold text-[10px] cursor-pointer hover:underline"
                             >Edit</button>
                             <button
-                              onClick={() => {
-                                if (window.confirm(`Delete customer "${c.Customer_Name}"?`)) {
-                                  setDb(prev => ({
-                                    ...prev,
-                                    customers: prev.customers.filter((_: any, idx: number) => idx !== i)
-                                  }));
+                              onClick={async () => {
+                                if (!window.confirm(`Delete customer "${c.Customer_Name}"?`)) return;
+                                const nextDb: DatabaseState = {
+                                  ...db,
+                                  customers: db.customers.filter((_: any, idx: number) => idx !== i)
+                                };
+                                setDb(nextDb);
+                                try {
+                                  setIsSyncing(true);
+                                  await syncStateToSheets(spreadsheetId, accessToken, nextDb, profiles, activeBranchLocation);
+                                  triggerToast(`Customer "${c.Customer_Name}" deleted.`, 'success');
+                                } catch (err: any) {
+                                  triggerToast(`Deleted locally but Sheets Sync failed: ${err.message}`, 'error');
+                                } finally {
+                                  setIsSyncing(false);
                                 }
                               }}
                               className="text-rose-400 hover:text-rose-600 font-bold text-[10px] cursor-pointer hover:underline"

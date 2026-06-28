@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { User } from 'firebase/auth';
 import {
   initAuth, googleSignIn, logout as firebaseLogout,
@@ -8,14 +9,15 @@ import {
 import { DatabaseState, CompanyProfile, TemplateCustomization } from './types';
 import { PayrollDashboard } from './components/PayrollDashboard';
 import InvoicingModule from './components/InvoicingModule';
+import QuotationModule from './components/QuotationModule';
 import {
   LayoutDashboard, FileText, Users, LogOut, Moon, Sun, RefreshCw,
   Building2, TrendingUp, Clock, Loader2, X, AlertTriangle, ArrowRight,
-  CreditCard, Settings, Menu, Upload,
+  CreditCard, Settings, Menu, Upload, CalendarRange,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type AppView = 'hub' | 'invoicing' | 'payroll';
+type AppView = 'hub' | 'invoicing' | 'payroll' | 'quotations';
 type AuthStatus = 'loading' | 'unauthenticated' | 'needs-setup' | 'authenticated';
 
 interface Toast {
@@ -27,6 +29,20 @@ interface Toast {
 // ─── Constants ────────────────────────────────────────────────────────────────
 const EMPTY_DB: DatabaseState = {
   invoices: [], invoice_items: [], customers: [], employees: [], payslips: [],
+  quotations: [], quotation_days: [], quotation_items: [],
+};
+// Per-outlet design defaults — used until a profile's own `template` is saved in Settings.
+const DEFAULT_TEMPLATE: TemplateCustomization = {
+  primary_color: '#0D9488',
+  secondary_color: '#F0FDF4',
+  text_dark: '#1E293B',
+  font_family: 'Inter',
+  title_size: 'text-2xl',
+  body_size: 'text-xs',
+  padding: 'p-8',
+  layout_order: 'logo-left',
+  hide_payment_details: false,
+  terms_footer: '',
 };
 const DEFAULT_PROFILES: CompanyProfile[] = [
   {
@@ -76,6 +92,7 @@ function gasConfigToProfiles(gasConfig: any): CompanyProfile[] {
     footer_text:     raw.footer_text || '',
     payment_info:    raw.payment_info || '',
     series_format:   raw.series_format || raw.prefix || defaultPrefix,
+    template:        raw.template || DEFAULT_TEMPLATE,
   });
 
   const result: CompanyProfile[] = [];
@@ -282,6 +299,12 @@ function CompanyProfilesModal({
     val: string,
   ) => setter(prev => ({ ...prev, [field]: val }));
 
+  const updateTemplate = (
+    setter: React.Dispatch<React.SetStateAction<CompanyProfile>>,
+    field: keyof TemplateCustomization,
+    val: string | boolean,
+  ) => setter(prev => ({ ...prev, template: { ...(prev.template || DEFAULT_TEMPLATE), [field]: val } }));
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -302,6 +325,10 @@ function CompanyProfilesModal({
   const setter = activeTab === 'Bistro'
     ? (f: keyof CompanyProfile, v: string) => update(setBistro, f, v)
     : (f: keyof CompanyProfile, v: string) => update(setNk, f, v);
+  const setTemplate = activeTab === 'Bistro'
+    ? (f: keyof TemplateCustomization, v: string | boolean) => updateTemplate(setBistro, f, v)
+    : (f: keyof TemplateCustomization, v: string | boolean) => updateTemplate(setNk, f, v);
+  const tmpl = current.template || DEFAULT_TEMPLATE;
 
   const fields: { key: keyof CompanyProfile; label: string; placeholder: string; hint?: string }[] = [
     { key: 'name', label: 'Display / Public Name', placeholder: 'La Bistro Cafe' },
@@ -408,6 +435,118 @@ function CompanyProfilesModal({
               </div>
             </div>
             <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-1">Auto-resized on upload. Saves with your profile to Google Sheets.</p>
+          </div>
+
+          {/* Design — applies to both Invoice and Quotation previews for this outlet */}
+          <div className={`pt-3 border-t space-y-3 ${isDark ? 'border-slate-800' : 'border-gray-100'}`}>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400">
+              Document Design — {current.store_name || current.name}
+            </p>
+
+            {/* Accent color */}
+            <div className="space-y-1.5">
+              <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wide">Brand Primary Accent</label>
+              <div className="flex flex-wrap gap-2 items-center">
+                {[
+                  { name: 'Teal', value: '#0D9488' },
+                  { name: 'Warm Amber', value: '#B45309' },
+                  { name: 'Emerald', value: '#065F46' },
+                  { name: 'Classic Slate', value: '#334155' },
+                  { name: 'Cobalt Blue', value: '#1D4ED8' },
+                  { name: 'Crimson Rose', value: '#BE123C' },
+                  { name: 'Royal Indigo', value: '#4338CA' },
+                  { name: 'Charcoal', value: '#1E293B' },
+                ].map(c => (
+                  <button key={c.value} type="button" onClick={() => setTemplate('primary_color', c.value)}
+                    className={`w-6 h-6 rounded-full border cursor-pointer hover:scale-110 active:scale-95 transition-transform ${tmpl.primary_color === c.value ? 'ring-2 ring-offset-2 ring-indigo-500' : 'border-gray-300 dark:border-slate-600'}`}
+                    style={{ backgroundColor: c.value }} title={c.name} />
+                ))}
+                <input type="text" value={tmpl.primary_color}
+                  onChange={e => setTemplate('primary_color', e.target.value)}
+                  className={`w-24 px-2 py-1 text-xs font-mono font-bold rounded border ${isDark ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'}`} />
+              </div>
+            </div>
+
+            {/* Font */}
+            <div>
+              <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1">Typography Font Face</label>
+              <select value={tmpl.font_family} onChange={e => setTemplate('font_family', e.target.value)} className={inputCls}>
+                <option value="Inter">Inter (Clean Swiss Sans)</option>
+                <option value="Space Grotesk">Space Grotesk (Tech Modernist)</option>
+                <option value="Outfit">Outfit (Friendly Circular)</option>
+                <option value="Playfair Display">Playfair Display (Serif Elegance)</option>
+                <option value="JetBrains Mono">JetBrains Mono (Precision Mono)</option>
+              </select>
+            </div>
+
+            {/* Logo / brand alignment */}
+            <div>
+              <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1">Logo & Brand Alignment</label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {[
+                  { label: 'Standard Left', value: 'logo-left' },
+                  { label: 'Push Right', value: 'logo-right' },
+                  { label: 'Center Stacked', value: 'stacked' },
+                  { label: 'Modern Split', value: 'logo-split' },
+                ].map(opt => (
+                  <button key={opt.value} type="button" onClick={() => setTemplate('layout_order', opt.value)}
+                    className={`p-2 border rounded-lg font-bold text-[10px] tracking-tight transition-all cursor-pointer ${
+                      tmpl.layout_order === opt.value
+                        ? 'bg-indigo-600 border-indigo-600 text-white'
+                        : isDark ? 'bg-slate-950 border-slate-700 text-slate-300 hover:bg-slate-800' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-100'
+                    }`}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Title + Body size */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1">Title Size</label>
+                <select value={tmpl.title_size} onChange={e => setTemplate('title_size', e.target.value)} className={inputCls}>
+                  <option value="text-lg">Compact (LG)</option>
+                  <option value="text-xl">Standard (XL)</option>
+                  <option value="text-2xl">Large (2XL)</option>
+                  <option value="text-3xl">Display (3XL)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1">Body Size</label>
+                <select value={tmpl.body_size} onChange={e => setTemplate('body_size', e.target.value)} className={inputCls}>
+                  <option value="text-[10px]">Tiny (10px)</option>
+                  <option value="text-xs">Standard (12px)</option>
+                  <option value="text-sm">Comfort (14px)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Margins */}
+            <div>
+              <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1">Sheet Outer Margins</label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {[{ label: 'Compact', value: 'p-4' }, { label: 'Cozy', value: 'p-8' }, { label: 'Generous', value: 'p-12' }].map(opt => (
+                  <button key={opt.value} type="button" onClick={() => setTemplate('padding', opt.value)}
+                    className={`py-1.5 border rounded-lg text-[10px] font-bold cursor-pointer transition-all ${
+                      tmpl.padding === opt.value
+                        ? 'bg-indigo-600 border-indigo-600 text-white'
+                        : isDark ? 'bg-slate-950 border-slate-700 text-slate-400 hover:bg-slate-800' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-100'
+                    }`}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Footer terms (Invoice only — Quotation keeps its own Catering Terms field) */}
+            <div>
+              <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1">Invoice Footer / Custom Terms</label>
+              <textarea rows={2} value={tmpl.terms_footer}
+                onChange={e => setTemplate('terms_footer', e.target.value)}
+                placeholder="Thank you for your business!"
+                className={`${inputCls} resize-none`} />
+            </div>
           </div>
 
           <div className={`flex items-center justify-end gap-2 pt-3 border-t ${isDark ? 'border-slate-800' : 'border-gray-100'}`}>
@@ -535,6 +674,7 @@ function SettingsModal({
 const NAV_ITEMS: { view: AppView; Icon: React.FC<React.SVGProps<SVGSVGElement>>; label: string }[] = [
   { view: 'hub', Icon: LayoutDashboard, label: 'Hub Overview' },
   { view: 'invoicing', Icon: FileText, label: 'Invoicing' },
+  { view: 'quotations', Icon: CalendarRange, label: 'Quotations' },
   { view: 'payroll', Icon: Users, label: 'Payroll' },
 ];
 
@@ -716,32 +856,9 @@ export default function App() {
   const [isProfilesOpen, setIsProfilesOpen] = useState(false);
   const [previewInvoiceId, setPreviewInvoiceId] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [isPreviewSidebarExpanded, setIsPreviewSidebarExpanded] = useState(false);
-  const [customStyles, setCustomStyles] = useState<TemplateCustomization>({
-    primary_color: '#0D9488',
-    secondary_color: '#F0FDF4',
-    text_dark: '#1E293B',
-    font_family: 'Inter',
-    title_size: 'text-2xl',
-    body_size: 'text-xs',
-    padding: 'p-8',
-    layout_order: 'logo-left',
-    hide_payment_details: false,
-    terms_footer: '',
-  });
-  const saveCustomStyles = (next: TemplateCustomization) => {
-    setCustomStyles(next);
-    localStorage.setItem('invoice_design_customization', JSON.stringify(next));
-    if (previewInvoiceId) {
-      const inv = db.invoices.find(i => i.Invoice_ID === previewInvoiceId);
-      if (inv?.Company) {
-        localStorage.setItem(
-          `invoice_design_customization_${inv.Company}`,
-          JSON.stringify(next)
-        );
-      }
-    }
-  };
+  // Design (colors/fonts/layout) now lives entirely on each CompanyProfile's `template`
+  // field, edited in Settings → Company Profiles and persisted to Google Sheets — no
+  // local React state or localStorage seeding needed here anymore.
   const downloadPremiumPDF = (
     invoiceId: string,
     _db: DatabaseState,
@@ -750,14 +867,8 @@ export default function App() {
     toast: (msg: string, type: Toast['type']) => void,
   ) => {
     setPreviewInvoiceId(invoiceId);
-    const invForDesign = db.invoices.find(i => i.Invoice_ID === invoiceId);
-    if (invForDesign?.Company) {
-      const companyKey = `invoice_design_customization_${invForDesign.Company}`;
-      const companySaved = localStorage.getItem(companyKey);
-      if (companySaved) { try { setCustomStyles(JSON.parse(companySaved)); } catch {} }
-    }
     setIsPreviewOpen(true);
-    toast('Invoice Design Studio opened. Use Print / Save A4 to export PDF.', 'info');
+    toast('Invoice preview opened. Use Print / Save A4 to export PDF.', 'info');
   };
 
   const triggerToast = useCallback((message: string, type: Toast['type']) => {
@@ -879,7 +990,9 @@ export default function App() {
           series_format: p.series_format,
           logo_url: p.logo_url || '',
           footer_text: p.footer_text || '',
+          payment_info: p.payment_info || '',
           company_name: p.company_name || '',
+          template: p.template || DEFAULT_TEMPLATE,
         };
         return acc;
       }, {});
@@ -903,6 +1016,7 @@ export default function App() {
 
   const viewTitle: Record<AppView, string> = {
     hub: 'Hub Overview', invoicing: 'Invoicing Module', payroll: 'Payroll Module',
+    quotations: 'Quotations Module',
   };
 
   const wrapClass = isDark ? 'dark' : '';
@@ -955,6 +1069,8 @@ export default function App() {
     const unpaidCountHub     = activeInvoicesHub.filter(i => i.Status === 'Pending').length;
     const activeEmployeesHub = db.employees?.filter(e => e.Assigned_Outlet === activeOutlet) || [];
     const savedPayslipsHub   = db.payslips?.filter(p => p.Is_Saved) || [];
+    const activeQuotationsHub = db.quotations?.filter(q => q.Company === activeOutlet) || [];
+    const expiredQuotationsHub = activeQuotationsHub.filter(q => !!q.Valid_Until && new Date(q.Valid_Until) < new Date(new Date().toDateString())).length;
     const recentInvoicesHub  = [...activeInvoicesHub]
       .sort((a, b) => new Date(b.Date || '').getTime() - new Date(a.Date || '').getTime())
       .slice(0, 5);
@@ -996,6 +1112,13 @@ export default function App() {
             >
               <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
               Invoicing
+            </button>
+            <button
+              onClick={() => { setActiveView('quotations'); triggerToast('Entering Quotations Console...', 'success'); }}
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${dm ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
+            >
+              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              Quotations
             </button>
             <button
               onClick={() => { setActiveView('payroll'); triggerToast('Entering Payslip Console...', 'success'); }}
@@ -1104,6 +1227,10 @@ export default function App() {
                 className={`px-2.5 py-1 text-[10px] font-bold rounded-lg cursor-pointer ${dm ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>
                 Invoicing
               </button>
+              <button onClick={() => { setActiveView('quotations'); triggerToast("Entering Quotations...","success"); }}
+                className={`px-2.5 py-1 text-[10px] font-bold rounded-lg cursor-pointer ${dm ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>
+                Quotations
+              </button>
               <button onClick={() => { setActiveView('payroll'); triggerToast("Entering Payroll...","success"); }}
                 className={`px-2.5 py-1 text-[10px] font-bold rounded-lg cursor-pointer ${dm ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>
                 Payroll
@@ -1173,9 +1300,10 @@ export default function App() {
             </div>
 
             {/* Module shortcuts */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[
                 { icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>, label: 'Invoicing Module', desc: 'Create, manage & track invoices', cta: 'Open →', accent: 'indigo', onClick: () => { setActiveView('invoicing'); triggerToast('Entering Invoicing Console...', 'success'); }, stat1Label: 'Total Invoices', stat1Val: String(activeInvoicesHub.length), stat2Label: 'Pending', stat2Val: String(unpaidCountHub), stat2Warn: unpaidCountHub > 0 },
+                { icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>, label: 'Quotations Module', desc: 'Multi-day catering quotes & estimates', cta: 'Open →', accent: 'indigo', onClick: () => { setActiveView('quotations'); triggerToast('Entering Quotations Console...', 'success'); }, stat1Label: 'Quotations', stat1Val: String(activeQuotationsHub.length), stat2Label: 'Expired', stat2Val: String(expiredQuotationsHub), stat2Warn: expiredQuotationsHub > 0 },
                 { icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>, label: 'Payroll Module', desc: 'Employee roster & payslip generator', cta: 'Open →', accent: 'indigo', onClick: () => { setActiveView('payroll'); triggerToast('Entering Payslip Console...', 'success'); }, stat1Label: 'Employees', stat1Val: String(activeEmployeesHub.length), stat2Label: 'Saved Payslips', stat2Val: String(savedPayslipsHub.length), stat2Warn: false },
               ].map((mod, i) => (
                 <div key={i} className={`rounded-2xl border p-5 transition-all ${dm ? 'bg-[#0f1623] border-slate-800 hover:border-slate-700' : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm hover:shadow-md'}`}>
@@ -1221,14 +1349,7 @@ export default function App() {
                         <div className="min-w-0">
                           <button
                             onClick={() => {
-                              const invoiceId = inv.Invoice_ID;
-                              setPreviewInvoiceId(invoiceId);
-                              const invForDesign = db.invoices.find(i => i.Invoice_ID === invoiceId);
-                              if (invForDesign?.Company) {
-                                const companyKey = `invoice_design_customization_${invForDesign.Company}`;
-                                const companySaved = localStorage.getItem(companyKey);
-                                if (companySaved) { try { setCustomStyles(JSON.parse(companySaved)); } catch {} }
-                              }
+                              setPreviewInvoiceId(inv.Invoice_ID);
                               setIsPreviewOpen(true);
                               setActiveView('invoicing');
                             }}
@@ -1375,16 +1496,10 @@ export default function App() {
                 isStaff={false}
                 onPreviewInvoice={(invoiceId) => {
                   setPreviewInvoiceId(invoiceId);
-                  const invForDesign = db.invoices.find(i => i.Invoice_ID === invoiceId);
-                  if (invForDesign?.Company) {
-                    const companyKey = `invoice_design_customization_${invForDesign.Company}`;
-                    const companySaved = localStorage.getItem(companyKey);
-                    if (companySaved) { try { setCustomStyles(JSON.parse(companySaved)); } catch {} }
-                  }
                   setIsPreviewOpen(true);
                 }}
                 onDownloadPDF={(invoiceId) =>
-                  downloadPremiumPDF(invoiceId, db, profiles, customStyles, triggerToast)
+                  downloadPremiumPDF(invoiceId, db, profiles, DEFAULT_TEMPLATE, triggerToast)
                 }
                 onDeleteInvoice={(invoiceId) => {
                   const nextDb = {
@@ -1397,6 +1512,21 @@ export default function App() {
                   handleSync(spreadsheetId, accessToken, nextDb, profiles, activeBranchLocation)
                     .catch(() => triggerToast('Sync failed after delete.', 'error'));
                 }}
+              />
+            )}
+            {activeView === 'quotations' && (
+              <QuotationModule
+                db={db}
+                setDb={setDb}
+                profiles={profiles}
+                activeBranchLocation={activeBranchLocation}
+                isDarkMode={isDark}
+                triggerToast={triggerToast}
+                syncStateToSheets={handleSync}
+                spreadsheetId={spreadsheetId}
+                accessToken={accessToken}
+                isSyncing={isSyncing}
+                setIsSyncing={setIsSyncing}
               />
             )}
             {activeView === 'payroll' && (
@@ -1440,24 +1570,49 @@ export default function App() {
           const invoice = db.invoices.find(i => i.Invoice_ID === previewInvoiceId);
           if (!invoice) return null;
           const profile = profiles.find(p => p.id === invoice.Company);
+          const customStyles = profile?.template || DEFAULT_TEMPLATE;
           const items = db.invoice_items.filter(item => item.Invoice_ID === previewInvoiceId);
           const activeTemp = (invoice.Template || 'modern') as 'modern' | 'minimal' | 'bold' | 'classic';
           const currencySymbol = invoice.Currency_Symbol || profile?.currency_symbol || 'RM';
           const parentCompanyName = profile?.company_name || '';
           const storeOutletName = profile?.store_name || '';
 
-          return (
+          // Portal straight to <body> so printing isn't constrained by any ancestor in
+          // the app's own layout (sidebar, page wrappers, etc.) — see print CSS below.
+          return createPortal(
             <div id="preview-studio-overlay" className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-2 sm:p-4 overflow-y-auto w-full h-full">
               <style dangerouslySetInnerHTML={{__html: `
                 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Playfair+Display:ital,wght@0,600;1,400&family=Space+Grotesk:wght@500;700&display=swap');
                 @media print {
                   @page { size: A4 portrait; margin: 0mm; }
                   body, html { margin: 0 !important; padding: 0 !important; background: white !important; }
+                  /* The whole app (mounted at #root) is a sibling of this portaled overlay
+                     under <body> — hide it outright so it can't push the print area down
+                     or get counted as extra pages. visibility:hidden alone keeps layout
+                     boxes in place, which is why this must be display:none. */
+                  #root { display: none !important; }
                   body * { visibility: hidden !important; }
                   #invoice-print-area, #invoice-print-area * { visibility: visible !important; }
+                  /* visibility:hidden keeps layout boxes in place — the header/footer bars
+                     must be fully removed (display:none), not just hidden, or they leave a
+                     blank gap above/below the content. */
+                  #preview-studio-header, #preview-studio-footer { display: none !important; }
+                  /* Ancestors must not constrain height/overflow/padding/centering, or
+                     content gets clipped to page 1 or pushed down by leftover flex spacing. */
+                  #preview-studio-overlay, #preview-studio-dialog, #preview-stage-container {
+                    position: static !important;
+                    height: auto !important;
+                    max-height: none !important;
+                    overflow: visible !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    display: block !important;
+                  }
+                  /* Never split the customer block, items table, or totals box across a
+                     page boundary — push the whole block to the next page instead. */
+                  .print-keep-together { break-inside: avoid-page; page-break-inside: avoid; }
                   #invoice-print-area {
-                    position: fixed !important;
-                    top: 0 !important; left: 0 !important;
+                    position: static !important;
                     width: 210mm !important;
                     min-height: 297mm !important;
                     height: auto !important;
@@ -1467,7 +1622,6 @@ export default function App() {
                     border: none !important;
                     box-shadow: none !important;
                     margin: 0 !important;
-                    z-index: 99999 !important;
                     -webkit-print-color-adjust: exact !important;
                     print-color-adjust: exact !important;
                   }
@@ -1538,17 +1692,9 @@ export default function App() {
                 <div id="preview-studio-header" className="px-6 py-4 bg-slate-900 text-white flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-800 gap-3">
                   <div className="flex items-center gap-2.5">
                     <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <h3 className="text-sm font-bold tracking-tight">Invoice Design Studio</h3>
+                    <h3 className="text-sm font-bold tracking-tight">Invoice Preview</h3>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setIsPreviewSidebarExpanded(!isPreviewSidebarExpanded)}
-                      className={`px-3 py-1.5 cursor-pointer rounded-xl flex items-center gap-1.5 transition-all text-[11px] font-bold border ${isPreviewSidebarExpanded ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700' : 'bg-indigo-600 hover:bg-indigo-700 text-white border-transparent'}`}
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
-                      <span>{isPreviewSidebarExpanded ? 'Hide Design' : 'Design Options'}</span>
-                    </button>
                     <button
                       onClick={() => window.print()}
                       className="px-4 py-1.5 cursor-pointer bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-md active:scale-95"
@@ -1567,125 +1713,6 @@ export default function App() {
 
                 {/* Body */}
                 <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-
-                  {/* LEFT: Design controls */}
-                  {isPreviewSidebarExpanded && (
-                    <div id="preview-designer-sidebar" className="w-full lg:w-80 bg-slate-50 border-r border-gray-200 p-5 max-h-[35vh] lg:max-h-none overflow-y-auto space-y-5 select-none text-gray-800 shrink-0">
-                      <div className="border-b border-gray-200 pb-3 flex justify-between items-start">
-                        <div>
-                          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block mb-0.5">Style Customizer</span>
-                          <h4 className="text-xs font-bold text-slate-800">Draft Layout Design Controls</h4>
-                        </div>
-                        <button type="button" onClick={() => setIsPreviewSidebarExpanded(false)} className="px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded text-[10px] font-extrabold cursor-pointer">Hide Panel</button>
-                      </div>
-
-                      {/* Accent color */}
-                      <div className="space-y-2">
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide">Brand Primary Accent</label>
-                        <div className="flex flex-wrap gap-2.5 items-center">
-                          {[
-                            { name: 'Teal', value: '#0D9488' },
-                            { name: 'Warm Amber', value: '#B45309' },
-                            { name: 'Emerald', value: '#065F46' },
-                            { name: 'Classic Slate', value: '#334155' },
-                            { name: 'Cobalt Blue', value: '#1D4ED8' },
-                            { name: 'Crimson Rose', value: '#BE123C' },
-                            { name: 'Royal Indigo', value: '#4338CA' },
-                            { name: 'Charcoal', value: '#1E293B' },
-                          ].map(c => (
-                            <button key={c.value} onClick={() => saveCustomStyles({ ...customStyles, primary_color: c.value })}
-                              className={`w-7 h-7 rounded-full border cursor-pointer hover:scale-110 active:scale-95 transition-transform ${customStyles.primary_color === c.value ? 'ring-2 ring-offset-2 ring-slate-800' : 'border-gray-300'}`}
-                              style={{ backgroundColor: c.value }} title={c.name} />
-                          ))}
-                        </div>
-                        <div className="flex items-center gap-1.5 pt-1">
-                          <span className="text-[10px] text-gray-400 font-bold uppercase">Hex value:</span>
-                          <input type="text" value={customStyles.primary_color}
-                            onChange={(e) => saveCustomStyles({ ...customStyles, primary_color: e.target.value })}
-                            className="w-24 bg-white border border-gray-200 rounded px-1.5 py-0.5 text-xs font-mono font-bold" />
-                        </div>
-                      </div>
-
-                      {/* Font */}
-                      <div className="space-y-1.5">
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide">Typography Font Face</label>
-                        <select value={customStyles.font_family} onChange={(e) => saveCustomStyles({ ...customStyles, font_family: e.target.value })}
-                          className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-2 text-xs text-gray-800 font-semibold cursor-pointer">
-                          <option value="Inter">⬡ Inter (Clean Swiss Sans)</option>
-                          <option value="Space Grotesk">⬡ Space Grotesk (Tech Modernist)</option>
-                          <option value="Outfit">⬡ Outfit (Friendly Circular)</option>
-                          <option value="Playfair Display">⬡ Playfair Display (Serif Elegance)</option>
-                          <option value="JetBrains Mono">⬡ JetBrains Mono (Precision Mono)</option>
-                        </select>
-                      </div>
-
-                      {/* Logo alignment */}
-                      <div className="space-y-1.5">
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide">Logo & Brand Alignment</label>
-                        <div className="grid grid-cols-2 gap-1.5">
-                          {[
-                            { label: 'Standard Left', value: 'logo-left' },
-                            { label: 'Push Right', value: 'logo-right' },
-                            { label: 'Center Stacked', value: 'stacked' },
-                            { label: 'Modern Split', value: 'logo-split' },
-                          ].map(opt => (
-                            <button key={opt.value} onClick={() => saveCustomStyles({ ...customStyles, layout_order: opt.value as TemplateCustomization['layout_order'] })}
-                              className={`p-2 border rounded-lg font-bold text-[10px] tracking-tight transition-all cursor-pointer ${customStyles.layout_order === opt.value ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Title + Body size */}
-                      <div className="grid grid-cols-2 gap-3.5">
-                        <div className="space-y-1">
-                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide">Title Size</label>
-                          <select value={customStyles.title_size} onChange={(e) => saveCustomStyles({ ...customStyles, title_size: e.target.value })}
-                            className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700 cursor-pointer">
-                            <option value="text-lg">Compact (LG)</option>
-                            <option value="text-xl">Standard (XL)</option>
-                            <option value="text-2xl">Large (2XL)</option>
-                            <option value="text-3xl">Display (3XL)</option>
-                          </select>
-                        </div>
-                        <div className="space-y-1">
-                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide">Body Size</label>
-                          <select value={customStyles.body_size} onChange={(e) => saveCustomStyles({ ...customStyles, body_size: e.target.value })}
-                            className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700 cursor-pointer">
-                            <option value="text-[10px]">Tiny (10px)</option>
-                            <option value="text-xs">Standard (12px)</option>
-                            <option value="text-sm">Comfort (14px)</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* Margins */}
-                      <div className="space-y-1.5">
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide">Sheet Outer Margins</label>
-                        <div className="grid grid-cols-3 gap-1.5">
-                          {[{ label: 'Compact', value: 'p-4' }, { label: 'Cozy', value: 'p-8' }, { label: 'Generous', value: 'p-12' }].map(opt => (
-                            <button key={opt.value} onClick={() => saveCustomStyles({ ...customStyles, padding: opt.value })}
-                              className={`py-1.5 border rounded-lg text-[10px] font-bold cursor-pointer transition-all ${customStyles.padding === opt.value ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-100'}`}>
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Footnote */}
-                      <div className="space-y-1.5">
-                        <div className="flex justify-between items-center">
-                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide">Custom Frame Footnote</label>
-                          <span className="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-1 rounded">Live Edited</span>
-                        </div>
-                        <textarea rows={3} value={customStyles.terms_footer}
-                          onChange={(e) => saveCustomStyles({ ...customStyles, terms_footer: e.target.value })}
-                          placeholder="Thank you for your selection!"
-                          className="w-full bg-white border border-gray-200 rounded-xl p-2.5 text-xs text-gray-800 leading-relaxed font-semibold focus:outline-none focus:ring-1 focus:ring-slate-800" />
-                      </div>
-                    </div>
-                  )}
 
                   {/* RIGHT: Paper canvas */}
                   <div id="preview-stage-container" className="bg-slate-800 p-4 sm:p-8 rounded-2xl flex justify-center items-start overflow-x-auto w-full">
@@ -1765,7 +1792,7 @@ export default function App() {
                         <hr className="border-gray-100 mb-5" />
 
                         {/* Customer block */}
-                        <div className="border border-gray-200 rounded-2xl p-4 mb-6 bg-white">
+                        <div className="print-keep-together border border-gray-200 rounded-2xl p-4 mb-6 bg-white">
                           <span className="text-[8px] font-extrabold text-gray-400 uppercase tracking-widest block mb-2">Bill To Registered Customer</span>
                           <p className="text-sm font-black text-gray-900 mb-0.5">{invoice.Customer_Name}</p>
                           <p className="text-[10.5px] text-gray-500">Mobile / Email: {invoice.Customer_Contact && invoice.Customer_Contact !== '-' ? invoice.Customer_Contact : '-'}</p>
@@ -1778,7 +1805,7 @@ export default function App() {
                         </div>
 
                         {/* Line items table */}
-                        <div className="mb-6 overflow-hidden rounded-xl border border-gray-200">
+                        <div className="print-keep-together mb-6 overflow-hidden rounded-xl border border-gray-200">
                           <table className="w-full text-[11px] border-collapse text-left">
                             <thead>
                               <tr className="text-white text-[10px] font-bold uppercase tracking-wider"
@@ -1809,7 +1836,7 @@ export default function App() {
                         </div>
 
                         {/* Totals + remittance */}
-                        <div className="flex flex-col sm:flex-row justify-between items-start gap-5 mb-8">
+                        <div className="print-keep-together flex flex-col sm:flex-row justify-between items-start gap-5 mb-8">
                           <div className="flex-1 space-y-3 max-w-xs">
                             {invoice.Notes && invoice.Notes.trim() && (
                               <div>
@@ -1864,7 +1891,8 @@ export default function App() {
                   </button>
                 </div>
               </div>
-            </div>
+            </div>,
+            document.body,
           );
         })()
       )}

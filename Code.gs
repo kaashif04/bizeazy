@@ -154,20 +154,26 @@ function fetchDataAll(spreadsheetId) {
     // Payment_Transferred, Transfer_Date) exist before we read row headers.
     initializeDatabase(spreadsheetId);
 
-    var invoicesTab     = ss.getSheetByName("Invoices");
-    var customersTab    = ss.getSheetByName("Patrons") || ss.getSheetByName("Customers");
-    var employeesTab    = ss.getSheetByName("Employees");
-    var payslipsTab     = ss.getSheetByName("Payslips");
-    var invoiceItemsTab = ss.getSheetByName("Invoice_Items");
+    var invoicesTab       = ss.getSheetByName("Invoices");
+    var customersTab      = ss.getSheetByName("Patrons") || ss.getSheetByName("Customers");
+    var employeesTab      = ss.getSheetByName("Employees");
+    var payslipsTab       = ss.getSheetByName("Payslips");
+    var invoiceItemsTab   = ss.getSheetByName("Invoice_Items");
+    var quotationsTab     = ss.getSheetByName("Quotations");
+    var quotationDaysTab  = ss.getSheetByName("Quotation_Days");
+    var quotationItemsTab = ss.getSheetByName("Quotation_Items");
 
     return {
       success: true,
       data: {
-        invoices:      invoicesTab     ? getSheetRowsAsObjects(invoicesTab)     : [],
-        customers:     customersTab    ? getSheetRowsAsObjects(customersTab)    : [],
-        employees:     employeesTab    ? getSheetRowsAsObjects(employeesTab)    : [],
-        payslips:      payslipsTab     ? getSheetRowsAsObjects(payslipsTab)     : [],
-        invoice_items: invoiceItemsTab ? getSheetRowsAsObjects(invoiceItemsTab) : []
+        invoices:        invoicesTab       ? getSheetRowsAsObjects(invoicesTab)       : [],
+        customers:       customersTab      ? getSheetRowsAsObjects(customersTab)      : [],
+        employees:       employeesTab      ? getSheetRowsAsObjects(employeesTab)      : [],
+        payslips:        payslipsTab       ? getSheetRowsAsObjects(payslipsTab)       : [],
+        invoice_items:   invoiceItemsTab   ? getSheetRowsAsObjects(invoiceItemsTab)   : [],
+        quotations:      quotationsTab     ? getSheetRowsAsObjects(quotationsTab)     : [],
+        quotation_days:  quotationDaysTab  ? getSheetRowsAsObjects(quotationDaysTab)  : [],
+        quotation_items: quotationItemsTab ? getSheetRowsAsObjects(quotationItemsTab) : []
       }
     };
   } catch (err) {
@@ -273,6 +279,62 @@ function syncData(payload, spreadsheetId) {
       payslipsSheet.getRange(2, 1, psRows.length, psRows[0].length).setValues(psRows);
     }
 
+    // ── Quotations ──
+    var quotationsSheet = ss.getSheetByName("Quotations");
+    if (quotationsSheet) {
+      if (quotationsSheet.getLastRow() > 1)
+        quotationsSheet.getRange(2, 1, quotationsSheet.getLastRow() - 1, quotationsSheet.getLastColumn()).clearContent();
+      if (payload.quotations && payload.quotations.length > 0) {
+        var qtnRows = payload.quotations.map(function(q) {
+          return [
+            q.Quotation_ID || '', q.Date || '', q.Valid_Until || '', q.Company || 'Bistro',
+            q.Customer_Name || '', q.Customer_Contact || '-', q.Customer_Address || '-',
+            q.Pricing_Mode || 'itemized', q.Package_Sub_Mode || '',
+            Number(q.Flat_Package_Total) || 0, q.Extra_Charges_JSON || '',
+            q.Discount_Type || 'none', Number(q.Discount_Value) || 0,
+            Number(q.Subtotal_Amount) || 0, Number(q.Total_Amount) || 0,
+            q.Catering_Terms || '', q.Notes || '', q.Branch_Location || '',
+            q.Converted_Invoice_ID || ''
+          ];
+        });
+        quotationsSheet.getRange(2, 1, qtnRows.length, qtnRows[0].length).setValues(qtnRows);
+      }
+    }
+
+    // ── Quotation_Days ──
+    var quotationDaysSheet = ss.getSheetByName("Quotation_Days");
+    if (quotationDaysSheet) {
+      if (quotationDaysSheet.getLastRow() > 1)
+        quotationDaysSheet.getRange(2, 1, quotationDaysSheet.getLastRow() - 1, quotationDaysSheet.getLastColumn()).clearContent();
+      if (payload.quotation_days && payload.quotation_days.length > 0) {
+        var dayRows = payload.quotation_days.map(function(d) {
+          return [
+            d.Day_ID || '', d.Quotation_ID || '', d.Event_Date || '',
+            Number(d.Pax) || 0, d.Serving_Style || 'Buffet Setup',
+            Number(d.Day_Package_Rate) || 0
+          ];
+        });
+        quotationDaysSheet.getRange(2, 1, dayRows.length, dayRows[0].length).setValues(dayRows);
+      }
+    }
+
+    // ── Quotation_Items ──
+    var quotationItemsSheet = ss.getSheetByName("Quotation_Items");
+    if (quotationItemsSheet) {
+      if (quotationItemsSheet.getLastRow() > 1)
+        quotationItemsSheet.getRange(2, 1, quotationItemsSheet.getLastRow() - 1, quotationItemsSheet.getLastColumn()).clearContent();
+      if (payload.quotation_items && payload.quotation_items.length > 0) {
+        var qtnItemRows = payload.quotation_items.map(function(it) {
+          return [
+            it.Item_ID || '', it.Quotation_ID || '', it.Day_ID || '',
+            it.Session_Label || '', it.Session_Time || '', it.Item_Name || '',
+            Number(it.Quantity) || 0, Number(it.Price) || 0, Number(it.Subtotal) || 0
+          ];
+        });
+        quotationItemsSheet.getRange(2, 1, qtnItemRows.length, qtnItemRows[0].length).setValues(qtnItemRows);
+      }
+    }
+
     return { success: true };
   } catch (err) {
     return { success: false, error: err.toString() };
@@ -358,6 +420,38 @@ function initializeDatabase(spreadsheetId) {
     ]);
     forceTextColumn(payslipsTab, 3);  // Issue_Date
     forceTextColumn(payslipsTab, 22); // Transfer_Date
+
+    // ── Quotations ──
+    var quotationsTab = ss.getSheetByName("Quotations");
+    if (!quotationsTab) quotationsTab = ss.insertSheet("Quotations");
+    enforceHeaders(quotationsTab, [
+      'Quotation_ID','Date','Valid_Until','Company','Customer_Name',
+      'Customer_Contact','Customer_Address','Pricing_Mode','Package_Sub_Mode',
+      'Flat_Package_Total','Extra_Charges_JSON','Discount_Type','Discount_Value',
+      'Subtotal_Amount','Total_Amount','Catering_Terms','Notes','Branch_Location',
+      'Converted_Invoice_ID'
+    ]);
+    forceTextColumn(quotationsTab, 2); // Date
+    forceTextColumn(quotationsTab, 3); // Valid_Until
+
+    // ── Quotation_Days ──
+    var quotationDaysTab = ss.getSheetByName("Quotation_Days");
+    if (!quotationDaysTab) quotationDaysTab = ss.insertSheet("Quotation_Days");
+    enforceHeaders(quotationDaysTab, [
+      'Day_ID','Quotation_ID','Event_Date','Pax','Serving_Style','Day_Package_Rate'
+    ]);
+    forceTextColumn(quotationDaysTab, 3); // Event_Date
+
+    // ── Quotation_Items ──
+    // Session_Label/Session_Time let a single day have multiple separately-menu'd
+    // sittings (e.g. Breakfast 7:30 AM, Lunch 12:30 PM, Dinner 7:00 PM) each with
+    // its own item list, instead of one flat menu per day.
+    var quotationItemsTab = ss.getSheetByName("Quotation_Items");
+    if (!quotationItemsTab) quotationItemsTab = ss.insertSheet("Quotation_Items");
+    enforceHeaders(quotationItemsTab, [
+      'Item_ID','Quotation_ID','Day_ID','Session_Label','Session_Time',
+      'Item_Name','Quantity','Price','Subtotal'
+    ]);
 
     return { success: true };
   } catch (err) {

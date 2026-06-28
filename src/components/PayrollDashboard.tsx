@@ -1220,8 +1220,8 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                   className={`w-full px-2.5 py-2 text-xs rounded-lg border
                     focus:outline-none focus:ring-1 focus:ring-indigo-500
                     ${isDarkMode
-                      ? 'bg-slate-900 border-slate-700 text-slate-100'
-                      : 'bg-white border-gray-200 text-gray-800'}`}
+                      ? 'bg-slate-900 border-slate-700 text-slate-100 [color-scheme:dark]'
+                      : 'bg-white border-gray-200 text-gray-800 [color-scheme:light]'}`}
                 />
                 <p className="text-[9px] text-slate-400 mt-0.5">
                   Used to calculate first payslip eligibility
@@ -1968,8 +1968,8 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                 className={`w-full px-3 py-2 text-sm rounded-lg border
                   focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
                   isDarkMode
-                    ? 'bg-slate-800 border-slate-700 text-slate-100'
-                    : 'bg-gray-50 border-gray-200 text-gray-900'
+                    ? 'bg-slate-800 border-slate-700 text-slate-100 [color-scheme:dark]'
+                    : 'bg-gray-50 border-gray-200 text-gray-900 [color-scheme:light]'
                 }`}
               />
               <p className="text-[9px] text-slate-400 mt-1">

@@ -22,7 +22,8 @@ import {
 } from 'firebase/auth';
 import {
   DatabaseState, Invoice, InvoiceItem,
-  Customer, CompanyProfile, Employee, Payslip
+  Customer, CompanyProfile, Employee, Payslip,
+  Quotation, QuotationDay, QuotationItem, PricingMode, PackageSubMode, ServingStyle
 } from './types';
 import firebaseConfig from '../firebase-applet-config.json';
 
@@ -427,14 +428,63 @@ export const fetchDataAll = async (
     };
   }).filter((p: any) => p.Payslip_ID);
 
+  // ── Quotations + nested days/items ────────────────────────
+  const rawQuotations = json.data?.quotations || [];
+  let quotations: Quotation[] = rawQuotations.map((row: any) => ({
+    Quotation_ID:       String(row.Quotation_ID || ''),
+    Date:               String(row.Date || ''),
+    Valid_Until:        row.Valid_Until ? String(row.Valid_Until) : undefined,
+    Company:            (row.Company === 'Nasi Kandar' ? 'Nasi Kandar' : 'Bistro') as 'Bistro' | 'Nasi Kandar',
+    Customer_Name:      String(row.Customer_Name || ''),
+    Customer_Contact:   String(row.Customer_Contact || '-'),
+    Customer_Address:   String(row.Customer_Address || '-'),
+    Pricing_Mode:       (row.Pricing_Mode === 'package' ? 'package' : 'itemized') as PricingMode,
+    Package_Sub_Mode:   (row.Package_Sub_Mode === 'flat_total' ? 'flat_total' : row.Package_Sub_Mode === 'per_day' ? 'per_day' : undefined) as PackageSubMode | undefined,
+    Flat_Package_Total: Number(row.Flat_Package_Total) || 0,
+    Extra_Charges_JSON: String(row.Extra_Charges_JSON || ''),
+    Discount_Type:      (row.Discount_Type as 'none' | 'percentage' | 'fixed') || 'none',
+    Discount_Value:     Number(row.Discount_Value) || 0,
+    Subtotal_Amount:    Number(row.Subtotal_Amount) || 0,
+    Total_Amount:       Number(row.Total_Amount) || 0,
+    Catering_Terms:     String(row.Catering_Terms || ''),
+    Notes:              String(row.Notes || ''),
+    Branch_Location:    String(row.Branch_Location || ''),
+    Converted_Invoice_ID: row.Converted_Invoice_ID ? String(row.Converted_Invoice_ID) : undefined,
+  })).filter((q: any) => q.Quotation_ID);
+
+  const rawQuotationDays = json.data?.quotation_days || [];
+  let quotation_days: QuotationDay[] = rawQuotationDays.map((row: any) => ({
+    Day_ID:                String(row.Day_ID || ''),
+    Quotation_ID:          String(row.Quotation_ID || ''),
+    Event_Date:            String(row.Event_Date || ''),
+    Pax:                   Number(row.Pax) || 0,
+    Serving_Style:         (['Packed Bento Boxes', 'Buffet Setup', 'Dome Serving'].includes(row.Serving_Style) ? row.Serving_Style : 'Buffet Setup') as ServingStyle,
+    Day_Package_Rate:      Number(row.Day_Package_Rate) || 0,
+  })).filter((d: any) => d.Day_ID);
+
+  const rawQuotationItems = json.data?.quotation_items || [];
+  let quotation_items: QuotationItem[] = rawQuotationItems.map((row: any) => ({
+    Item_ID:      String(row.Item_ID || ''),
+    Quotation_ID: String(row.Quotation_ID || ''),
+    Day_ID:       String(row.Day_ID || ''),
+    Session_Label: String(row.Session_Label || ''),
+    Session_Time:  String(row.Session_Time || ''),
+    Item_Name:    String(row.Item_Name || ''),
+    Quantity:     Number(row.Quantity) || 0,
+    Price:        Number(row.Price) || 0,
+    Subtotal:     Number(row.Subtotal) || 0,
+  })).filter((it: any) => it.Item_ID);
+
   // ── Branch filter (if provided) ──────────────────────────
   if (branchFilter) {
     invoices     = invoices.filter(i  => (i.Branch_Location  || '').toLowerCase() === branchFilter.toLowerCase());
     customers    = customers.filter(c  => (c.Branch_Location  || '').toLowerCase() === branchFilter.toLowerCase());
     employees    = employees.filter(e  => (e.Branch_Location  || '').toLowerCase() === branchFilter.toLowerCase());
     payslips     = payslips.filter(p   => (p.Branch_Location  || '').toLowerCase() === branchFilter.toLowerCase());
-    // DO NOT filter invoice_items by branch — they don't have Branch_Location
-    // They are linked to invoices by Invoice_ID which is already filtered above
+    quotations   = quotations.filter(q => (q.Branch_Location  || '').toLowerCase() === branchFilter.toLowerCase());
+    // DO NOT filter invoice_items / quotation_days / quotation_items by branch —
+    // they don't have Branch_Location of their own. They're linked to their
+    // parent (Invoice_ID / Quotation_ID) which is already filtered above.
   }
 
   // ── Merge localStorage extras (fields not persisted by the Apps Script) ──
@@ -459,7 +509,7 @@ export const fetchDataAll = async (
     }
   }
 
-  return { invoices, invoice_items, customers, employees, payslips, profiles: [] };
+  return { invoices, invoice_items, customers, employees, payslips, quotations, quotation_days, quotation_items, profiles: [] };
 };
 
 // ── localStorage helpers for fields not yet in the Apps Script schema ────────
@@ -495,10 +545,11 @@ export const syncStateToSheets = async (
   profiles?: CompanyProfile[],
   activeBranchLocation?: string
 ): Promise<void> => {
-  let allInvoices: any[]  = [];
-  let allCustomers: any[] = [];
-  let allEmployees: any[] = [];
-  let allPayslips: any[]  = [];
+  let allInvoices: any[]   = [];
+  let allCustomers: any[]  = [];
+  let allEmployees: any[]  = [];
+  let allPayslips: any[]   = [];
+  let allQuotations: any[] = [];
 
   const targetBranch = activeBranchLocation || 'A1 Bistro';
 
@@ -509,20 +560,22 @@ export const syncStateToSheets = async (
     if (res.ok) {
       const json = await res.json();
       if (json?.success) {
-        allInvoices  = json.data?.invoices  || [];
-        allCustomers = json.data?.customers || [];
-        allEmployees = json.data?.employees || [];
-        allPayslips  = json.data?.payslips  || [];
+        allInvoices   = json.data?.invoices    || [];
+        allCustomers  = json.data?.customers   || [];
+        allEmployees  = json.data?.employees   || [];
+        allPayslips   = json.data?.payslips    || [];
+        allQuotations = json.data?.quotations  || [];
       }
     }
   } catch (err) {
     console.warn('Could not fetch old sheet records for merge:', err);
   }
 
-  const otherInvoices  = allInvoices.filter(i  => (i.Branch_Location  || '').toLowerCase() !== targetBranch.toLowerCase());
-  const otherCustomers = allCustomers.filter(c  => (c.Branch_Location  || '').toLowerCase() !== targetBranch.toLowerCase());
-  const otherEmployees = allEmployees.filter(e  => (e.Branch_Location  || '').toLowerCase() !== targetBranch.toLowerCase());
-  const otherPayslips  = allPayslips.filter(p   => (p.Branch_Location  || '').toLowerCase() !== targetBranch.toLowerCase());
+  const otherInvoices   = allInvoices.filter(i  => (i.Branch_Location  || '').toLowerCase() !== targetBranch.toLowerCase());
+  const otherCustomers  = allCustomers.filter(c  => (c.Branch_Location  || '').toLowerCase() !== targetBranch.toLowerCase());
+  const otherEmployees  = allEmployees.filter(e  => (e.Branch_Location  || '').toLowerCase() !== targetBranch.toLowerCase());
+  const otherPayslips   = allPayslips.filter(p   => (p.Branch_Location  || '').toLowerCase() !== targetBranch.toLowerCase());
+  const otherQuotations = allQuotations.filter(q => (q.Branch_Location || '').toLowerCase() !== targetBranch.toLowerCase());
 
   const currentInvoicesFormatted = db.invoices.map(inv => {
     let companyName: string = inv.Company;
@@ -586,6 +639,35 @@ export const syncStateToSheets = async (
   const currentItemsFormatted = db.invoice_items?.map(item => ({
     Item_ID: item.Item_ID, Invoice_ID: item.Invoice_ID, Item_Name: item.Item_Name,
     Quantity: item.Quantity, Price: item.Price, Subtotal: item.Subtotal
+  })) || [];
+
+  const currentQuotationsFormatted = db.quotations?.map(q => ({
+    Quotation_ID: q.Quotation_ID, Date: q.Date, Valid_Until: q.Valid_Until || '',
+    Company: q.Company, Customer_Name: q.Customer_Name,
+    Customer_Contact: q.Customer_Contact || '-', Customer_Address: q.Customer_Address || '-',
+    Pricing_Mode: q.Pricing_Mode, Package_Sub_Mode: q.Package_Sub_Mode || '',
+    Flat_Package_Total: q.Flat_Package_Total || 0,
+    Extra_Charges_JSON: q.Extra_Charges_JSON || '',
+    Discount_Type: q.Discount_Type || 'none', Discount_Value: q.Discount_Value || 0,
+    Subtotal_Amount: q.Subtotal_Amount || q.Total_Amount,
+    Total_Amount: q.Total_Amount,
+    Catering_Terms: q.Catering_Terms || '', Notes: q.Notes || '',
+    Branch_Location: targetBranch,
+    Converted_Invoice_ID: q.Converted_Invoice_ID || '',
+  })) || [];
+
+  // quotation_days / quotation_items have no Branch_Location of their own — they ride
+  // along via their parent Quotation_ID, so the in-memory arrays already span every
+  // branch and are sent as-is (same approach already used for invoice_items above).
+  const currentQuotationDaysFormatted = db.quotation_days?.map(d => ({
+    Day_ID: d.Day_ID, Quotation_ID: d.Quotation_ID, Event_Date: d.Event_Date,
+    Pax: d.Pax, Serving_Style: d.Serving_Style, Day_Package_Rate: d.Day_Package_Rate || 0,
+  })) || [];
+
+  const currentQuotationItemsFormatted = db.quotation_items?.map(it => ({
+    Item_ID: it.Item_ID, Quotation_ID: it.Quotation_ID, Day_ID: it.Day_ID,
+    Session_Label: it.Session_Label || '', Session_Time: it.Session_Time || '',
+    Item_Name: it.Item_Name, Quantity: it.Quantity, Price: it.Price, Subtotal: it.Subtotal,
   })) || [];
 
   // Normalise other-branch rows so they have the same keys as the current-branch rows.
@@ -658,17 +740,35 @@ export const syncStateToSheets = async (
     };
   });
 
+  const normalizedOtherQuotations = otherQuotations.map((q: any) => ({
+    Quotation_ID: q.Quotation_ID || '', Date: q.Date || '', Valid_Until: q.Valid_Until || '',
+    Company: q.Company || 'Bistro', Customer_Name: q.Customer_Name || '',
+    Customer_Contact: q.Customer_Contact || '-', Customer_Address: q.Customer_Address || '-',
+    Pricing_Mode: q.Pricing_Mode || 'itemized', Package_Sub_Mode: q.Package_Sub_Mode || '',
+    Flat_Package_Total: q.Flat_Package_Total || 0,
+    Extra_Charges_JSON: q.Extra_Charges_JSON || '',
+    Discount_Type: q.Discount_Type || 'none', Discount_Value: q.Discount_Value || 0,
+    Subtotal_Amount: q.Subtotal_Amount || q.Total_Amount || 0,
+    Total_Amount: q.Total_Amount || 0,
+    Catering_Terms: q.Catering_Terms || '', Notes: q.Notes || '',
+    Branch_Location: q.Branch_Location || '',
+    Converted_Invoice_ID: q.Converted_Invoice_ID || '',
+  }));
+
   const payload = {
     action: 'syncData',
     spreadsheetId,
     db: {
       // Current-branch rows go FIRST so Apps Scripts that derive column headers from
       // the first row will always see the full schema including new fields.
-      invoices:      [...currentInvoicesFormatted,  ...otherInvoices],
-      customers:     [...currentCustomersFormatted, ...otherCustomers],
-      employees:     [...currentEmployeesFormatted, ...normalizedOtherEmployees],
-      payslips:      [...currentPayslipsFormatted,  ...normalizedOtherPayslips],
-      invoice_items: currentItemsFormatted
+      invoices:        [...currentInvoicesFormatted,   ...otherInvoices],
+      customers:       [...currentCustomersFormatted,  ...otherCustomers],
+      employees:       [...currentEmployeesFormatted,  ...normalizedOtherEmployees],
+      payslips:        [...currentPayslipsFormatted,   ...normalizedOtherPayslips],
+      invoice_items:   currentItemsFormatted,
+      quotations:      [...currentQuotationsFormatted, ...normalizedOtherQuotations],
+      quotation_days:  currentQuotationDaysFormatted,
+      quotation_items: currentQuotationItemsFormatted,
     }
   };
 
