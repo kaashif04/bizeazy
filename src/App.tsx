@@ -1631,14 +1631,6 @@ export default function App() {
                    this. No scale-down transform here: shrinking the whole page to fit a phone
                    screen made every line of text microscopic. Only @media print forces the
                    literal 210mm size. */
-                @media screen and (max-width: 767px) {
-                  #preview-stage-container {
-                    display: block !important;
-                    overflow-x: hidden !important;
-                    padding-left: 0 !important;
-                    padding-right: 0 !important;
-                  }
-                }
               `}} />
 
               <div id="preview-studio-dialog" className="bg-gray-100 text-slate-900 w-full max-w-6xl rounded-2xl shadow-2xl flex flex-col overflow-hidden text-left h-[90vh]">
@@ -1669,11 +1661,13 @@ export default function App() {
                 {/* Body */}
                 <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
 
-                  {/* RIGHT: Paper canvas */}
-                  <div id="preview-stage-container" className="bg-slate-800 p-4 sm:p-8 rounded-2xl flex justify-center items-start overflow-x-auto w-full">
+                  {/* RIGHT: Paper canvas — no flex here on purpose; margin:auto on the page
+                      itself centers it reliably on every browser without depending on any
+                      flexbox cross-axis sizing behavior. */}
+                  <div id="preview-stage-container" className="bg-slate-800 p-2 sm:p-8 rounded-2xl overflow-auto w-full">
                     <div
                       id="invoice-print-area"
-                      className={`bg-white w-full max-w-[210mm] text-gray-800 shadow-2xl relative min-h-[297mm] flex flex-col justify-between transition-all border border-gray-300 ${customStyles.padding || 'p-8'} ${customStyles.body_size || 'text-xs'}`}
+                      className={`bg-white w-full max-w-[210mm] mx-auto text-gray-800 shadow-2xl relative min-h-[297mm] flex flex-col justify-between transition-all border border-gray-300 ${customStyles.padding || 'p-8'} ${customStyles.body_size || 'text-xs'}`}
                       style={{
                         borderColor: customStyles.primary_color,
                         fontFamily: customStyles.font_family === 'Space Grotesk' ? '"Space Grotesk", sans-serif' :

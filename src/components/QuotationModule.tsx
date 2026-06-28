@@ -267,17 +267,6 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
            vertically — the Tailwind classes (w-full max-w-[210mm]) already do this. No
            scale-down transform here: shrinking the whole page to fit a phone screen made
            every line of text microscopic. Only @media print forces the literal 210mm size. */
-        @media screen and (max-width: 767px) {
-          /* flex+justify-center can leave a 100%-width child mis-sized on some mobile
-             browsers in deeply nested flex contexts — drop to plain block flow on small
-             screens so the paper reliably fills the screen with no side gap or overflow. */
-          #quotation-stage-container {
-            display: block !important;
-            overflow-x: hidden !important;
-            padding-left: 0 !important;
-            padding-right: 0 !important;
-          }
-        }
       `}} />
 
       <div id="quotation-preview-dialog" className="bg-gray-100 text-slate-900 w-full max-w-5xl rounded-2xl shadow-2xl flex flex-col overflow-hidden text-left h-[90vh]">
@@ -301,11 +290,13 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
           </div>
         </div>
 
-        {/* Paper canvas */}
-        <div id="quotation-stage-container" className="flex-1 bg-slate-800 p-4 sm:p-8 flex justify-center items-start overflow-auto w-full">
+        {/* Paper canvas — no flex here on purpose; margin:auto on the page itself centers
+            it reliably on every browser without depending on any flexbox cross-axis sizing
+            behavior, which is what was leaving a side gap on real mobile browsers. */}
+        <div id="quotation-stage-container" className="flex-1 bg-slate-800 p-2 sm:p-8 overflow-auto w-full">
           <div
             id="quotation-print-area"
-            className={`bg-white w-full max-w-[210mm] text-gray-800 shadow-2xl relative min-h-[297mm] flex flex-col justify-between border border-gray-300 ${customStyles.padding || 'p-8'} ${customStyles.body_size || 'text-xs'}`}
+            className={`bg-white w-full max-w-[210mm] mx-auto text-gray-800 shadow-2xl relative min-h-[297mm] flex flex-col justify-between border border-gray-300 ${customStyles.padding || 'p-8'} ${customStyles.body_size || 'text-xs'}`}
             style={{ borderColor: accent, fontFamily: fontFamilyCss(customStyles.font_family) }}
           >
             <div>
@@ -540,17 +531,6 @@ function KitchenSheetModal({ data, onClose }: { data: PreviewData; onClose: () =
            vertically — the Tailwind classes (w-full max-w-[210mm]) already do this. No
            scale-down transform here: shrinking the whole page to fit a phone screen made
            every line of text microscopic. Only @media print forces the literal 210mm size. */
-        @media screen and (max-width: 767px) {
-          /* flex+justify-center can leave a 100%-width child mis-sized on some mobile
-             browsers in deeply nested flex contexts — drop to plain block flow on small
-             screens so the sheet reliably fills the screen with no side gap or overflow. */
-          #kitchen-sheet-stage {
-            display: block !important;
-            overflow-x: hidden !important;
-            padding-left: 0 !important;
-            padding-right: 0 !important;
-          }
-        }
       `}} />
 
       <div id="kitchen-sheet-dialog" className="bg-gray-100 text-slate-900 w-full max-w-5xl rounded-2xl shadow-2xl flex flex-col overflow-hidden text-left h-[90vh]">
@@ -573,10 +553,11 @@ function KitchenSheetModal({ data, onClose }: { data: PreviewData; onClose: () =
           </div>
         </div>
 
-        <div id="kitchen-sheet-stage" className="flex-1 bg-slate-800 p-4 sm:p-8 flex justify-center items-start overflow-auto w-full">
+        {/* No flex here on purpose — see Quotation preview for why */}
+        <div id="kitchen-sheet-stage" className="flex-1 bg-slate-800 p-2 sm:p-8 overflow-auto w-full">
           <div
             id="kitchen-sheet-print-area"
-            className="bg-white w-full max-w-[210mm] text-gray-900 shadow-2xl relative min-h-[297mm] flex flex-col border border-gray-300 p-8 text-xs"
+            className="bg-white w-full max-w-[210mm] mx-auto text-gray-900 shadow-2xl relative min-h-[297mm] flex flex-col border border-gray-300 p-8 text-xs"
             style={{ fontFamily: fontFamilyCss(customStyles.font_family) }}
           >
             <div>
