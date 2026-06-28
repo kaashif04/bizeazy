@@ -1761,22 +1761,22 @@ export default function App() {
 
                         {/* Line items table */}
                         <div className="print-keep-together mb-6 overflow-hidden rounded-xl border border-gray-200">
-                          <table className="w-full text-[11px] border-collapse text-left">
+                          <table className="w-full table-fixed text-[11px] border-collapse text-left">
                             <thead>
                               <tr className="text-white text-[10px] font-bold uppercase tracking-wider"
                                 style={{ backgroundColor: customStyles.primary_color }}>
-                                <th className="py-2.5 px-3">#</th>
+                                <th className="py-2.5 px-3 w-8">#</th>
                                 <th className="py-2.5 px-2">Item Description</th>
-                                <th className="py-2.5 px-2 text-right">Unit Price</th>
-                                <th className="py-2.5 px-2 text-center">Qty</th>
-                                <th className="py-2.5 px-3 text-right">Subtotal</th>
+                                <th className="py-2.5 px-2 text-right w-20">Unit Price</th>
+                                <th className="py-2.5 px-2 text-center w-14">Qty</th>
+                                <th className="py-2.5 px-3 text-right w-20">Subtotal</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                               {items.length > 0 ? items.map((item, idx) => (
                                 <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
                                   <td className="py-2.5 px-3 text-gray-400 font-mono">{idx + 1}</td>
-                                  <td className="py-2.5 px-2 font-semibold text-gray-900">{item.Item_Name}</td>
+                                  <td className="py-2.5 px-2 font-semibold text-gray-900 break-words">{item.Item_Name}</td>
                                   <td className="py-2.5 px-2 text-right font-mono text-gray-600">{item.Price === 0 ? <span className="text-emerald-600 font-extrabold">FREE</span> : `${currencySymbol} ${item.Price.toFixed(2)}`}</td>
                                   <td className="py-2.5 px-2 text-center font-mono text-gray-600">{item.Quantity}</td>
                                   <td className="py-2.5 px-3 text-right font-bold text-gray-900 font-mono">{(item.Subtotal ?? 0) === 0 ? <span className="text-emerald-600 font-extrabold">FREE</span> : `${currencySymbol} ${(item.Subtotal ?? item.Quantity * item.Price).toFixed(2)}`}</td>

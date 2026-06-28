@@ -267,6 +267,17 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
            vertically — the Tailwind classes (w-full max-w-[210mm]) already do this. No
            scale-down transform here: shrinking the whole page to fit a phone screen made
            every line of text microscopic. Only @media print forces the literal 210mm size. */
+        @media screen and (max-width: 767px) {
+          /* flex+justify-center can leave a 100%-width child mis-sized on some mobile
+             browsers in deeply nested flex contexts — drop to plain block flow on small
+             screens so the paper reliably fills the screen with no side gap or overflow. */
+          #quotation-stage-container {
+            display: block !important;
+            overflow-x: hidden !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+          }
+        }
       `}} />
 
       <div id="quotation-preview-dialog" className="bg-gray-100 text-slate-900 w-full max-w-5xl rounded-2xl shadow-2xl flex flex-col overflow-hidden text-left h-[90vh]">
@@ -405,7 +416,7 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
                                 {group.time && <span className="text-[10px] font-bold text-gray-700">{group.time}</span>}
                               </div>
                             )}
-                            <table className="w-full text-[10.5px] border-collapse">
+                            <table className="w-full table-fixed text-[10.5px] border-collapse">
                               <thead>
                                 <tr className="bg-gray-50 text-gray-500 text-[9px] font-bold uppercase tracking-wide">
                                   <th className="py-1.5 px-3 text-left">Menu Item</th>
@@ -417,7 +428,7 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
                               <tbody className="divide-y divide-gray-100">
                                 {group.rows.map(it => (
                                   <tr key={it.Item_ID}>
-                                    <td className="py-1.5 px-3 font-medium text-gray-800">{it.Item_Name}</td>
+                                    <td className="py-1.5 px-3 font-medium text-gray-800 break-words">{it.Item_Name}</td>
                                     <td className="py-1.5 px-2 text-center text-gray-600">{it.Quantity}</td>
                                     {quotation.Pricing_Mode === 'itemized' && <td className="py-1.5 px-2 text-right text-gray-600 font-mono">{currency} {it.Price.toFixed(2)}</td>}
                                     {quotation.Pricing_Mode === 'itemized' && <td className="py-1.5 px-3 text-right font-bold text-gray-900 font-mono">{currency} {(it.Subtotal || it.Quantity * it.Price).toFixed(2)}</td>}
@@ -529,6 +540,17 @@ function KitchenSheetModal({ data, onClose }: { data: PreviewData; onClose: () =
            vertically — the Tailwind classes (w-full max-w-[210mm]) already do this. No
            scale-down transform here: shrinking the whole page to fit a phone screen made
            every line of text microscopic. Only @media print forces the literal 210mm size. */
+        @media screen and (max-width: 767px) {
+          /* flex+justify-center can leave a 100%-width child mis-sized on some mobile
+             browsers in deeply nested flex contexts — drop to plain block flow on small
+             screens so the sheet reliably fills the screen with no side gap or overflow. */
+          #kitchen-sheet-stage {
+            display: block !important;
+            overflow-x: hidden !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+          }
+        }
       `}} />
 
       <div id="kitchen-sheet-dialog" className="bg-gray-100 text-slate-900 w-full max-w-5xl rounded-2xl shadow-2xl flex flex-col overflow-hidden text-left h-[90vh]">
@@ -621,7 +643,7 @@ function KitchenSheetModal({ data, onClose }: { data: PreviewData; onClose: () =
                             <span className="text-[11px] font-extrabold uppercase tracking-wide" style={{ color: accent }}>{group.label || 'Session'}</span>
                             {group.time && <span className="text-[10px] font-bold text-gray-700">{group.time}</span>}
                           </div>
-                          <table className="w-full text-[11px] border-collapse">
+                          <table className="w-full table-fixed text-[11px] border-collapse">
                             <thead>
                               <tr className="bg-gray-50 text-gray-500 text-[9px] font-bold uppercase tracking-wide">
                                 <th className="py-1.5 px-3 text-left">Menu Item</th>
@@ -631,7 +653,7 @@ function KitchenSheetModal({ data, onClose }: { data: PreviewData; onClose: () =
                             <tbody className="divide-y divide-gray-100">
                               {group.rows.map(it => (
                                 <tr key={it.Item_ID}>
-                                  <td className="py-1.5 px-3 font-semibold text-gray-900">{it.Item_Name}</td>
+                                  <td className="py-1.5 px-3 font-semibold text-gray-900 break-words">{it.Item_Name}</td>
                                   <td className="py-1.5 px-3 text-right font-mono font-bold text-gray-700">{it.Quantity}</td>
                                 </tr>
                               ))}
