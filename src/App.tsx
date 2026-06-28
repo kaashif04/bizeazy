@@ -1667,7 +1667,7 @@ export default function App() {
                   <div id="preview-stage-container" className="bg-slate-800 p-2 sm:p-8 rounded-2xl overflow-auto w-full">
                     <div
                       id="invoice-print-area"
-                      className={`bg-white w-full max-w-[210mm] mx-auto text-gray-800 shadow-2xl relative overflow-hidden min-h-[297mm] flex flex-col justify-between transition-all border border-gray-300 ${customStyles.padding || 'p-8'} ${customStyles.body_size || 'text-xs'}`}
+                      className={`@container bg-white w-full max-w-[210mm] mx-auto text-gray-800 shadow-2xl relative overflow-hidden min-h-[297mm] flex flex-col justify-between transition-all border border-gray-300 ${customStyles.padding || 'p-8'} ${customStyles.body_size || 'text-xs'}`}
                       style={{
                         borderColor: customStyles.primary_color,
                         fontFamily: customStyles.font_family === 'Space Grotesk' ? '"Space Grotesk", sans-serif' :
@@ -1687,15 +1687,19 @@ export default function App() {
                           </div>
                         )}
 
-                        {/* Header: logo + company + address. Always stacked on narrow
-                            phones — there isn't enough width to fit a company name AND a
-                            full address side-by-side without squeezing one into an
-                            unreadable vertical ladder. The chosen layout_order only
-                            applies from the sm: breakpoint up. */}
-                        <div className={`mt-4 flex flex-col items-center text-center gap-3 mb-6 sm:gap-4 ${
-                          customStyles.layout_order === 'logo-right' ? 'sm:flex-row-reverse sm:justify-between sm:items-start sm:text-left' :
-                          customStyles.layout_order === 'stacked' ? 'sm:flex-col sm:items-center sm:justify-center sm:text-center' :
-                          'sm:flex-row sm:justify-between sm:items-start sm:text-left'
+                        {/* Header: logo + company + address. Uses a CONTAINER query (@lg,
+                            keyed off this page's own rendered width via @container above)
+                            rather than a viewport media query — @media (min-width) during
+                            print evaluates against the device's screen, not the printed A4
+                            page, which made mobile print diverge from desktop. A container
+                            query instead reads this element's own width, which is genuinely
+                            210mm during print regardless of device, so print/desktop always
+                            render this row layout; only the on-screen mobile preview (where
+                            this element is actually narrow) gets the stacked version. */}
+                        <div className={`mt-4 flex flex-col items-center text-center gap-3 mb-6 @lg:gap-4 ${
+                          customStyles.layout_order === 'logo-right' ? '@lg:flex-row-reverse @lg:justify-between @lg:items-start @lg:text-left' :
+                          customStyles.layout_order === 'stacked' ? '@lg:flex-col @lg:items-center @lg:justify-center @lg:text-center' :
+                          '@lg:flex-row @lg:justify-between @lg:items-start @lg:text-left'
                         }`}>
                           <div className={`flex gap-4 items-center min-w-0 ${customStyles.layout_order === 'stacked' ? 'flex-col' : 'flex-row'}`}>
                             {profile?.logo_url && (profile.logo_url.startsWith('http') || profile.logo_url.startsWith('data:image')) ? (
@@ -1720,10 +1724,9 @@ export default function App() {
                           {/* min-w-0 (not shrink-0) lets this wrap instead of forcing the
                               header row wider than the page — flex items default to a
                               content-based minimum width that ignores normal text wrapping
-                              unless this is set. Centered + full-width on mobile; reverts to
-                              the chosen layout's side-aligned, width-capped column from sm: up. */}
-                          <div className={`text-[10px] text-gray-500 leading-relaxed space-y-0.5 min-w-0 break-words text-center sm:max-w-[55%] ${
-                            customStyles.layout_order === 'logo-right' ? 'sm:text-left' : customStyles.layout_order === 'stacked' ? 'sm:text-center' : 'sm:text-right'
+                              unless this is set. */}
+                          <div className={`text-[10px] text-gray-500 leading-relaxed space-y-0.5 min-w-0 break-words text-center @lg:max-w-[55%] ${
+                            customStyles.layout_order === 'logo-right' ? '@lg:text-left' : customStyles.layout_order === 'stacked' ? '@lg:text-center' : '@lg:text-right'
                           }`}>
                             <p className="font-semibold text-gray-700">{profile?.address}</p>
                             <p>Contact: {profile?.phone} | {profile?.email}</p>
@@ -1795,21 +1798,22 @@ export default function App() {
                           </table>
                         </div>
 
-                        {/* Totals + remittance */}
-                        <div className="print-keep-together flex flex-col sm:flex-row justify-between items-start gap-5 mb-8">
-                          <div className="flex-1 space-y-3 max-w-xs">
+                        {/* Totals + remittance — @lg container query (see header above for
+                            why container query, not sm: viewport breakpoint). */}
+                        <div className="print-keep-together flex flex-col @lg:flex-row justify-between items-start gap-5 mb-8">
+                          <div className="flex-1 min-w-0 w-full space-y-3 @lg:max-w-xs">
                             {invoice.Notes && invoice.Notes.trim() && (
                               <div>
                                 <span className="text-[8px] font-extrabold text-gray-400 uppercase tracking-widest block mb-1">Remarks / Notes</span>
-                                <p className="text-[10.5px] text-gray-600 leading-relaxed">{invoice.Notes}</p>
+                                <p className="text-[10.5px] text-gray-600 leading-relaxed break-words">{invoice.Notes}</p>
                               </div>
                             )}
                             <div>
                               <span className="text-[8px] font-extrabold text-gray-400 uppercase tracking-widest block mb-1">Remittance Instructions</span>
-                              <p className="text-[11px] text-slate-800 font-bold">{profile?.payment_info || 'Direct cash settlement before collection.'}</p>
+                              <p className="text-[11px] text-slate-800 font-bold break-words">{profile?.payment_info || 'Direct cash settlement before collection.'}</p>
                             </div>
                           </div>
-                          <div className="w-full sm:w-[230px] border border-gray-200 rounded-xl p-4 bg-white space-y-2.5 shrink-0">
+                          <div className="w-full @lg:w-[230px] border border-gray-200 rounded-xl p-4 bg-white space-y-2.5 shrink-0">
                             <div className="flex justify-between items-center text-[11px]">
                               <span className="text-gray-500">Subtotal Amount:</span>
                               <span className="font-mono font-semibold text-gray-800">{currencySymbol} {(invoice.Subtotal_Amount ?? invoice.Total_Amount).toFixed(2)}</span>
