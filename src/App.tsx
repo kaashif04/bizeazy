@@ -6,7 +6,7 @@ import {
   fetchDataAll, syncStateToSheets, setApiUrl, getApiUrl,
   fetchAppConfigFromAppsScript, saveAppConfigToAppsScript,
 } from './sheetsService';
-import { DatabaseState, CompanyProfile, TemplateCustomization } from './types';
+import { DatabaseState, CompanyProfile, TemplateCustomization, InvoiceItem } from './types';
 import { PayrollDashboard } from './components/PayrollDashboard';
 import InvoicingModule from './components/InvoicingModule';
 import QuotationModule from './components/QuotationModule';
@@ -24,6 +24,52 @@ interface Toast {
   id: string;
   message: string;
   type: 'success' | 'error' | 'warning' | 'info';
+}
+
+// ─── Invoice item grouping (for quotation-converted invoices) ──────────────────
+// Invoices converted from a quotation store each line as a single flat string:
+//   "<Event Date> (<Session>): <Item Name>"   e.g. "Monday, 27 July 2026 (Breakfast): Capati"
+// (see buildConvertedInvoiceItems in QuotationModule). This helper parses that
+// structure back out so the invoice preview/print can render the same neat
+// day → session → items layout as the quotation, instead of one long flat table.
+// Lines that don't carry a date prefix (extra charges like Delivery/Packaging,
+// package rows, or plain manually-entered items) fall into `ungrouped` and are
+// rendered as-is — so ordinary invoices look exactly as before.
+interface GroupedSession { label: string; rows: InvoiceItem[]; }
+interface GroupedDay { dayLabel: string; sessions: GroupedSession[]; total: number; }
+
+function groupInvoiceItemsByDay(items: InvoiceItem[]): { grouped: GroupedDay[]; ungrouped: InvoiceItem[] } {
+  const grouped: GroupedDay[] = [];
+  const ungrouped: InvoiceItem[] = [];
+
+  items.forEach(item => {
+    const full = String(item.Item_Name || '');
+    const colonIdx = full.indexOf(': ');
+    if (colonIdx === -1) { ungrouped.push(item); return; }
+
+    const prefix = full.slice(0, colonIdx);          // "Monday, 27 July 2026 (Breakfast)"
+    const namePart = full.slice(colonIdx + 2);        // "Capati"
+    const m = prefix.match(/^(.*?)\s*\(([^)]*)\)\s*$/);
+    const dayLabel = (m ? m[1] : prefix).trim();
+    const sessionLabel = m ? m[2].trim() : '';
+
+    // Only treat as a day group if the prefix looks like a real date (has a
+    // 4-digit year) — this keeps normal items like "Deposit: 50%" ungrouped.
+    if (!/\d{4}/.test(dayLabel)) { ungrouped.push(item); return; }
+
+    const rowItem: InvoiceItem = { ...item, Item_Name: namePart };
+    const lineTotal = Number(item.Subtotal ?? (item.Quantity * item.Price)) || 0;
+
+    let day = grouped.find(d => d.dayLabel === dayLabel);
+    if (!day) { day = { dayLabel, sessions: [], total: 0 }; grouped.push(day); }
+    day.total += lineTotal;
+
+    let sess = day.sessions.find(s => s.label === sessionLabel);
+    if (!sess) { sess = { label: sessionLabel, rows: [] }; day.sessions.push(sess); }
+    sess.rows.push(rowItem);
+  });
+
+  return { grouped, ungrouped };
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -1767,36 +1813,112 @@ export default function App() {
                           )}
                         </div>
 
-                        {/* Line items table */}
-                        <div className="print-keep-together mb-6 overflow-hidden rounded-xl border border-gray-200">
-                          <table className="w-full table-fixed text-[11px] border-collapse text-left">
+                        {/* Line items. Quotation-converted invoices render grouped by
+                            day → session (like the quotation); ordinary invoices fall
+                            back to the original flat table. */}
+                        {(() => {
+                          const { grouped, ungrouped } = groupInvoiceItemsByDay(items);
+
+                          const priceCell = (v: number) =>
+                            v === 0 ? <span className="text-emerald-600 font-extrabold">FREE</span> : `${currencySymbol} ${v.toFixed(2)}`;
+
+                          // Reusable rows renderer for a set of items.
+                          const rowsOf = (rows: InvoiceItem[]) => rows.map((item, ri) => (
+                            <tr key={ri} className={ri % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
+                              <td className="py-2 px-3 font-semibold text-gray-900 break-words">{item.Item_Name}</td>
+                              <td className="py-2 px-2 text-right font-mono text-gray-600">{priceCell(Number(item.Price) || 0)}</td>
+                              <td className="py-2 px-2 text-center font-mono text-gray-600">{item.Quantity}</td>
+                              <td className="py-2 px-3 text-right font-bold text-gray-900 font-mono">{priceCell(Number(item.Subtotal ?? item.Quantity * item.Price) || 0)}</td>
+                            </tr>
+                          ));
+
+                          const colHead = (
                             <thead>
-                              <tr className="text-white text-[10px] font-bold uppercase tracking-wider"
-                                style={{ backgroundColor: customStyles.primary_color }}>
-                                <th className="py-2.5 px-3 w-8">#</th>
-                                <th className="py-2.5 px-2">Item Description</th>
-                                <th className="py-2.5 px-2 text-right w-20">Unit Price</th>
-                                <th className="py-2.5 px-2 text-center w-14">Qty</th>
-                                <th className="py-2.5 px-3 text-right w-20">Subtotal</th>
+                              <tr className="bg-gray-50 text-gray-500 text-[9px] font-bold uppercase tracking-wide">
+                                <th className="py-1.5 px-3 text-left">Item Description</th>
+                                <th className="py-1.5 px-2 text-right w-24">Unit Price</th>
+                                <th className="py-1.5 px-2 text-center w-14">Qty</th>
+                                <th className="py-1.5 px-3 text-right w-24">Subtotal</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-100">
-                              {items.length > 0 ? items.map((item, idx) => (
-                                <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
-                                  <td className="py-2.5 px-3 text-gray-400 font-mono">{idx + 1}</td>
-                                  <td className="py-2.5 px-2 font-semibold text-gray-900 break-words">{item.Item_Name}</td>
-                                  <td className="py-2.5 px-2 text-right font-mono text-gray-600">{item.Price === 0 ? <span className="text-emerald-600 font-extrabold">FREE</span> : `${currencySymbol} ${item.Price.toFixed(2)}`}</td>
-                                  <td className="py-2.5 px-2 text-center font-mono text-gray-600">{item.Quantity}</td>
-                                  <td className="py-2.5 px-3 text-right font-bold text-gray-900 font-mono">{(item.Subtotal ?? 0) === 0 ? <span className="text-emerald-600 font-extrabold">FREE</span> : `${currencySymbol} ${(item.Subtotal ?? item.Quantity * item.Price).toFixed(2)}`}</td>
-                                </tr>
-                              )) : (
-                                <tr>
-                                  <td colSpan={5} className="py-6 text-center text-gray-400 italic text-xs">No line items recorded</td>
-                                </tr>
+                          );
+
+                          // ── Ordinary invoice (no dated groups): original flat table ──
+                          if (grouped.length === 0) {
+                            return (
+                              <div className="print-keep-together mb-6 overflow-hidden rounded-xl border border-gray-200">
+                                <table className="w-full table-fixed text-[11px] border-collapse text-left">
+                                  <thead>
+                                    <tr className="text-white text-[10px] font-bold uppercase tracking-wider"
+                                      style={{ backgroundColor: customStyles.primary_color }}>
+                                      <th className="py-2.5 px-3 w-8">#</th>
+                                      <th className="py-2.5 px-2">Item Description</th>
+                                      <th className="py-2.5 px-2 text-right w-20">Unit Price</th>
+                                      <th className="py-2.5 px-2 text-center w-14">Qty</th>
+                                      <th className="py-2.5 px-3 text-right w-20">Subtotal</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-100">
+                                    {items.length > 0 ? items.map((item, idx) => (
+                                      <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
+                                        <td className="py-2.5 px-3 text-gray-400 font-mono">{idx + 1}</td>
+                                        <td className="py-2.5 px-2 font-semibold text-gray-900 break-words">{item.Item_Name}</td>
+                                        <td className="py-2.5 px-2 text-right font-mono text-gray-600">{priceCell(Number(item.Price) || 0)}</td>
+                                        <td className="py-2.5 px-2 text-center font-mono text-gray-600">{item.Quantity}</td>
+                                        <td className="py-2.5 px-3 text-right font-bold text-gray-900 font-mono">{priceCell(Number(item.Subtotal ?? item.Quantity * item.Price) || 0)}</td>
+                                      </tr>
+                                    )) : (
+                                      <tr>
+                                        <td colSpan={5} className="py-6 text-center text-gray-400 italic text-xs">No line items recorded</td>
+                                      </tr>
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                            );
+                          }
+
+                          // ── Converted invoice: grouped day → session layout ──
+                          return (
+                            <div className="mb-6 space-y-4">
+                              {grouped.map((day, di) => (
+                                <div key={di} className="print-keep-together overflow-hidden rounded-xl border border-gray-200">
+                                  <div className="px-3 py-2.5 text-white" style={{ backgroundColor: customStyles.primary_color }}>
+                                    <p className="text-[11px] font-bold">{day.dayLabel}</p>
+                                  </div>
+                                  {day.sessions.map((sess, si) => (
+                                    <div key={si} className={`print-keep-together ${si > 0 ? 'border-t border-gray-200' : ''}`}>
+                                      {sess.label && (
+                                        <div className="px-3 py-2 bg-gray-50 border-l-[3px]" style={{ borderColor: customStyles.primary_color }}>
+                                          <span className="text-[11px] font-extrabold uppercase tracking-wide" style={{ color: customStyles.primary_color }}>{sess.label}</span>
+                                        </div>
+                                      )}
+                                      <table className="w-full table-fixed text-[11px] border-collapse text-left">
+                                        {colHead}
+                                        <tbody className="divide-y divide-gray-100">{rowsOf(sess.rows)}</tbody>
+                                      </table>
+                                    </div>
+                                  ))}
+                                  <div className="px-3 py-1.5 bg-gray-100 text-right text-[10px] font-bold text-gray-700 border-t border-gray-200">
+                                    Day Subtotal: {currencySymbol} {day.total.toFixed(2)}
+                                  </div>
+                                </div>
+                              ))}
+
+                              {ungrouped.length > 0 && (
+                                <div className="print-keep-together overflow-hidden rounded-xl border border-gray-200">
+                                  <div className="px-3 py-2.5 text-white" style={{ backgroundColor: customStyles.primary_color }}>
+                                    <p className="text-[11px] font-bold">Additional Charges</p>
+                                  </div>
+                                  <table className="w-full table-fixed text-[11px] border-collapse text-left">
+                                    {colHead}
+                                    <tbody className="divide-y divide-gray-100">{rowsOf(ungrouped)}</tbody>
+                                  </table>
+                                </div>
                               )}
-                            </tbody>
-                          </table>
-                        </div>
+                            </div>
+                          );
+                        })()}
 
                         {/* Totals + remittance — @lg container query (see header above for
                             why container query, not sm: viewport breakpoint). */}

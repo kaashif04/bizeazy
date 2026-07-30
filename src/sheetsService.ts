@@ -217,7 +217,7 @@ export const fetchDataAll = async (
 
   // ── Invoices + inline items ──────────────────────────────
   const rawInvoices = json.data?.invoices || [];
-  const invoice_items: InvoiceItem[] = [];
+  let invoice_items: InvoiceItem[] = [];
   // Track which Invoice_IDs got items from the inline JSON column
   const coveredByInlineJSON = new Set<string>();
 
@@ -526,6 +526,21 @@ export const fetchDataAll = async (
       // localStorage unavailable or corrupt — continue without extras
     }
   }
+
+  // ── De-duplicate on READ ─────────────────────────────────
+  // Final safety net: even if the sheet still contains duplicate rows (e.g. from
+  // an older build, or rows that haven't been re-synced yet), the app will never
+  // DISPLAY duplicates. Keyed by the stable primary key of each record. Combined
+  // with the dedupe on write in syncStateToSheets, duplicates can neither be
+  // shown nor persisted.
+  invoices        = dedupeByKey(invoices,        i  => String(i.Invoice_ID  || ''));
+  invoice_items   = dedupeByKey(invoice_items,   it => String(it.Item_ID    || ''));
+  customers       = dedupeByKey(customers,       c  => `${String(c.Customer_Name || '').toLowerCase()}|${String(c.Branch_Location || '').toLowerCase()}`);
+  employees       = dedupeByKey(employees,       e  => String(e.Employee_ID  || ''));
+  payslips        = dedupeByKey(payslips,        p  => String(p.Payslip_ID   || ''));
+  quotations      = dedupeByKey(quotations,      q  => String(q.Quotation_ID || ''));
+  quotation_days  = dedupeByKey(quotation_days,  d  => String(d.Day_ID       || ''));
+  quotation_items = dedupeByKey(quotation_items, it => String(it.Item_ID     || ''));
 
   return { invoices, invoice_items, customers, employees, payslips, quotations, quotation_days, quotation_items, profiles: [] };
 };
