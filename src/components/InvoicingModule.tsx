@@ -465,6 +465,8 @@ export default function InvoicingModule({
   const [search, setSearch] = useState('');
   const [filterOutlet, setFilterOutlet] = useState<'All' | 'Bistro' | 'Nasi Kandar'>('All');
   const [filterStatus, setFilterStatus] = useState<'All' | 'Paid' | 'Pending'>('All');
+  type SortMode = 'date-desc' | 'date-asc' | 'id-desc' | 'id-asc';
+  const [sortBy, setSortBy] = useState<SortMode>('date-desc');
 
   // ── Modal / edit state ────────────────────────────────────────────────────────
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -510,7 +512,7 @@ export default function InvoicingModule({
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
-    return db.invoices.filter(inv => {
+    const rows = db.invoices.filter(inv => {
       if (filterOutlet !== 'All' && inv.Company !== filterOutlet) return false;
       if (filterStatus !== 'All' && inv.Status !== filterStatus) return false;
       if (q) {
@@ -522,7 +524,21 @@ export default function InvoicingModule({
       }
       return true;
     });
-  }, [db.invoices, search, filterOutlet, filterStatus]);
+
+    // Sort a COPY (never mutate db.invoices). Invoice IDs are compared with
+    // { numeric: true } so "A1-26-0009" < "A1-26-0010" instead of string order.
+    const sorted = [...rows];
+    sorted.sort((a, b) => {
+      switch (sortBy) {
+        case 'date-asc':  return (a.Date || '').localeCompare(b.Date || '');
+        case 'date-desc': return (b.Date || '').localeCompare(a.Date || '');
+        case 'id-asc':    return (a.Invoice_ID || '').localeCompare(b.Invoice_ID || '', undefined, { numeric: true });
+        case 'id-desc':   return (b.Invoice_ID || '').localeCompare(a.Invoice_ID || '', undefined, { numeric: true });
+        default:          return 0;
+      }
+    });
+    return sorted;
+  }, [db.invoices, search, filterOutlet, filterStatus, sortBy]);
 
   const stats = useMemo(() => {
     const all = db.invoices;
@@ -868,6 +884,18 @@ export default function InvoicingModule({
             <option value="All">All Statuses</option>
             <option value="Paid">Paid</option>
             <option value="Pending">Pending</option>
+          </select>
+          <select
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value as SortMode)}
+            className={`flex-1 px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+              isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
+            }`}
+          >
+            <option value="date-desc">Date (Newest First)</option>
+            <option value="date-asc">Date (Oldest First)</option>
+            <option value="id-desc">Invoice No. (High → Low)</option>
+            <option value="id-asc">Invoice No. (Low → High)</option>
           </select>
         </div>
       </div>

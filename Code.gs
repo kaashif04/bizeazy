@@ -181,6 +181,34 @@ function fetchDataAll(spreadsheetId) {
   }
 }
 
+// ─── Dedupe helper ────────────────────────────────────────────
+// Server-side guard: even if a client sends duplicate rows (old build, double
+// submit, concurrent tab, etc.), the sheet never stores duplicates. First
+// occurrence of a key wins. Keyless rows are kept as-is.
+function dedupeRows(rows, keyFn) {
+  if (!rows || !rows.length) return rows || [];
+  var seen = {};
+  var out = [];
+  for (var i = 0; i < rows.length; i++) {
+    var key = keyFn(rows[i]);
+    if (!key) { out.push(rows[i]); continue; }
+    if (seen[key]) continue;
+    seen[key] = true;
+    out.push(rows[i]);
+  }
+  return out;
+}
+
+// Content key for invoice line items — their IDs are regenerated on every edit,
+// so we key by (invoice + name + qty + price + subtotal). Must match the
+// frontend's invoiceItemKey in sheetsService.ts.
+function invoiceItemKey(it) {
+  return [
+    String(it.Invoice_ID || ''), String(it.Item_Name || ''),
+    Number(it.Quantity) || 0, Number(it.Price) || 0, Number(it.Subtotal) || 0
+  ].join('|');
+}
+
 // ─── syncData ─────────────────────────────────────────────────
 function syncData(payload, spreadsheetId) {
   if (!payload) return { success: false, error: "Empty payload" };
@@ -192,6 +220,17 @@ function syncData(payload, spreadsheetId) {
     // are correctly labelled and readable on the next fetchDataAll.
     initializeDatabase(spreadsheetId);
     var ss = getDatabase(spreadsheetId);
+
+    // ── Dedupe every payload array before writing ──
+    // Guarantees the sheet is clean regardless of what the client sent.
+    if (payload.invoices)        payload.invoices        = dedupeRows(payload.invoices,        function(r){ return String(r.Invoice_ID || ''); });
+    if (payload.invoice_items)   payload.invoice_items   = dedupeRows(payload.invoice_items,   invoiceItemKey);
+    if (payload.customers)       payload.customers       = dedupeRows(payload.customers,       function(r){ return (String(r.Customer_Name || '') + '|' + String(r.Branch_Location || '')).toLowerCase(); });
+    if (payload.employees)       payload.employees       = dedupeRows(payload.employees,       function(r){ return String(r.Employee_ID || ''); });
+    if (payload.payslips)        payload.payslips        = dedupeRows(payload.payslips,        function(r){ return String(r.Payslip_ID || ''); });
+    if (payload.quotations)      payload.quotations      = dedupeRows(payload.quotations,      function(r){ return String(r.Quotation_ID || ''); });
+    if (payload.quotation_days)  payload.quotation_days  = dedupeRows(payload.quotation_days,  function(r){ return String(r.Day_ID || ''); });
+    if (payload.quotation_items) payload.quotation_items = dedupeRows(payload.quotation_items, function(r){ return String(r.Item_ID || ''); });
 
     // ── Invoices ──
     var invoicesSheet = ss.getSheetByName("Invoices");

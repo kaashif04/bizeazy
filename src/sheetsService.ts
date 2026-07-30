@@ -151,6 +151,15 @@ const dedupeByKey = <T>(rows: T[], keyFn: (row: T) => string): T[] => {
   return out;
 };
 
+// Content key for invoice line items. Invoice items live in TWO places in the
+// sheet (the Invoice_Items_JSON column on the invoice row AND the flat
+// Invoice_Items tab) and their Item_IDs are regenerated on every edit, so IDs
+// are NOT stable enough to dedupe on. Keying by (invoice + name + qty + price +
+// subtotal) collapses true duplicates regardless of ID. Used on BOTH read and
+// write so the two paths can never disagree.
+const invoiceItemKey = (it: any): string =>
+  `${String(it.Invoice_ID || '')}|${String(it.Item_Name || '')}|${Number(it.Quantity) || 0}|${Number(it.Price) || 0}|${Number(it.Subtotal) || 0}`;
+
 const isMissingSheetError = (errorMsg: string): boolean => {
   const l = errorMsg.toLowerCase();
   return l.includes('unable to parse') || l.includes('not found') || l.includes('range');
@@ -534,7 +543,7 @@ export const fetchDataAll = async (
   // with the dedupe on write in syncStateToSheets, duplicates can neither be
   // shown nor persisted.
   invoices        = dedupeByKey(invoices,        i  => String(i.Invoice_ID  || ''));
-  invoice_items   = dedupeByKey(invoice_items,   it => String(it.Item_ID    || ''));
+  invoice_items   = dedupeByKey(invoice_items,   invoiceItemKey);
   customers       = dedupeByKey(customers,       c  => `${String(c.Customer_Name || '').toLowerCase()}|${String(c.Branch_Location || '').toLowerCase()}`);
   employees       = dedupeByKey(employees,       e  => String(e.Employee_ID  || ''));
   payslips        = dedupeByKey(payslips,        p  => String(p.Payslip_ID   || ''));
@@ -804,7 +813,7 @@ export const syncStateToSheets = async (
       customers:       dedupeByKey([...currentCustomersFormatted,  ...otherCustomers],          r => `${String(r.Customer_Name || '').toLowerCase()}|${String(r.Branch_Location || '').toLowerCase()}`),
       employees:       dedupeByKey([...currentEmployeesFormatted,  ...normalizedOtherEmployees], r => String(r.Employee_ID || '')),
       payslips:        dedupeByKey([...currentPayslipsFormatted,   ...normalizedOtherPayslips],  r => String(r.Payslip_ID || '')),
-      invoice_items:   dedupeByKey(currentItemsFormatted,   it => `${it.Invoice_ID}|${it.Item_Name}|${it.Quantity}|${it.Price}|${it.Subtotal}`),
+      invoice_items:   dedupeByKey(currentItemsFormatted,   invoiceItemKey),
       quotations:      dedupeByKey([...currentQuotationsFormatted, ...normalizedOtherQuotations], r => String(r.Quotation_ID || '')),
       quotation_days:  dedupeByKey(currentQuotationDaysFormatted, d => String(d.Day_ID || '')),
       quotation_items: dedupeByKey(currentQuotationItemsFormatted, it => String(it.Item_ID || '') || `${it.Quotation_ID}|${it.Day_ID}|${it.Item_Name}|${it.Quantity}|${it.Price}`),
