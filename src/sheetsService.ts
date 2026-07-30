@@ -133,6 +133,24 @@ const getSheetRowsAsObjects = (headers: string[], values: any[][]): any[] => {
   });
 };
 
+// De-duplicates an array of rows by a key function. The FIRST occurrence of a
+// key wins, so callers put the authoritative (current-branch) rows first.
+// This is the guard that prevents the sheet from accumulating duplicate rows:
+// because loadData() fetches every branch into `db`, the "other branch" merge
+// below can re-introduce rows that are already present — dedupe collapses them.
+const dedupeByKey = <T>(rows: T[], keyFn: (row: T) => string): T[] => {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  rows.forEach(row => {
+    const key = keyFn(row);
+    if (!key) { out.push(row); return; } // keyless rows can't be deduped — keep them
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(row);
+  });
+  return out;
+};
+
 const isMissingSheetError = (errorMsg: string): boolean => {
   const l = errorMsg.toLowerCase();
   return l.includes('unable to parse') || l.includes('not found') || l.includes('range');
@@ -591,7 +609,10 @@ export const syncStateToSheets = async (
       Total_Amount: inv.Total_Amount, Discount_Value: inv.Discount_Value || 0,
       Subtotal_Amount: inv.Subtotal_Amount || inv.Total_Amount,
       Notes: inv.Notes || '', Customer_Contact: inv.Customer_Contact || '-',
-      Customer_Address: inv.Customer_Address || '-', Branch_Location: targetBranch,
+      Customer_Address: inv.Customer_Address || '-',
+      // Preserve each row's own branch (db holds ALL branches). Only fall back
+      // to the active branch for brand-new rows that have no branch yet.
+      Branch_Location: inv.Branch_Location || targetBranch,
       Invoice_Items_JSON: JSON.stringify(matchingItems)
     };
   });
@@ -599,7 +620,7 @@ export const syncStateToSheets = async (
   const currentCustomersFormatted = db.customers.map(cust => ({
     Customer_Name: cust.Customer_Name, Contact: cust.Contact || '-',
     Customer_Type: cust.Customer_Type || 'Regular', Address: cust.Address || '-',
-    Branch_Location: targetBranch
+    Branch_Location: cust.Branch_Location || targetBranch
   }));
 
   const currentEmployeesFormatted = db.employees?.map(emp => ({
@@ -607,7 +628,7 @@ export const syncStateToSheets = async (
     IC_Passport: emp.IC_Passport, Position: emp.Position,
     Assigned_Outlet: emp.Assigned_Outlet, Basic_Salary: emp.Basic_Salary,
     Bank_Details: emp.Bank_Details || '',
-    Branch_Location: targetBranch,
+    Branch_Location: emp.Branch_Location || targetBranch,
     Citizenship: emp.Citizenship || 'Malaysian/PR',
     Age: emp.Age !== undefined ? emp.Age : '',
     Joining_Date: emp.Joining_Date || '',
@@ -626,7 +647,7 @@ export const syncStateToSheets = async (
       Employer_SOCSO: ps.Employer_SOCSO, Employee_EIS: ps.Employee_EIS,
       Employer_EIS: ps.Employer_EIS, Total_Statutory_Deductions: ps.Total_Statutory_Deductions,
       Custom_Deductions: ps.Custom_Deductions, Final_Net_Pay: ps.Final_Net_Pay,
-      Branch_Location: targetBranch, Is_Saved: ps.Is_Saved,
+      Branch_Location: ps.Branch_Location || targetBranch, Is_Saved: ps.Is_Saved,
       Allowances_JSON: ps.Allowances_JSON || '',
       Deductions_JSON: JSON.stringify(deductionsArr),
       Payment_Transferred: ps.Payment_Transferred || false,
@@ -652,7 +673,7 @@ export const syncStateToSheets = async (
     Subtotal_Amount: q.Subtotal_Amount || q.Total_Amount,
     Total_Amount: q.Total_Amount,
     Catering_Terms: q.Catering_Terms || '', Notes: q.Notes || '',
-    Branch_Location: targetBranch,
+    Branch_Location: q.Branch_Location || targetBranch,
     Converted_Invoice_ID: q.Converted_Invoice_ID || '',
   })) || [];
 
@@ -759,16 +780,19 @@ export const syncStateToSheets = async (
     action: 'syncData',
     spreadsheetId,
     db: {
-      // Current-branch rows go FIRST so Apps Scripts that derive column headers from
-      // the first row will always see the full schema including new fields.
-      invoices:        [...currentInvoicesFormatted,   ...otherInvoices],
-      customers:       [...currentCustomersFormatted,  ...otherCustomers],
-      employees:       [...currentEmployeesFormatted,  ...normalizedOtherEmployees],
-      payslips:        [...currentPayslipsFormatted,   ...normalizedOtherPayslips],
-      invoice_items:   currentItemsFormatted,
-      quotations:      [...currentQuotationsFormatted, ...normalizedOtherQuotations],
-      quotation_days:  currentQuotationDaysFormatted,
-      quotation_items: currentQuotationItemsFormatted,
+      // Current-branch rows go FIRST so that (a) Apps Scripts deriving column
+      // headers from the first row see the full schema, and (b) dedupeByKey
+      // keeps the current (authoritative) copy when the same key also appears in
+      // the merged "other branch" rows. Dedupe is what stops the sheet from
+      // accumulating duplicate rows on every sync.
+      invoices:        dedupeByKey([...currentInvoicesFormatted,   ...otherInvoices],           r => String(r.Invoice_ID || '')),
+      customers:       dedupeByKey([...currentCustomersFormatted,  ...otherCustomers],          r => `${String(r.Customer_Name || '').toLowerCase()}|${String(r.Branch_Location || '').toLowerCase()}`),
+      employees:       dedupeByKey([...currentEmployeesFormatted,  ...normalizedOtherEmployees], r => String(r.Employee_ID || '')),
+      payslips:        dedupeByKey([...currentPayslipsFormatted,   ...normalizedOtherPayslips],  r => String(r.Payslip_ID || '')),
+      invoice_items:   dedupeByKey(currentItemsFormatted,   it => `${it.Invoice_ID}|${it.Item_Name}|${it.Quantity}|${it.Price}|${it.Subtotal}`),
+      quotations:      dedupeByKey([...currentQuotationsFormatted, ...normalizedOtherQuotations], r => String(r.Quotation_ID || '')),
+      quotation_days:  dedupeByKey(currentQuotationDaysFormatted, d => String(d.Day_ID || '')),
+      quotation_items: dedupeByKey(currentQuotationItemsFormatted, it => String(it.Item_ID || '') || `${it.Quotation_ID}|${it.Day_ID}|${it.Item_Name}|${it.Quantity}|${it.Price}`),
     }
   };
 
