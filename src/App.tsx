@@ -7,6 +7,7 @@ import {
   fetchAppConfigFromAppsScript, saveAppConfigToAppsScript,
 } from './sheetsService';
 import { DatabaseState, CompanyProfile, TemplateCustomization, InvoiceItem } from './types';
+import { getPaymentSummary, PAYMENT_STATUS_LABEL } from './utils/payments';
 import { PayrollDashboard } from './components/PayrollDashboard';
 import InvoicingModule from './components/InvoicingModule';
 import QuotationModule from './components/QuotationModule';
@@ -74,7 +75,7 @@ function groupInvoiceItemsByDay(items: InvoiceItem[]): { grouped: GroupedDay[]; 
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const EMPTY_DB: DatabaseState = {
-  invoices: [], invoice_items: [], customers: [], employees: [], payslips: [],
+  invoices: [], invoice_items: [], payments: [], customers: [], employees: [], payslips: [],
   quotations: [], quotation_days: [], quotation_items: [],
 };
 // Per-outlet design defaults — used until a profile's own `template` is saved in Settings.
@@ -1620,6 +1621,12 @@ export default function App() {
           const items = db.invoice_items.filter(item => item.Invoice_ID === previewInvoiceId);
           const activeTemp = (invoice.Template || 'modern') as 'modern' | 'minimal' | 'bold' | 'classic';
           const currencySymbol = invoice.Currency_Symbol || profile?.currency_symbol || 'RM';
+          const paySummary = getPaymentSummary(invoice, db.payments);
+          const invoicePayments = db.payments
+            .filter(pm => pm.Invoice_ID === invoice.Invoice_ID)
+            .sort((a, b) => (a.Date || '').localeCompare(b.Date || ''));
+          const payStatusColor = paySummary.status === 'Paid' ? '#059669'
+            : paySummary.status === 'Partial' ? '#D97706' : '#E11D48';
           const parentCompanyName = profile?.company_name || '';
           const storeOutletName = profile?.store_name || '';
 
@@ -1792,8 +1799,8 @@ export default function App() {
                           <div className="text-right shrink-0">
                             <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest block mb-2">Status Summary</span>
                             <span className="inline-block px-4 py-1.5 rounded-lg font-extrabold text-[10px] uppercase tracking-widest text-white"
-                              style={{ backgroundColor: invoice.Status === 'Paid' ? '#059669' : customStyles.primary_color }}>
-                              {invoice.Status === 'Paid' ? 'PAID' : 'PENDING'}
+                              style={{ backgroundColor: payStatusColor }}>
+                              {PAYMENT_STATUS_LABEL[paySummary.status]}
                             </span>
                           </div>
                         </div>
@@ -1954,8 +1961,50 @@ export default function App() {
                                 {currencySymbol} {invoice.Total_Amount.toFixed(2)}
                               </span>
                             </div>
+                            {/* Payment breakdown — only shown once payments exist */}
+                            {paySummary.paid > 0 && paySummary.status !== 'Paid' && (
+                              <>
+                                <div className="flex justify-between items-center text-[11px] pt-1">
+                                  <span className="text-gray-500">Amount Paid:</span>
+                                  <span className="font-mono font-bold text-emerald-600">{currencySymbol} {paySummary.paid.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <span className="text-xs font-black text-gray-900">Balance Due:</span>
+                                  <span className="text-xs font-black font-mono text-rose-600">{currencySymbol} {paySummary.balance.toFixed(2)}</span>
+                                </div>
+                              </>
+                            )}
                           </div>
                         </div>
+
+                        {/* Payment history — audit trail for partially/fully paid invoices */}
+                        {invoicePayments.length > 0 && (
+                          <div className="print-keep-together mb-8">
+                            <span className="text-[8px] font-extrabold text-gray-400 uppercase tracking-widest block mb-2">Payment History</span>
+                            <div className="overflow-hidden rounded-xl border border-gray-200">
+                              <table className="w-full text-[10.5px] border-collapse text-left">
+                                <thead>
+                                  <tr className="bg-gray-50 text-gray-500 text-[9px] font-bold uppercase tracking-wide">
+                                    <th className="py-1.5 px-3">Date</th>
+                                    <th className="py-1.5 px-2">Method</th>
+                                    <th className="py-1.5 px-2">Reference</th>
+                                    <th className="py-1.5 px-3 text-right">Amount</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                  {invoicePayments.map(pm => (
+                                    <tr key={pm.Payment_ID}>
+                                      <td className="py-1.5 px-3 text-gray-700">{pm.Date}</td>
+                                      <td className="py-1.5 px-2 text-gray-600">{pm.Method || '-'}</td>
+                                      <td className="py-1.5 px-2 text-gray-600 break-words">{pm.Reference || '-'}</td>
+                                      <td className="py-1.5 px-3 text-right font-bold font-mono text-gray-900">{currencySymbol} {(Number(pm.Amount) || 0).toFixed(2)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Footer */}

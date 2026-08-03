@@ -159,6 +159,7 @@ function fetchDataAll(spreadsheetId) {
     var employeesTab      = ss.getSheetByName("Employees");
     var payslipsTab       = ss.getSheetByName("Payslips");
     var invoiceItemsTab   = ss.getSheetByName("Invoice_Items");
+    var paymentsTab       = ss.getSheetByName("Invoice_Payments");
     var quotationsTab     = ss.getSheetByName("Quotations");
     var quotationDaysTab  = ss.getSheetByName("Quotation_Days");
     var quotationItemsTab = ss.getSheetByName("Quotation_Items");
@@ -171,6 +172,7 @@ function fetchDataAll(spreadsheetId) {
         employees:       employeesTab      ? getSheetRowsAsObjects(employeesTab)      : [],
         payslips:        payslipsTab       ? getSheetRowsAsObjects(payslipsTab)       : [],
         invoice_items:   invoiceItemsTab   ? getSheetRowsAsObjects(invoiceItemsTab)   : [],
+        payments:        paymentsTab       ? getSheetRowsAsObjects(paymentsTab)       : [],
         quotations:      quotationsTab     ? getSheetRowsAsObjects(quotationsTab)     : [],
         quotation_days:  quotationDaysTab  ? getSheetRowsAsObjects(quotationDaysTab)  : [],
         quotation_items: quotationItemsTab ? getSheetRowsAsObjects(quotationItemsTab) : []
@@ -225,6 +227,7 @@ function syncData(payload, spreadsheetId) {
     // Guarantees the sheet is clean regardless of what the client sent.
     if (payload.invoices)        payload.invoices        = dedupeRows(payload.invoices,        function(r){ return String(r.Invoice_ID || ''); });
     if (payload.invoice_items)   payload.invoice_items   = dedupeRows(payload.invoice_items,   invoiceItemKey);
+    if (payload.payments)        payload.payments        = dedupeRows(payload.payments,        function(r){ return String(r.Payment_ID || ''); });
     if (payload.customers)       payload.customers       = dedupeRows(payload.customers,       function(r){ return (String(r.Customer_Name || '') + '|' + String(r.Branch_Location || '')).toLowerCase(); });
     if (payload.employees)       payload.employees       = dedupeRows(payload.employees,       function(r){ return String(r.Employee_ID || ''); });
     if (payload.payslips)        payload.payslips        = dedupeRows(payload.payslips,        function(r){ return String(r.Payslip_ID || ''); });
@@ -265,6 +268,26 @@ function syncData(payload, spreadsheetId) {
         ];
       });
       itemsSheet.getRange(2, 1, itemRows.length, itemRows[0].length).setValues(itemRows);
+    }
+
+    // ── Invoice_Payments tab (partial payments) ───────────────
+    var paymentsSheet = ss.getSheetByName("Invoice_Payments");
+    if (!paymentsSheet) {
+      paymentsSheet = ss.insertSheet("Invoice_Payments");
+      paymentsSheet.appendRow(['Payment_ID', 'Invoice_ID', 'Amount', 'Date', 'Method', 'Reference']);
+    }
+    if (payload.payments) {
+      if (paymentsSheet.getLastRow() > 1)
+        paymentsSheet.getRange(2, 1, paymentsSheet.getLastRow() - 1, paymentsSheet.getLastColumn()).clearContent();
+      if (payload.payments.length > 0) {
+        var payRows = payload.payments.map(function(p) {
+          return [
+            p.Payment_ID || '', p.Invoice_ID || '', Number(p.Amount) || 0,
+            p.Date || '', p.Method || '', p.Reference || ''
+          ];
+        });
+        paymentsSheet.getRange(2, 1, payRows.length, payRows[0].length).setValues(payRows);
+      }
     }
 
     // ── Customers / Patrons ──
@@ -422,6 +445,12 @@ function initializeDatabase(spreadsheetId) {
     var itemsTab = ss.getSheetByName("Invoice_Items");
     if (!itemsTab) itemsTab = ss.insertSheet("Invoice_Items");
     enforceHeaders(itemsTab, ['Item_ID','Invoice_ID','Item_Name','Quantity','Price','Subtotal']);
+
+    // ── Invoice_Payments ──
+    var paymentsTab = ss.getSheetByName("Invoice_Payments");
+    if (!paymentsTab) paymentsTab = ss.insertSheet("Invoice_Payments");
+    enforceHeaders(paymentsTab, ['Payment_ID','Invoice_ID','Amount','Date','Method','Reference']);
+    forceTextColumn(paymentsTab, 4); // Date
 
     // ── Patrons / Customers ──
     var patronsTab = ss.getSheetByName("Patrons") || ss.getSheetByName("Customers");

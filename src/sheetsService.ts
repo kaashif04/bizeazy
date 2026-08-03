@@ -21,7 +21,7 @@ import {
   onAuthStateChanged, User, signOut
 } from 'firebase/auth';
 import {
-  DatabaseState, Invoice, InvoiceItem,
+  DatabaseState, Invoice, InvoiceItem, Payment,
   Customer, CompanyProfile, Employee, Payslip,
   Quotation, QuotationDay, QuotationItem, PricingMode, PackageSubMode, ServingStyle
 } from './types';
@@ -352,6 +352,22 @@ export const fetchDataAll = async (
 
   console.log(`[sheetsService] Total invoice_items loaded: ${invoice_items.length}`);
 
+  // ── Payments (partial payments) ──────────────────────────
+  const rawPayments = json.data?.payments || [];
+  let payments: Payment[] = rawPayments.map((row: any) => ({
+    Payment_ID: String(row.Payment_ID || ''),
+    Invoice_ID: String(row.Invoice_ID || ''),
+    Amount:     Number(row.Amount) || 0,
+    Date:       (() => {
+      const v = String(row.Date || '');
+      if (v.includes('T')) return v.split('T')[0];
+      if (v.length >= 10) return v.substring(0, 10);
+      return v;
+    })(),
+    Method:     String(row.Method || ''),
+    Reference:  String(row.Reference || ''),
+  })).filter((p: any) => p.Payment_ID && p.Invoice_ID);
+
   // ── Employees ────────────────────────────────────────────
   const rawEmployees = json.data?.employees || [];
   let employees: Employee[] = rawEmployees.map((row: any) => {
@@ -544,6 +560,7 @@ export const fetchDataAll = async (
   // shown nor persisted.
   invoices        = dedupeByKey(invoices,        i  => String(i.Invoice_ID  || ''));
   invoice_items   = dedupeByKey(invoice_items,   invoiceItemKey);
+  payments        = dedupeByKey(payments,        p  => String(p.Payment_ID  || ''));
   customers       = dedupeByKey(customers,       c  => `${String(c.Customer_Name || '').toLowerCase()}|${String(c.Branch_Location || '').toLowerCase()}`);
   employees       = dedupeByKey(employees,       e  => String(e.Employee_ID  || ''));
   payslips        = dedupeByKey(payslips,        p  => String(p.Payslip_ID   || ''));
@@ -551,7 +568,7 @@ export const fetchDataAll = async (
   quotation_days  = dedupeByKey(quotation_days,  d  => String(d.Day_ID       || ''));
   quotation_items = dedupeByKey(quotation_items, it => String(it.Item_ID     || ''));
 
-  return { invoices, invoice_items, customers, employees, payslips, quotations, quotation_days, quotation_items, profiles: [] };
+  return { invoices, invoice_items, payments, customers, employees, payslips, quotations, quotation_days, quotation_items, profiles: [] };
 };
 
 // ── localStorage helpers for fields not yet in the Apps Script schema ────────
@@ -686,6 +703,13 @@ export const syncStateToSheets = async (
     Quantity: item.Quantity, Price: item.Price, Subtotal: item.Subtotal
   })) || [];
 
+  // Payments ride along via Invoice_ID (no Branch_Location of their own), same
+  // as invoice_items — the in-memory array already spans every branch.
+  const currentPaymentsFormatted = db.payments?.map(p => ({
+    Payment_ID: p.Payment_ID, Invoice_ID: p.Invoice_ID, Amount: p.Amount,
+    Date: p.Date || '', Method: p.Method || '', Reference: p.Reference || '',
+  })) || [];
+
   const currentQuotationsFormatted = db.quotations?.map(q => ({
     Quotation_ID: q.Quotation_ID, Date: q.Date, Valid_Until: q.Valid_Until || '',
     Company: q.Company, Customer_Name: q.Customer_Name,
@@ -814,6 +838,7 @@ export const syncStateToSheets = async (
       employees:       dedupeByKey([...currentEmployeesFormatted,  ...normalizedOtherEmployees], r => String(r.Employee_ID || '')),
       payslips:        dedupeByKey([...currentPayslipsFormatted,   ...normalizedOtherPayslips],  r => String(r.Payslip_ID || '')),
       invoice_items:   dedupeByKey(currentItemsFormatted,   invoiceItemKey),
+      payments:        dedupeByKey(currentPaymentsFormatted, p => String(p.Payment_ID || '')),
       quotations:      dedupeByKey([...currentQuotationsFormatted, ...normalizedOtherQuotations], r => String(r.Quotation_ID || '')),
       quotation_days:  dedupeByKey(currentQuotationDaysFormatted, d => String(d.Day_ID || '')),
       quotation_items: dedupeByKey(currentQuotationItemsFormatted, it => String(it.Item_ID || '') || `${it.Quotation_ID}|${it.Day_ID}|${it.Item_Name}|${it.Quantity}|${it.Price}`),

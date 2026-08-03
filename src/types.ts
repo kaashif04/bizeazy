@@ -23,6 +23,18 @@ export interface Invoice {
   Branch_Location?: string;
 }
 
+// A single payment received against an invoice. Invoices can be settled over
+// multiple payments (partial payments) for catering jobs — each row here is one
+// bank/cash transaction, kept for reconciliation & audit.
+export interface Payment {
+  Payment_ID: string;      // Primary Key
+  Invoice_ID: string;      // Foreign Key pointing to Invoice
+  Amount: number;          // Required
+  Date: string;            // YYYY-MM-DD (auto-captured, editable)
+  Method?: string;         // Optional: Cash / Bank Transfer / Cheque / Other
+  Reference?: string;      // Optional: bank txn id / note for backtracking
+}
+
 export interface InvoiceItem {
   Item_ID: string;         // Primary Key
   Invoice_ID: string;      // Foreign Key pointing to Invoice
@@ -162,6 +174,7 @@ export interface QuotationItem {
 export interface DatabaseState {
   invoices: Invoice[];
   invoice_items: InvoiceItem[];
+  payments: Payment[];
   customers: Customer[];
   employees: Employee[];
   payslips: Payslip[];

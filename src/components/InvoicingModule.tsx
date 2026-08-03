@@ -3,9 +3,178 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import {
   Plus, Search, Download, FileText, CheckCircle, X, Trash2,
-  ShieldAlert, RefreshCw, Edit, Eye,
+  ShieldAlert, RefreshCw, Edit, Eye, Wallet,
 } from 'lucide-react';
-import { DatabaseState, Invoice, InvoiceItem, Customer, CompanyProfile } from '../types';
+import { DatabaseState, Invoice, InvoiceItem, Customer, CompanyProfile, Payment } from '../types';
+import { getPaymentSummary, PAYMENT_METHODS, PAYMENT_STATUS_LABEL, newPaymentId, PaymentStatus } from '../utils/payments';
+
+// Colour tokens for the derived payment status badge (Paid / Partial / Unpaid).
+const STATUS_BADGE: Record<PaymentStatus, string> = {
+  Paid:    'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400',
+  Partial: 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400',
+  Unpaid:  'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400',
+};
+const STATUS_DOT: Record<PaymentStatus, string> = {
+  Paid: 'bg-emerald-500', Partial: 'bg-amber-500', Unpaid: 'bg-rose-500',
+};
+
+// ── Payments modal ────────────────────────────────────────────────────────────
+// Records partial payments against one invoice and shows the running balance.
+function PaymentsModal({
+  invoice, payments, currency, isDarkMode, isSyncing, onAdd, onDelete, onClose,
+}: {
+  invoice: Invoice;
+  payments: Payment[];
+  currency: string;
+  isDarkMode: boolean;
+  isSyncing: boolean;
+  onAdd: (fields: { amount: number; date: string; method: string; reference: string }) => void;
+  onDelete: (paymentId: string) => void;
+  onClose: () => void;
+}) {
+  const list = payments
+    .filter(p => p.Invoice_ID === invoice.Invoice_ID)
+    .sort((a, b) => (a.Date || '').localeCompare(b.Date || ''));
+  const summary = getPaymentSummary(invoice, payments);
+
+  const [amount, setAmount] = useState<string>('');
+  const [date, setDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [method, setMethod] = useState<string>('');
+  const [reference, setReference] = useState<string>('');
+
+  const inputCls = `w-full px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+    isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
+  }`;
+  const fmt = (n: number) => `${currency} ${n.toFixed(2)}`;
+
+  const submit = () => {
+    const amt = parseFloat(amount);
+    if (!(amt > 0)) return;
+    onAdd({ amount: amt, date, method, reference });
+    setAmount(''); setReference('');
+  };
+
+  return (
+    <div className="fixed inset-0 z-[55] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className={`w-full max-w-lg rounded-2xl shadow-2xl flex flex-col max-h-[90vh] ${isDarkMode ? 'bg-slate-900 border border-slate-800' : 'bg-white border border-gray-200'}`}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className={`flex items-center justify-between px-5 py-4 border-b flex-shrink-0 ${isDarkMode ? 'border-slate-800' : 'border-gray-100'}`}>
+          <div className="flex items-center gap-2 min-w-0">
+            <Wallet className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+            <h2 className="text-sm font-bold text-gray-900 dark:text-white truncate">Payments — {invoice.Invoice_ID}</h2>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-slate-200 cursor-pointer">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          {/* Summary */}
+          <div className={`grid grid-cols-3 gap-2 rounded-xl p-3 ${isDarkMode ? 'bg-slate-950/50' : 'bg-gray-50'}`}>
+            <div>
+              <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Total</p>
+              <p className="text-sm font-black font-mono text-gray-900 dark:text-white">{fmt(Number(invoice.Total_Amount) || 0)}</p>
+            </div>
+            <div>
+              <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Paid</p>
+              <p className="text-sm font-black font-mono text-emerald-600 dark:text-emerald-400">{fmt(summary.paid)}</p>
+            </div>
+            <div>
+              <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Balance</p>
+              <p className="text-sm font-black font-mono text-rose-600 dark:text-rose-400">{fmt(summary.balance)}</p>
+            </div>
+            <div className="col-span-3">
+              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase inline-flex items-center gap-1 ${STATUS_BADGE[summary.status]}`}>
+                <span className={`w-1 h-1 rounded-full ${STATUS_DOT[summary.status]}`} />
+                {PAYMENT_STATUS_LABEL[summary.status]}
+              </span>
+            </div>
+          </div>
+
+          {/* Existing payments */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-2">Recorded Payments</p>
+            {list.length === 0 ? (
+              <p className="text-xs text-gray-400 italic py-3 text-center">No payments recorded yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {list.map(pmt => (
+                  <div key={pmt.Payment_ID} className={`flex items-center gap-3 rounded-lg px-3 py-2 ${isDarkMode ? 'bg-slate-950/50' : 'bg-gray-50'}`}>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold font-mono text-gray-900 dark:text-white">{fmt(Number(pmt.Amount) || 0)}</p>
+                      <p className="text-[10px] text-gray-500 dark:text-slate-400 truncate">
+                        {pmt.Date}{pmt.Method ? ` · ${pmt.Method}` : ''}{pmt.Reference ? ` · ${pmt.Reference}` : ''}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => onDelete(pmt.Payment_ID)}
+                      disabled={isSyncing}
+                      className="p-1 text-rose-400 hover:text-rose-600 rounded cursor-pointer transition-colors flex-shrink-0"
+                      title="Delete payment"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Add payment */}
+          {summary.balance > 0 && (
+            <div className={`rounded-xl p-3 space-y-3 ${isDarkMode ? 'bg-slate-950/50' : 'bg-gray-50'}`}>
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400">Add Payment</p>
+                <button
+                  type="button"
+                  onClick={() => setAmount(String(summary.balance.toFixed(2)))}
+                  className="text-[10px] font-bold text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 cursor-pointer hover:underline"
+                >Pay full balance ({fmt(summary.balance)})</button>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">Amount *</label>
+                  <input type="number" step="0.01" min="0" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" className={inputCls} />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">Date</label>
+                  <input type="date" value={date} onChange={e => setDate(e.target.value)} className={inputCls} />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">Method</label>
+                  <select value={method} onChange={e => setMethod(e.target.value)} className={inputCls}>
+                    <option value="">— Optional —</option>
+                    {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">Reference</label>
+                  <input type="text" value={reference} onChange={e => setReference(e.target.value)} placeholder="Bank txn / note" className={inputCls} />
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={submit}
+                disabled={isSyncing || !(parseFloat(amount) > 0)}
+                className="w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold cursor-pointer transition-colors flex items-center justify-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" /> Record Payment
+              </button>
+            </div>
+          )}
+          {summary.balance <= 0 && (
+            <div className="flex items-center justify-center gap-2 py-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+              <CheckCircle className="w-4 h-4" /> Invoice fully paid
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface InvoicingModuleProps {
   db: DatabaseState;
@@ -464,9 +633,11 @@ export default function InvoicingModule({
   // ── Filter state ─────────────────────────────────────────────────────────────
   const [search, setSearch] = useState('');
   const [filterOutlet, setFilterOutlet] = useState<'All' | 'Bistro' | 'Nasi Kandar'>('All');
-  const [filterStatus, setFilterStatus] = useState<'All' | 'Paid' | 'Pending'>('All');
+  const [filterStatus, setFilterStatus] = useState<'All' | PaymentStatus>('All');
   type SortMode = 'date-desc' | 'date-asc' | 'id-desc' | 'id-asc';
   const [sortBy, setSortBy] = useState<SortMode>('date-desc');
+  // Invoice whose payment history/entry modal is open (null = closed).
+  const [paymentInvoice, setPaymentInvoice] = useState<Invoice | null>(null);
 
   // ── Modal / edit state ────────────────────────────────────────────────────────
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -514,7 +685,7 @@ export default function InvoicingModule({
     const q = search.toLowerCase().trim();
     const rows = db.invoices.filter(inv => {
       if (filterOutlet !== 'All' && inv.Company !== filterOutlet) return false;
-      if (filterStatus !== 'All' && inv.Status !== filterStatus) return false;
+      if (filterStatus !== 'All' && getPaymentSummary(inv, db.payments).status !== filterStatus) return false;
       if (q) {
         return (
           (inv.Invoice_ID || '').toLowerCase().includes(q) ||
@@ -538,7 +709,7 @@ export default function InvoicingModule({
       }
     });
     return sorted;
-  }, [db.invoices, search, filterOutlet, filterStatus, sortBy]);
+  }, [db.invoices, db.payments, search, filterOutlet, filterStatus, sortBy]);
 
   const stats = useMemo(() => {
     const all = db.invoices;
@@ -766,25 +937,43 @@ export default function InvoicingModule({
     db, profiles, activeBranchLocation, currency,
     spreadsheetId, accessToken, setDb, triggerToast, syncStateToSheets, setIsSyncing]);
 
-  // ── Status toggle ─────────────────────────────────────────────────────────────
-  const toggleStatus = useCallback(async (invoiceId: string, current: 'Paid' | 'Pending') => {
-    if (isStaff) { triggerToast('Read-only mode.', 'error'); return; }
-    const next = current === 'Paid' ? 'Pending' : 'Paid';
-    const nextDb: DatabaseState = {
-      ...db,
-      invoices: db.invoices.map(inv => inv.Invoice_ID === invoiceId ? { ...inv, Status: next } : inv),
-    };
+  // ── Payments (partial payment tracking) ───────────────────────────────────────
+  const persistPayments = useCallback(async (nextPayments: Payment[], toastMsg: string) => {
+    const nextDb: DatabaseState = { ...db, payments: nextPayments };
     setDb(nextDb);
     try {
       setIsSyncing(true);
       await syncStateToSheets(spreadsheetId, accessToken, nextDb, profiles, activeBranchLocation);
-      triggerToast(`${invoiceId} marked ${next}.`, 'success');
+      triggerToast(toastMsg, 'success');
     } catch (err: any) {
-      triggerToast(`Sync failed: ${err.message}`, 'error');
+      triggerToast(`Saved locally but Sheets Sync failed: ${err.message}`, 'error');
     } finally {
       setIsSyncing(false);
     }
-  }, [db, isStaff, profiles, activeBranchLocation, spreadsheetId, accessToken, setDb, triggerToast, syncStateToSheets, setIsSyncing]);
+  }, [db, profiles, activeBranchLocation, spreadsheetId, accessToken, setDb, triggerToast, syncStateToSheets, setIsSyncing]);
+
+  const addPayment = useCallback((
+    invoiceId: string,
+    fields: { amount: number; date: string; method: string; reference: string },
+  ) => {
+    if (isStaff) { triggerToast('Read-only mode.', 'error'); return; }
+    if (!(fields.amount > 0)) { triggerToast('Enter a payment amount greater than 0.', 'error'); return; }
+    const payment: Payment = {
+      Payment_ID: newPaymentId(invoiceId),
+      Invoice_ID: invoiceId,
+      Amount: Number(fields.amount),
+      Date: fields.date || new Date().toISOString().slice(0, 10),
+      Method: fields.method || '',
+      Reference: fields.reference || '',
+    };
+    persistPayments([...db.payments, payment], `Payment of RM ${payment.Amount.toFixed(2)} recorded.`);
+  }, [db.payments, isStaff, persistPayments, triggerToast]);
+
+  const deletePayment = useCallback((paymentId: string) => {
+    if (isStaff) { triggerToast('Read-only mode.', 'error'); return; }
+    if (!window.confirm('Delete this payment record?')) return;
+    persistPayments(db.payments.filter(p => p.Payment_ID !== paymentId), 'Payment deleted.');
+  }, [db.payments, isStaff, persistPayments, triggerToast]);
 
   const inputClass = `w-full px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
     isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
@@ -883,7 +1072,8 @@ export default function InvoicingModule({
           >
             <option value="All">All Statuses</option>
             <option value="Paid">Paid</option>
-            <option value="Pending">Pending</option>
+            <option value="Partial">Partially Paid</option>
+            <option value="Unpaid">Unpaid</option>
           </select>
           <select
             value={sortBy}
@@ -930,6 +1120,7 @@ export default function InvoicingModule({
                 {filtered.map(inv => {
                   const p = profiles.find(pr => pr.id === inv.Company);
                   const curr = p?.currency_symbol || 'RM';
+                  const pay = getPaymentSummary(inv, db.payments);
                   return (
                     <tr key={inv.Invoice_ID} className="hover:bg-gray-50/50 dark:hover:bg-slate-800/30 transition-colors">
                       <td className="px-5 py-3.5 font-mono font-bold text-gray-900 dark:text-white whitespace-nowrap">{inv.Invoice_ID}</td>
@@ -948,14 +1139,15 @@ export default function InvoicingModule({
                         {curr} {Number(inv.Total_Amount).toFixed(2)}
                       </td>
                       <td className="px-4 py-3.5 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase inline-flex items-center gap-1 ${
-                          inv.Status === 'Paid'
-                            ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400'
-                            : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400'
-                        }`}>
-                          <span className={`w-1 h-1 rounded-full flex-shrink-0 ${inv.Status === 'Paid' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                          {inv.Status}
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase inline-flex items-center gap-1 ${STATUS_BADGE[pay.status]}`}>
+                          <span className={`w-1 h-1 rounded-full flex-shrink-0 ${STATUS_DOT[pay.status]}`} />
+                          {PAYMENT_STATUS_LABEL[pay.status]}
                         </span>
+                        {pay.status === 'Partial' && (
+                          <div className="text-[9px] font-mono text-gray-400 dark:text-slate-500 mt-1 whitespace-nowrap">
+                            {curr} {pay.paid.toFixed(2)} / {Number(inv.Total_Amount).toFixed(2)}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-2 whitespace-nowrap">
@@ -969,15 +1161,12 @@ export default function InvoicingModule({
                                 <Edit className="w-3.5 h-3.5" />
                               </button>
                               <button
-                                onClick={() => toggleStatus(inv.Invoice_ID, inv.Status)}
-                                disabled={isSyncing}
-                                className={`text-[10px] font-bold cursor-pointer transition-colors hover:underline ${
-                                  inv.Status === 'Paid'
-                                    ? 'text-amber-600 dark:text-amber-400'
-                                    : 'text-emerald-600 dark:text-emerald-400'
-                                }`}
+                                onClick={() => setPaymentInvoice(inv)}
+                                className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300 cursor-pointer transition-colors"
+                                title="Record / view payments"
                               >
-                                {inv.Status === 'Paid' ? 'Pending' : 'Paid'}
+                                <Wallet className="w-3.5 h-3.5" />
+                                Payments
                               </button>
                             </>
                           )}
@@ -999,7 +1188,9 @@ export default function InvoicingModule({
 
           {/* Mobile card list — visible only on small screens */}
           <div className="md:hidden divide-y divide-gray-100 dark:divide-slate-800">
-            {filtered.map(inv => (
+            {filtered.map(inv => {
+              const pay = getPaymentSummary(inv, db.payments);
+              return (
               <div key={inv.Invoice_ID} className={`p-4 ${isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-gray-50/60'}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
@@ -1007,12 +1198,13 @@ export default function InvoicingModule({
                       <span className={`text-xs font-black font-mono ${isDarkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>
                         {inv.Invoice_ID}
                       </span>
-                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
-                        inv.Status === 'Paid'
-                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400'
-                          : 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400'
-                      }`}>{inv.Status}</span>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${STATUS_BADGE[pay.status]}`}>{PAYMENT_STATUS_LABEL[pay.status]}</span>
                     </div>
+                    {pay.status === 'Partial' && (
+                      <p className="text-[10px] font-mono text-amber-600 dark:text-amber-400 mb-0.5">
+                        Paid RM {pay.paid.toFixed(2)} · Bal RM {pay.balance.toFixed(2)}
+                      </p>
+                    )}
                     <p className={`text-xs font-semibold truncate ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
                       {inv.Customer_Name}
                     </p>
@@ -1041,20 +1233,20 @@ export default function InvoicingModule({
                       )}
                       {!isStaff && (
                         <button
-                          onClick={() => toggleStatus(inv.Invoice_ID, inv.Status)}
-                          disabled={isSyncing}
+                          onClick={() => setPaymentInvoice(inv)}
                           className={`px-2.5 py-1 text-[10px] font-bold rounded-lg cursor-pointer transition-colors ${
                             isDarkMode
-                              ? 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                              ? 'bg-emerald-900/40 text-emerald-400 hover:bg-emerald-900/60'
+                              : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
                           }`}
-                        >{inv.Status === 'Paid' ? 'Pending' : 'Paid'}</button>
+                        >Payments</button>
                       )}
                     </div>
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
           </>
         )}
@@ -1698,6 +1890,20 @@ export default function InvoicingModule({
           profile={previewState.profile}
           onClose={() => setPreviewState(null)}
           onDownload={() => generatePDF(previewState.invoice, previewState.items, previewState.profile)}
+        />
+      )}
+
+      {/* ── Payments Modal ──────────────────────────────────────────────── */}
+      {paymentInvoice && (
+        <PaymentsModal
+          invoice={paymentInvoice}
+          payments={db.payments}
+          currency={profiles.find(pr => pr.id === paymentInvoice.Company)?.currency_symbol || 'RM'}
+          isDarkMode={isDarkMode}
+          isSyncing={isSyncing}
+          onAdd={(fields) => addPayment(paymentInvoice.Invoice_ID, fields)}
+          onDelete={deletePayment}
+          onClose={() => setPaymentInvoice(null)}
         />
       )}
     </div>
