@@ -236,6 +236,12 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
           @page { size: A4 portrait; margin: 0mm; }
+          /* Pin the print layout viewport to true A4 width so mobile Chrome prints
+             1:1 instead of shrinking the 210mm page (which needed a manual ~75% zoom). */
+          html, body {
+            width: 210mm !important; min-width: 210mm !important; max-width: 210mm !important;
+            -webkit-text-size-adjust: 100% !important; text-size-adjust: 100% !important;
+          }
           body, html { margin: 0 !important; padding: 0 !important; background: white !important; }
           /* The whole app (mounted at #root) is a sibling of this portaled overlay under
              <body> — hide it outright so it can't push the print area down or get counted
@@ -521,6 +527,12 @@ function KitchenSheetModal({ data, onClose }: { data: PreviewData; onClose: () =
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
           @page { size: A4 portrait; margin: 0mm; }
+          /* Pin the print layout viewport to true A4 width so mobile Chrome prints
+             1:1 instead of shrinking the 210mm page (which needed a manual ~75% zoom). */
+          html, body {
+            width: 210mm !important; min-width: 210mm !important; max-width: 210mm !important;
+            -webkit-text-size-adjust: 100% !important; text-size-adjust: 100% !important;
+          }
           body, html { margin: 0 !important; padding: 0 !important; background: white !important; }
           #root { display: none !important; }
           body * { visibility: hidden !important; }

@@ -1648,6 +1648,18 @@ export default function App() {
                 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Playfair+Display:ital,wght@0,600;1,400&family=Space+Grotesk:wght@500;700&display=swap');
                 @media print {
                   @page { size: A4 portrait; margin: 0mm; }
+                  /* Force the print layout viewport itself to exactly A4 width. Without
+                     this, mobile Chrome keeps the body at the phone's ~360px width and
+                     shrinks the 210mm print area to fit — which is why it printed small
+                     and needed a manual ~75% zoom. Pinning body to 210mm makes every
+                     device (desktop + mobile) render the page 1:1 at true A4. */
+                  html, body {
+                    width: 210mm !important;
+                    min-width: 210mm !important;
+                    max-width: 210mm !important;
+                    -webkit-text-size-adjust: 100% !important;
+                    text-size-adjust: 100% !important;
+                  }
                   body, html { margin: 0 !important; padding: 0 !important; background: white !important; }
                   /* The whole app (mounted at #root) is a sibling of this portaled overlay
                      under <body> — hide it outright so it can't push the print area down
