@@ -1567,6 +1567,11 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               html, body {
                 margin: 0 !important; padding: 0 !important;
                 background: white !important;
+                /* Pin the print viewport to true A4 width so mobile Chrome/Safari
+                   prints the 210mm payslip 1:1 instead of shrinking it into a
+                   corner and spilling onto a second page. */
+                width: 210mm !important; min-width: 210mm !important; max-width: 210mm !important;
+                -webkit-text-size-adjust: 100% !important; text-size-adjust: 100% !important;
               }
               body * { visibility: hidden !important; }
               #printable-payslip, #printable-payslip * {

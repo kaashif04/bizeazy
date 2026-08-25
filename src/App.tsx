@@ -1332,7 +1332,7 @@ export default function App() {
               }`}
             >{nkName}</button>
           </div>
-          <div className="max-w-6xl mx-auto px-6 py-8 space-y-8">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-8 space-y-5 sm:space-y-8">
 
             <div>
               <h1 className={`text-xl font-black tracking-tight ${dm ? 'text-white' : 'text-slate-900'}`}>Hub Overview</h1>
@@ -1349,9 +1349,9 @@ export default function App() {
                 { icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>, color: 'text-amber-400', bg: dm ? 'bg-amber-500/10' : 'bg-amber-50', label: 'Pending Outstanding', value: fmtAmt(pendingHub), sub: `${unpaidCountHub} unpaid` },
                 { icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>, color: 'text-purple-400', bg: dm ? 'bg-purple-500/10' : 'bg-purple-50', label: 'Active Employees', value: String(activeEmployeesHub.length), sub: `${savedPayslipsHub.length} saved payslips` },
               ].map((card, i) => (
-                <div key={i} className={`rounded-2xl p-5 border transition-colors ${dm ? 'bg-[#0f1623] border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${card.bg} ${card.color}`}>{card.icon}</div>
-                  <p className={`text-xl sm:text-2xl font-black tracking-tight leading-none ${dm ? 'text-white' : 'text-slate-900'}`}>{card.value}</p>
+                <div key={i} className={`rounded-2xl p-3.5 sm:p-5 border transition-colors ${dm ? 'bg-[#0f1623] border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+                  <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center mb-2 sm:mb-3 ${card.bg} ${card.color}`}>{card.icon}</div>
+                  <p className={`text-lg sm:text-2xl font-black tracking-tight leading-none ${dm ? 'text-white' : 'text-slate-900'}`}>{card.value}</p>
                   <p className={`text-[10px] font-bold uppercase tracking-wider mt-1 ${dm ? 'text-slate-500' : 'text-slate-400'}`}>{card.label}</p>
                   <p className={`text-[10px] font-semibold mt-0.5 ${dm ? 'text-slate-600' : 'text-slate-400'}`}>{card.sub}</p>
                 </div>
@@ -1365,13 +1365,13 @@ export default function App() {
                 { icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>, label: 'Quotations Module', desc: 'Multi-day catering quotes & estimates', cta: 'Open →', accent: 'indigo', onClick: () => { setActiveView('quotations'); triggerToast('Entering Quotations Console...', 'success'); }, stat1Label: 'Quotations', stat1Val: String(activeQuotationsHub.length), stat2Label: 'Expired', stat2Val: String(expiredQuotationsHub), stat2Warn: expiredQuotationsHub > 0 },
                 { icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>, label: 'Payroll Module', desc: 'Employee roster & payslip generator', cta: 'Open →', accent: 'indigo', onClick: () => { setActiveView('payroll'); triggerToast('Entering Payslip Console...', 'success'); }, stat1Label: 'Employees', stat1Val: String(activeEmployeesHub.length), stat2Label: 'Saved Payslips', stat2Val: String(savedPayslipsHub.length), stat2Warn: false },
               ].map((mod, i) => (
-                <div key={i} className={`rounded-2xl border p-5 transition-all ${dm ? 'bg-[#0f1623] border-slate-800 hover:border-slate-700' : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm hover:shadow-md'}`}>
-                  <div className="flex items-start justify-between mb-4">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${mod.accent === 'emerald' ? (dm ? 'bg-emerald-500/15 text-emerald-400' : 'bg-emerald-50 text-emerald-600') : (dm ? 'bg-indigo-500/15 text-indigo-400' : 'bg-indigo-50 text-indigo-600')}`}>{mod.icon}</div>
+                <div key={i} className={`rounded-2xl border p-4 sm:p-5 transition-all ${dm ? 'bg-[#0f1623] border-slate-800 hover:border-slate-700' : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm hover:shadow-md'}`}>
+                  <div className="flex items-start justify-between mb-3 sm:mb-4">
+                    <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center ${mod.accent === 'emerald' ? (dm ? 'bg-emerald-500/15 text-emerald-400' : 'bg-emerald-50 text-emerald-600') : (dm ? 'bg-indigo-500/15 text-indigo-400' : 'bg-indigo-50 text-indigo-600')}`}>{mod.icon}</div>
                     <button onClick={mod.onClick} className={`text-[11px] font-bold cursor-pointer transition-colors ${mod.accent === 'emerald' ? (dm ? 'text-emerald-400 hover:text-emerald-300' : 'text-emerald-600 hover:text-emerald-800') : (dm ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-600 hover:text-indigo-800')}`}>{mod.cta}</button>
                   </div>
                   <p className={`text-sm font-black tracking-tight ${dm ? 'text-white' : 'text-slate-900'}`}>{mod.label}</p>
-                  <p className={`text-[11px] font-medium mt-0.5 mb-4 ${dm ? 'text-slate-500' : 'text-slate-400'}`}>{mod.desc}</p>
+                  <p className={`text-[11px] font-medium mt-0.5 mb-3 sm:mb-4 ${dm ? 'text-slate-500' : 'text-slate-400'}`}>{mod.desc}</p>
                   <div className="grid grid-cols-2 gap-2">
                     {[{ label: mod.stat1Label, val: mod.stat1Val, warn: false }, { label: mod.stat2Label, val: mod.stat2Val, warn: mod.stat2Warn }].map((s, j) => (
                       <div key={j} className={`rounded-xl px-3 py-2.5 ${dm ? 'bg-slate-900' : 'bg-slate-50'}`}>
