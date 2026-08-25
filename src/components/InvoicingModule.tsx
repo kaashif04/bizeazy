@@ -655,6 +655,7 @@ export default function InvoicingModule({
   const [newItemName, setNewItemName] = useState('');
   const [newItemQty, setNewItemQty] = useState(1);
   const [newItemPrice, setNewItemPrice] = useState(0);
+  const [showItemPresets, setShowItemPresets] = useState(false);
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
   const [editItem, setEditItem] = useState<LineItem>({ name: '', qty: 1, price: 0 });
   const [saveCustomer, setSaveCustomer] = useState(false);
@@ -711,6 +712,40 @@ export default function InvoicingModule({
     });
     return sorted;
   }, [db.invoices, db.payments, search, filterOutlet, filterStatus, sortBy]);
+
+  // Preset line items pulled from past invoices & quotation menus, deduped by
+  // name (keeping its last-used price). The current customer's own history is
+  // added first so their usual items/prices win. Converted-catering lines
+  // (names like "Monday, 27 July 2026 (Lunch): Biriyani") are skipped so presets
+  // stay clean, single items. Quantity is always entered fresh, never preset.
+  const itemPresets = useMemo(() => {
+    const isClean = (name: string) => {
+      const idx = name.indexOf(': ');
+      return idx === -1 || !/\d{4}/.test(name.slice(0, idx));
+    };
+    const map = new Map<string, { name: string; price: number }>();
+    const custName = modalCustomer.trim().toLowerCase();
+    const custInvoiceIds = new Set(
+      db.invoices.filter(i => (i.Customer_Name || '').toLowerCase() === custName).map(i => i.Invoice_ID)
+    );
+    const mine = db.invoice_items.filter(it => custInvoiceIds.has(it.Invoice_ID));
+    const others = db.invoice_items.filter(it => !custInvoiceIds.has(it.Invoice_ID));
+    const quotes = (db.quotation_items || []).map(it => ({ Item_Name: it.Item_Name, Price: it.Price }));
+    [...mine, ...others, ...quotes].forEach(it => {
+      const name = String(it.Item_Name || '').trim();
+      if (!name || !isClean(name)) return;
+      const key = name.toLowerCase();
+      if (!map.has(key)) map.set(key, { name, price: Number(it.Price) || 0 });
+    });
+    return Array.from(map.values());
+  }, [db.invoice_items, db.invoices, db.quotation_items, modalCustomer]);
+
+  // Suggestions filtered by what's typed (or the whole list, when the field is empty).
+  const itemPresetMatches = useMemo(() => {
+    const q = newItemName.trim().toLowerCase();
+    const list = q ? itemPresets.filter(p => p.name.toLowerCase().includes(q)) : itemPresets;
+    return list.slice(0, 8);
+  }, [itemPresets, newItemName]);
 
   const stats = useMemo(() => {
     const all = db.invoices;
@@ -1511,17 +1546,42 @@ export default function InvoicingModule({
                   <div className={`flex flex-col gap-1.5 p-2 rounded-xl border ${
                     isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-gray-50 border-gray-200'
                   }`}>
-                    {/* Description — full width */}
-                    <input
-                      type="text"
-                      placeholder="Item description"
-                      value={newItemName}
-                      onChange={e => setNewItemName(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addNewItem(); } }}
-                      className={`w-full px-2.5 py-1.5 text-[11px] rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
-                      }`}
-                    />
+                    {/* Description — full width, with preset autocomplete */}
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Item description — type or pick a saved item"
+                        value={newItemName}
+                        onChange={e => { setNewItemName(e.target.value); setShowItemPresets(true); }}
+                        onFocus={() => setShowItemPresets(true)}
+                        onBlur={() => setTimeout(() => setShowItemPresets(false), 150)}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addNewItem(); } }}
+                        className={`w-full px-2.5 py-1.5 text-[11px] rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                          isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
+                        }`}
+                      />
+                      {showItemPresets && itemPresetMatches.length > 0 && (
+                        <div className={`absolute z-20 left-0 right-0 mt-1 max-h-52 overflow-y-auto rounded-lg border shadow-lg ${
+                          isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'
+                        }`}>
+                          {itemPresetMatches.map((p, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onMouseDown={() => { setNewItemName(p.name); setNewItemPrice(p.price); setShowItemPresets(false); }}
+                              className={`w-full flex items-center justify-between gap-3 px-2.5 py-1.5 text-left text-[11px] cursor-pointer transition-colors ${
+                                isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-indigo-50 text-gray-800'
+                              }`}
+                            >
+                              <span className="truncate">{p.name}</span>
+                              <span className={`shrink-0 font-mono font-bold ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
+                                {p.price > 0 ? `${currency} ${p.price.toFixed(2)}` : '—'}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     {/* Qty + Price + Add button — always fits */}
                     <div className="flex gap-1.5 items-center">
                       <input

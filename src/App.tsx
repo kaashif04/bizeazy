@@ -1642,6 +1642,19 @@ export default function App() {
           const parentCompanyName = profile?.company_name || '';
           const storeOutletName = profile?.store_name || '';
 
+          // Fall back to the saved customer record for contact/address when the
+          // invoice itself doesn't carry them (e.g. older invoices, or a customer
+          // whose details were added later). So any filled detail shows on the invoice.
+          const matchedCust = db.customers.find(
+            c => (c.Customer_Name || '').toLowerCase() === (invoice.Customer_Name || '').toLowerCase()
+          );
+          const displayContact = (invoice.Customer_Contact && invoice.Customer_Contact !== '-')
+            ? invoice.Customer_Contact
+            : (matchedCust?.Contact && matchedCust.Contact !== '-' ? matchedCust.Contact : '');
+          const displayAddress = (invoice.Customer_Address && invoice.Customer_Address !== '-')
+            ? invoice.Customer_Address
+            : (matchedCust?.Address && matchedCust.Address !== '-' ? matchedCust.Address : '');
+
           // Portal straight to <body> so printing isn't constrained by any ancestor in
           // the app's own layout (sidebar, page wrappers, etc.) — see print CSS below.
           return createPortal(
@@ -1838,11 +1851,11 @@ export default function App() {
                         <div className="print-keep-together border border-gray-200 rounded-2xl p-4 mb-6 bg-white">
                           <span className="text-[8px] font-extrabold text-gray-400 uppercase tracking-widest block mb-2">Bill To Registered Customer</span>
                           <p className="text-sm font-black text-gray-900 mb-0.5">{invoice.Customer_Name}</p>
-                          <p className="text-[10.5px] text-gray-500">Mobile / Email: {invoice.Customer_Contact && invoice.Customer_Contact !== '-' ? invoice.Customer_Contact : '-'}</p>
-                          {invoice.Customer_Address && invoice.Customer_Address !== '-' && (
+                          <p className="text-[10.5px] text-gray-500">Mobile / Email: {displayContact || '-'}</p>
+                          {displayAddress && (
                             <div className="mt-3 pt-3 border-t border-gray-100">
                               <span className="text-[8px] font-extrabold text-gray-400 uppercase tracking-widest block mb-1">Physical Location Address:</span>
-                              <p className="text-[10.5px] text-gray-600 font-medium">{invoice.Customer_Address}</p>
+                              <p className="text-[10.5px] text-gray-600 font-medium whitespace-pre-line">{displayAddress}</p>
                             </div>
                           )}
                         </div>

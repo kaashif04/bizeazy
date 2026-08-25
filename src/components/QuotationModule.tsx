@@ -722,6 +722,35 @@ export default function QuotationModule({
   const [flatPackageTotal, setFlatPackageTotal] = useState(0);
   const [days, setDays] = useState<DayForm[]>([]);
   const [itemDrafts, setItemDrafts] = useState<Record<string, { name: string; qty: number; price: number }>>({});
+  // Session_ID whose menu-item preset dropdown is currently open (null = none).
+  const [openPresetSession, setOpenPresetSession] = useState<string | null>(null);
+
+  // Preset menu items pulled from past quotations & invoices, deduped by name
+  // (keeping its last-used price). The current customer's quotation history is
+  // added first so their usual dishes/prices win. Converted-catering lines with
+  // date/session prefixes are skipped so presets stay clean single dishes.
+  // Pax/Qty is always entered fresh — only name & price are preset.
+  const itemPresets = useMemo(() => {
+    const isClean = (name: string) => {
+      const idx = name.indexOf(': ');
+      return idx === -1 || !/\d{4}/.test(name.slice(0, idx));
+    };
+    const map = new Map<string, { name: string; price: number }>();
+    const custName = modalCustomer.trim().toLowerCase();
+    const custQuotIds = new Set(
+      db.quotations.filter(q => (q.Customer_Name || '').toLowerCase() === custName).map(q => q.Quotation_ID)
+    );
+    const mine = (db.quotation_items || []).filter(it => custQuotIds.has(it.Quotation_ID));
+    const others = (db.quotation_items || []).filter(it => !custQuotIds.has(it.Quotation_ID));
+    const inv = db.invoice_items || [];
+    [...mine, ...others, ...inv].forEach(it => {
+      const name = String(it.Item_Name || '').trim();
+      if (!name || !isClean(name)) return;
+      const key = name.toLowerCase();
+      if (!map.has(key)) map.set(key, { name, price: Number(it.Price) || 0 });
+    });
+    return Array.from(map.values());
+  }, [db.quotation_items, db.quotations, db.invoice_items, modalCustomer]);
 
   const [discountType, setDiscountType] = useState<'none' | 'percentage' | 'fixed'>('none');
   const [discountValue, setDiscountValue] = useState<number>(0);
@@ -1238,6 +1267,9 @@ export default function QuotationModule({
                           <button onClick={() => openPreview(q)} className="flex items-center gap-1 text-[10px] font-bold text-indigo-500 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 cursor-pointer transition-colors">
                             <Eye className="w-3.5 h-3.5" /> Preview
                           </button>
+                          <button onClick={() => handleDelete(q.Quotation_ID)} disabled={isSyncing} className="p-1 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded cursor-pointer transition-colors" title="Delete quotation">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -1291,6 +1323,9 @@ export default function QuotationModule({
                         <ArrowRightCircle className="w-3 h-3" /> Convert
                       </button>
                     )}
+                    <button onClick={() => handleDelete(q.Quotation_ID)} disabled={isSyncing} className={`flex items-center justify-center gap-1.5 px-2 py-1.5 text-[10px] font-bold rounded-lg cursor-pointer transition-colors ${isDarkMode ? 'bg-rose-950/30 text-rose-400 hover:bg-rose-900/40' : 'bg-rose-50 text-rose-700 hover:bg-rose-100'}`}>
+                      <Trash2 className="w-3 h-3" /> Delete
+                    </button>
                   </div>
                 </div>
               );
@@ -1616,10 +1651,31 @@ export default function QuotationModule({
                                     </div>
                                   ))}
                                   <div className="flex items-center gap-1.5">
-                                    <input type="text" placeholder="Add menu item…" value={draft.name}
-                                      onChange={e => setDraft(session.Session_ID, { name: e.target.value })}
-                                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addItemToSession(day.Day_ID, session.Session_ID); } }}
-                                      className={`flex-1 min-w-0 ${smallInputClass}`} />
+                                    <div className="relative flex-1 min-w-0">
+                                      <input type="text" placeholder="Add menu item — type or pick saved" value={draft.name}
+                                        onChange={e => { setDraft(session.Session_ID, { name: e.target.value }); setOpenPresetSession(session.Session_ID); }}
+                                        onFocus={() => setOpenPresetSession(session.Session_ID)}
+                                        onBlur={() => setTimeout(() => setOpenPresetSession(cur => cur === session.Session_ID ? null : cur), 150)}
+                                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addItemToSession(day.Day_ID, session.Session_ID); } }}
+                                        className={`w-full ${smallInputClass}`} />
+                                      {openPresetSession === session.Session_ID && (() => {
+                                        const qq = (draft.name || '').trim().toLowerCase();
+                                        const matches = (qq ? itemPresets.filter(p => p.name.toLowerCase().includes(qq)) : itemPresets).slice(0, 8);
+                                        if (!matches.length) return null;
+                                        return (
+                                          <div className={`absolute z-30 left-0 right-0 mt-1 max-h-52 overflow-y-auto rounded-lg border shadow-lg ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}>
+                                            {matches.map((p, pi) => (
+                                              <button key={pi} type="button"
+                                                onMouseDown={() => { setDraft(session.Session_ID, { name: p.name, price: p.price }); setOpenPresetSession(null); }}
+                                                className={`w-full flex items-center justify-between gap-3 px-2.5 py-1.5 text-left text-[11px] cursor-pointer transition-colors ${isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-indigo-50 text-gray-800'}`}>
+                                                <span className="truncate">{p.name}</span>
+                                                <span className={`shrink-0 font-mono font-bold ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>{p.price > 0 ? `${currency} ${p.price.toFixed(2)}` : '—'}</span>
+                                              </button>
+                                            ))}
+                                          </div>
+                                        );
+                                      })()}
+                                    </div>
                                     <input type="number" min="0" placeholder="Qty" value={draft.qty || ''}
                                       onChange={e => setDraft(session.Session_ID, { qty: Number(e.target.value) })}
                                       className={`w-14 text-center font-mono ${smallInputClass}`} />
