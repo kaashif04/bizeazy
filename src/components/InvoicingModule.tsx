@@ -648,6 +648,7 @@ export default function InvoicingModule({
   const [modalDate, setModalDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [modalCustomer, setModalCustomer] = useState('');
   const [modalContact, setModalContact] = useState('');
+  const [modalAddress, setModalAddress] = useState('');
   const [modalStatus, setModalStatus] = useState<'Paid' | 'Pending'>('Pending');
   const [modalNotes, setModalNotes] = useState('');
   const [lineItems, setLineItems] = useState<LineItem[]>([{ name: '', qty: 1, price: 0 }]);
@@ -745,7 +746,8 @@ export default function InvoicingModule({
 
   const selectCustomer = (c: Customer) => {
     setModalCustomer(c.Customer_Name);
-    setModalContact(c.Contact || '');
+    setModalContact(c.Contact && c.Contact !== '-' ? c.Contact : '');
+    setModalAddress(c.Address && c.Address !== '-' ? c.Address : '');
     setShowSuggestions(false);
   };
 
@@ -759,7 +761,8 @@ export default function InvoicingModule({
       setModalOutlet(invoice.Company as 'Bistro' | 'Nasi Kandar');
       setModalDate(invoice.Date);
       setModalCustomer(invoice.Customer_Name);
-      setModalContact(invoice.Customer_Contact || '');
+      setModalContact(invoice.Customer_Contact && invoice.Customer_Contact !== '-' ? invoice.Customer_Contact : '');
+      setModalAddress(invoice.Customer_Address && invoice.Customer_Address !== '-' ? invoice.Customer_Address : '');
       setModalStatus(invoice.Status as 'Paid' | 'Pending');
       setModalNotes(invoice.Notes || '');
       setSaveCustomer(false);
@@ -799,7 +802,7 @@ export default function InvoicingModule({
       const isBistro = activeBranchLocation.toLowerCase().includes('bistro');
       setModalOutlet(isBistro ? 'Bistro' : 'Nasi Kandar');
       setModalDate(new Date().toISOString().slice(0, 10));
-      setModalCustomer(''); setModalContact(''); setModalStatus('Pending'); setModalNotes('');
+      setModalCustomer(''); setModalContact(''); setModalAddress(''); setModalStatus('Pending'); setModalNotes('');
       setLineItems([]);
       setNewItemName(''); setNewItemQty(1); setNewItemPrice(0);
       setSaveCustomer(false);
@@ -824,6 +827,17 @@ export default function InvoicingModule({
 
     const totalAmount = validItems.reduce((s, i) => s + i.qty * i.price, 0);
 
+    // Resolve contact/address — prefer what's typed, else fall back to the saved
+    // customer's stored details so picking a registered customer always carries
+    // their contact & address onto the invoice.
+    const matchedCustomer = db.customers.find(
+      c => c.Customer_Name.toLowerCase() === modalCustomer.toLowerCase().trim(),
+    );
+    const resolvedContact = (modalContact.trim() ||
+      (matchedCustomer?.Contact && matchedCustomer.Contact !== '-' ? matchedCustomer.Contact : '')) || '-';
+    const resolvedAddress = (modalAddress.trim() ||
+      (matchedCustomer?.Address && matchedCustomer.Address !== '-' ? matchedCustomer.Address : '')) || '-';
+
     let updatedInvoices: Invoice[];
     let updatedItems: InvoiceItem[];
     let updatedCustomers = [...db.customers];
@@ -843,7 +857,8 @@ export default function InvoicingModule({
         Discount_Type: discountType,
         Discount_Value: discountValue,
         Subtotal_Amount: totalAmount,
-        Customer_Contact: modalContact.trim() || '-',
+        Customer_Contact: resolvedContact,
+        Customer_Address: resolvedAddress,
         Notes: modalNotes.trim(),
         Branch_Location: activeBranchLocation,
       };
@@ -878,8 +893,8 @@ export default function InvoicingModule({
         Subtotal_Amount: totalAmount,
         Currency_Symbol: currency,
         Is_Past_Entry: false,
-        Customer_Contact: modalContact.trim() || '-',
-        Customer_Address: '-',
+        Customer_Contact: resolvedContact,
+        Customer_Address: resolvedAddress,
         Template: 'modern',
         Notes: modalNotes.trim(),
         Branch_Location: activeBranchLocation,
@@ -903,7 +918,8 @@ export default function InvoicingModule({
         if (!exists) {
           updatedCustomers.push({
             Customer_Name: modalCustomer.trim(),
-            Contact: modalContact.trim() || '-',
+            Contact: resolvedContact,
+            Address: resolvedAddress,
             Customer_Type: 'Regular',
             Branch_Location: activeBranchLocation,
           });
@@ -931,7 +947,7 @@ export default function InvoicingModule({
     } finally {
       setIsSyncing(false);
     }
-  }, [editingInvoice, modalOutlet, modalDate, modalCustomer, modalContact, modalStatus,
+  }, [editingInvoice, modalOutlet, modalDate, modalCustomer, modalContact, modalAddress, modalStatus,
     modalNotes, lineItems, saveCustomer, discountType, discountValue,
     extraCharges, includeExtraCharge,
     db, profiles, activeBranchLocation, currency,
@@ -1347,6 +1363,12 @@ export default function InvoicingModule({
                   <div>
                     <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">Contact / Email</label>
                     <input type="text" value={modalContact} onChange={e => setModalContact(e.target.value)} placeholder="Phone, email, or billing reference…" className={inputClass} />
+                  </div>
+
+                  {/* Address */}
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">Billing Address</label>
+                    <textarea value={modalAddress} onChange={e => setModalAddress(e.target.value)} rows={2} placeholder="Customer billing / delivery address…" className={`${inputClass} resize-y`} />
                   </div>
 
                   {/* Status */}

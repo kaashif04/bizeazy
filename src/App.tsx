@@ -377,7 +377,7 @@ function CompanyProfilesModal({
     : (f: keyof TemplateCustomization, v: string | boolean) => updateTemplate(setNk, f, v);
   const tmpl = current.template || DEFAULT_TEMPLATE;
 
-  const fields: { key: keyof CompanyProfile; label: string; placeholder: string; hint?: string }[] = [
+  const fields: { key: keyof CompanyProfile; label: string; placeholder: string; hint?: string; multiline?: boolean }[] = [
     { key: 'name', label: 'Display / Public Name', placeholder: 'La Bistro Cafe' },
     { key: 'company_name', label: 'Corporate Entity Name', placeholder: 'Culinary Holdings Sdn Bhd' },
     { key: 'address', label: 'Physical Address', placeholder: '100-B, Macalister Road, Georgetown' },
@@ -385,8 +385,8 @@ function CompanyProfilesModal({
     { key: 'phone', label: 'Phone', placeholder: '+60 4-234 5678' },
     { key: 'currency_symbol', label: 'Currency Symbol', placeholder: 'RM' },
     { key: 'series_format', label: 'Invoice Prefix / Series', placeholder: 'BIS-26-', hint: 'e.g. BIS-26- → BIS-26-0001' },
-    { key: 'payment_info', label: 'Remittance / Bank Details', placeholder: 'Public Bank : 3814096800', hint: 'Shown under "Remittance Instructions" in the invoice PDF' },
-    { key: 'footer_text', label: 'Invoice Footer / Terms', placeholder: 'Thank you for dining with us!' },
+    { key: 'payment_info', label: 'Remittance / Bank Details', placeholder: 'Public Bank : 3814096800\nAccount Name : Ya Barr Solutions\nSwift: PBBEMYKL', hint: 'One detail per line — shown under "Remittance Instructions" on the invoice', multiline: true },
+    { key: 'footer_text', label: 'Invoice Footer / Terms', placeholder: 'Thank you for dining with us!', multiline: true },
   ];
 
   return (
@@ -424,18 +424,28 @@ function CompanyProfilesModal({
 
         {/* Form */}
         <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-5 space-y-3">
-          {fields.map(({ key, label, placeholder, hint }) => (
+          {fields.map(({ key, label, placeholder, hint, multiline }) => (
             <div key={key}>
               <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1">
                 {label}
               </label>
-              <input
-                type="text"
-                value={(current[key] as string) || ''}
-                onChange={e => setter(key, e.target.value)}
-                placeholder={placeholder}
-                className={inputCls}
-              />
+              {multiline ? (
+                <textarea
+                  value={(current[key] as string) || ''}
+                  onChange={e => setter(key, e.target.value)}
+                  placeholder={placeholder}
+                  rows={3}
+                  className={`${inputCls} resize-y`}
+                />
+              ) : (
+                <input
+                  type="text"
+                  value={(current[key] as string) || ''}
+                  onChange={e => setter(key, e.target.value)}
+                  placeholder={placeholder}
+                  className={inputCls}
+                />
+              )}
               {hint && <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-0.5">{hint}</p>}
             </div>
           ))}
@@ -1939,7 +1949,7 @@ export default function App() {
                             )}
                             <div>
                               <span className="text-[8px] font-extrabold text-gray-400 uppercase tracking-widest block mb-1">Remittance Instructions</span>
-                              <p className="text-[11px] text-slate-800 font-bold break-words">{profile?.payment_info || 'Direct cash settlement before collection.'}</p>
+                              <p className="text-[11px] text-slate-800 font-bold break-words whitespace-pre-line">{profile?.payment_info || 'Direct cash settlement before collection.'}</p>
                             </div>
                           </div>
                           <div className="w-full @lg:w-[230px] border border-gray-200 rounded-xl p-4 bg-white space-y-2.5 shrink-0">
@@ -2009,7 +2019,7 @@ export default function App() {
 
                       {/* Footer */}
                       <div className="border-t border-gray-200 pt-5 mt-auto text-center space-y-1 select-none">
-                        <p className="text-[9px] font-bold text-gray-500 italic uppercase tracking-wide leading-relaxed">
+                        <p className="text-[9px] font-bold text-gray-500 italic uppercase tracking-wide leading-relaxed whitespace-pre-line">
                           {customStyles.terms_footer || profile?.footer_text || 'Payment is due within 30 days.'}
                         </p>
                         <p className="text-[8px] font-mono text-gray-300 uppercase tracking-widest">Generated Securely by BizEazyInvoicing</p>
