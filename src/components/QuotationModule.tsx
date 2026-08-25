@@ -9,6 +9,7 @@ import {
   PricingMode, PackageSubMode, ServingStyle, TemplateCustomization, Invoice, InvoiceItem,
 } from '../types';
 import { generateInvoiceId } from './InvoicingModule';
+import { attachA4Scale } from '../utils/a4scale';
 
 interface QuotationModuleProps {
   db: DatabaseState;
@@ -258,6 +259,7 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
             max-height: none !important; overflow: visible !important;
             padding: 0 !important; margin: 0 !important; display: block !important;
           }
+          .a4-spacer { width: auto !important; height: auto !important; margin: 0 !important; }
           #quotation-print-area {
             position: static !important;
             width: 210mm !important; min-height: 297mm !important; height: auto !important;
@@ -299,10 +301,11 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
         {/* Paper canvas — no flex here on purpose; margin:auto on the page itself centers
             it reliably on every browser without depending on any flexbox cross-axis sizing
             behavior, which is what was leaving a side gap on real mobile browsers. */}
-        <div id="quotation-stage-container" className="flex-1 bg-slate-800 p-2 sm:p-8 overflow-auto w-full">
+        <div id="quotation-stage-container" ref={attachA4Scale} className="flex-1 bg-slate-800 p-2 sm:p-8 overflow-auto w-full">
+          <div className="a4-spacer mx-auto">
           <div
             id="quotation-print-area"
-            className={`@container bg-white w-full max-w-[210mm] mx-auto text-gray-800 shadow-2xl relative overflow-hidden min-h-[297mm] flex flex-col justify-between border border-gray-300 ${customStyles.padding || 'p-8'} ${customStyles.body_size || 'text-xs'}`}
+            className={`a4-page @container bg-white w-[794px] text-gray-800 shadow-2xl relative overflow-hidden min-h-[1123px] flex flex-col justify-between border border-gray-300 ${customStyles.padding || 'p-8'} ${customStyles.body_size || 'text-xs'}`}
             style={{ borderColor: accent, fontFamily: fontFamilyCss(customStyles.font_family) }}
           >
             <div>
@@ -504,6 +507,7 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
               <p className="text-[8px] font-mono text-gray-300 uppercase tracking-widest">Generated Securely by BizEazyInvoicing</p>
             </div>
           </div>
+          </div>
         </div>
       </div>
     </div>,
@@ -543,6 +547,7 @@ function KitchenSheetModal({ data, onClose }: { data: PreviewData; onClose: () =
             max-height: none !important; overflow: visible !important;
             padding: 0 !important; margin: 0 !important; display: block !important;
           }
+          .a4-spacer { width: auto !important; height: auto !important; margin: 0 !important; }
           #kitchen-sheet-print-area {
             position: static !important;
             width: 210mm !important; min-height: 297mm !important; height: auto !important;
@@ -579,10 +584,11 @@ function KitchenSheetModal({ data, onClose }: { data: PreviewData; onClose: () =
         </div>
 
         {/* No flex here on purpose — see Quotation preview for why */}
-        <div id="kitchen-sheet-stage" className="flex-1 bg-slate-800 p-2 sm:p-8 overflow-auto w-full">
+        <div id="kitchen-sheet-stage" ref={attachA4Scale} className="flex-1 bg-slate-800 p-2 sm:p-8 overflow-auto w-full">
+          <div className="a4-spacer mx-auto">
           <div
             id="kitchen-sheet-print-area"
-            className="bg-white w-full max-w-[210mm] mx-auto text-gray-900 shadow-2xl relative overflow-hidden min-h-[297mm] flex flex-col border border-gray-300 p-8 text-xs"
+            className="a4-page bg-white w-[794px] text-gray-900 shadow-2xl relative overflow-hidden min-h-[1123px] flex flex-col border border-gray-300 p-8 text-xs"
             style={{ fontFamily: fontFamilyCss(customStyles.font_family) }}
           >
             <div>
@@ -676,6 +682,7 @@ function KitchenSheetModal({ data, onClose }: { data: PreviewData; onClose: () =
             <div className="border-t border-gray-200 pt-4 mt-6 text-center">
               <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Internal Kitchen Use Only — Not for Client Distribution</p>
             </div>
+          </div>
           </div>
         </div>
       </div>

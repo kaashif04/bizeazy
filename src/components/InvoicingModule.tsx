@@ -1067,12 +1067,13 @@ export default function InvoicingModule({
             </button>
           )}
         </div>
-        {/* Row 2: filters */}
-        <div className="flex items-center gap-2">
+        {/* Row 2: filters — 2-up on mobile (sort spans full width), 3-up on desktop.
+            min-w-0 lets the native selects shrink instead of forcing sideways scroll. */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           <select
             value={filterOutlet}
             onChange={e => setFilterOutlet(e.target.value as typeof filterOutlet)}
-            className={`flex-1 px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+            className={`min-w-0 w-full px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
               isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
             }`}
           >
@@ -1082,7 +1083,7 @@ export default function InvoicingModule({
           <select
             value={filterStatus}
             onChange={e => setFilterStatus(e.target.value as typeof filterStatus)}
-            className={`flex-1 px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+            className={`min-w-0 w-full px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
               isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
             }`}
           >
@@ -1094,7 +1095,7 @@ export default function InvoicingModule({
           <select
             value={sortBy}
             onChange={e => setSortBy(e.target.value as SortMode)}
-            className={`flex-1 px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+            className={`col-span-2 sm:col-span-1 min-w-0 w-full px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
               isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
             }`}
           >
@@ -1208,20 +1209,16 @@ export default function InvoicingModule({
               const pay = getPaymentSummary(inv, db.payments);
               return (
               <div key={inv.Invoice_ID} className={`p-4 ${isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-gray-50/60'}`}>
+                {/* Top: ID + status on the left, amount on the right */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-xs font-black font-mono ${isDarkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-xs font-black font-mono whitespace-nowrap ${isDarkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>
                         {inv.Invoice_ID}
                       </span>
                       <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${STATUS_BADGE[pay.status]}`}>{PAYMENT_STATUS_LABEL[pay.status]}</span>
                     </div>
-                    {pay.status === 'Partial' && (
-                      <p className="text-[10px] font-mono text-amber-600 dark:text-amber-400 mb-0.5">
-                        Paid RM {pay.paid.toFixed(2)} · Bal RM {pay.balance.toFixed(2)}
-                      </p>
-                    )}
-                    <p className={`text-xs font-semibold truncate ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                    <p className={`text-sm font-semibold truncate mt-1 ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
                       {inv.Customer_Name}
                     </p>
                     <p className={`text-[10px] mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
@@ -1229,36 +1226,42 @@ export default function InvoicingModule({
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className={`text-sm font-black font-mono ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                    <p className={`text-base font-black font-mono ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                       RM {Number(inv.Total_Amount).toFixed(2)}
                     </p>
-                    <div className="flex items-center gap-1.5 mt-2 justify-end">
-                      <button
-                        onClick={() => onPreviewInvoice?.(inv.Invoice_ID)}
-                        className={`px-2.5 py-1 text-[10px] font-bold rounded-lg cursor-pointer transition-colors ${
-                          isDarkMode ? 'bg-slate-700 text-indigo-400 hover:bg-slate-600' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
-                        }`}
-                      >Preview</button>
-                      {!isStaff && (
-                        <button
-                          onClick={() => openModal(inv)}
-                          className={`px-2.5 py-1 text-[10px] font-bold rounded-lg cursor-pointer transition-colors ${
-                            isDarkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }`}
-                        >Edit</button>
-                      )}
-                      {!isStaff && (
-                        <button
-                          onClick={() => setPaymentInvoice(inv)}
-                          className={`px-2.5 py-1 text-[10px] font-bold rounded-lg cursor-pointer transition-colors ${
-                            isDarkMode
-                              ? 'bg-emerald-900/40 text-emerald-400 hover:bg-emerald-900/60'
-                              : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                          }`}
-                        >Payments</button>
-                      )}
-                    </div>
+                    {pay.status === 'Partial' && (
+                      <p className="text-[10px] font-mono text-amber-600 dark:text-amber-400 mt-0.5">
+                        Bal RM {pay.balance.toFixed(2)}
+                      </p>
+                    )}
                   </div>
+                </div>
+                {/* Actions: full-width equal buttons for easy tapping */}
+                <div className="grid grid-cols-3 gap-2 mt-3">
+                  <button
+                    onClick={() => onPreviewInvoice?.(inv.Invoice_ID)}
+                    className={`py-2 text-[11px] font-bold rounded-lg cursor-pointer transition-colors ${
+                      isDarkMode ? 'bg-slate-800 text-indigo-400 hover:bg-slate-700' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                    }`}
+                  >Preview</button>
+                  {!isStaff && (
+                    <button
+                      onClick={() => openModal(inv)}
+                      className={`py-2 text-[11px] font-bold rounded-lg cursor-pointer transition-colors ${
+                        isDarkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >Edit</button>
+                  )}
+                  {!isStaff && (
+                    <button
+                      onClick={() => setPaymentInvoice(inv)}
+                      className={`py-2 text-[11px] font-bold rounded-lg cursor-pointer transition-colors ${
+                        isDarkMode
+                          ? 'bg-emerald-900/40 text-emerald-400 hover:bg-emerald-900/60'
+                          : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                      }`}
+                    >Payments</button>
+                  )}
                 </div>
               </div>
               );

@@ -8,6 +8,7 @@ import {
 } from './sheetsService';
 import { DatabaseState, CompanyProfile, TemplateCustomization, InvoiceItem } from './types';
 import { getPaymentSummary, PAYMENT_STATUS_LABEL } from './utils/payments';
+import { attachA4Scale } from './utils/a4scale';
 import { PayrollDashboard } from './components/PayrollDashboard';
 import InvoicingModule from './components/InvoicingModule';
 import QuotationModule from './components/QuotationModule';
@@ -928,6 +929,7 @@ export default function App() {
     toast('Invoice preview opened. Use Print / Save A4 to export PDF.', 'info');
   };
 
+
   const triggerToast = useCallback((message: string, type: Toast['type']) => {
     const id = Math.random().toString(36).slice(2);
     setToasts(prev => [...prev, { id, message, type }]);
@@ -1686,6 +1688,8 @@ export default function App() {
                   /* Never split the customer block, items table, or totals box across a
                      page boundary — push the whole block to the next page instead. */
                   .print-keep-together { break-inside: avoid-page; page-break-inside: avoid; }
+                  /* Undo the on-screen scale-to-fit so the export is true full A4. */
+                  .a4-spacer { width: auto !important; height: auto !important; margin: 0 !important; }
                   #invoice-print-area {
                     position: static !important;
                     width: 210mm !important;
@@ -1739,10 +1743,11 @@ export default function App() {
                   {/* RIGHT: Paper canvas — no flex here on purpose; margin:auto on the page
                       itself centers it reliably on every browser without depending on any
                       flexbox cross-axis sizing behavior. */}
-                  <div id="preview-stage-container" className="bg-slate-800 p-2 sm:p-8 rounded-2xl overflow-auto w-full">
+                  <div id="preview-stage-container" ref={attachA4Scale} className="bg-slate-800 p-2 sm:p-8 rounded-2xl overflow-auto w-full">
+                    <div className="a4-spacer mx-auto">
                     <div
                       id="invoice-print-area"
-                      className={`@container bg-white w-full max-w-[210mm] mx-auto text-gray-800 shadow-2xl relative overflow-hidden min-h-[297mm] flex flex-col justify-between transition-all border border-gray-300 ${customStyles.padding || 'p-8'} ${customStyles.body_size || 'text-xs'}`}
+                      className={`a4-page @container bg-white w-[794px] text-gray-800 shadow-2xl relative overflow-hidden min-h-[1123px] flex flex-col justify-between border border-gray-300 ${customStyles.padding || 'p-8'} ${customStyles.body_size || 'text-xs'}`}
                       style={{
                         borderColor: customStyles.primary_color,
                         fontFamily: customStyles.font_family === 'Space Grotesk' ? '"Space Grotesk", sans-serif' :
@@ -2036,6 +2041,7 @@ export default function App() {
                         </p>
                         <p className="text-[8px] font-mono text-gray-300 uppercase tracking-widest">Generated Securely by BizEazyInvoicing</p>
                       </div>
+                    </div>
                     </div>
                   </div>
                 </div>
