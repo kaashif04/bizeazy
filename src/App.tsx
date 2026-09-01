@@ -1122,10 +1122,19 @@ export default function App() {
 
     const activeInvoicesHub  = db.invoices.filter(inv => inv.Company === activeOutlet);
     const totalInvoicedHub   = activeInvoicesHub.reduce((s, i) => s + (Number(i.Total_Amount) || 0), 0);
-    const collectedHub       = activeInvoicesHub.filter(i => i.Status === 'Paid').reduce((s, i) => s + (Number(i.Total_Amount) || 0), 0);
-    const pendingHub         = activeInvoicesHub.filter(i => i.Status === 'Pending').reduce((s, i) => s + (Number(i.Total_Amount) || 0), 0);
-    const paidCountHub       = activeInvoicesHub.filter(i => i.Status === 'Paid').length;
-    const unpaidCountHub     = activeInvoicesHub.filter(i => i.Status === 'Pending').length;
+    // Collected/Outstanding are derived from ACTUAL recorded payments (not the
+    // legacy Status field) so partial payments tally correctly.
+    const hubPay = activeInvoicesHub.reduce((acc, i) => {
+      const s = getPaymentSummary(i, db.payments);
+      acc.collected += s.paid;
+      acc.pending += s.balance;
+      if (s.status === 'Paid') acc.paidCount++; else acc.unpaidCount++;
+      return acc;
+    }, { collected: 0, pending: 0, paidCount: 0, unpaidCount: 0 });
+    const collectedHub       = hubPay.collected;
+    const pendingHub         = hubPay.pending;
+    const paidCountHub       = hubPay.paidCount;
+    const unpaidCountHub     = hubPay.unpaidCount;
     const activeEmployeesHub = db.employees?.filter(e => e.Assigned_Outlet === activeOutlet) || [];
     const savedPayslipsHub   = db.payslips?.filter(p => p.Is_Saved) || [];
     const activeQuotationsHub = db.quotations?.filter(q => q.Company === activeOutlet) || [];
@@ -1421,7 +1430,13 @@ export default function App() {
                       </div>
                       <div className="flex items-center gap-3 shrink-0">
                         <span className={`text-xs font-black font-mono ${dm ? 'text-slate-200' : 'text-slate-800'}`}>{currHub} {(Number(inv.Total_Amount) || 0).toLocaleString('en-MY', { minimumFractionDigits: 2 })}</span>
-                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${inv.Status === 'Paid' ? (dm ? 'bg-emerald-500/15 text-emerald-400' : 'bg-emerald-100 text-emerald-700') : (dm ? 'bg-amber-500/15 text-amber-400' : 'bg-amber-100 text-amber-700')}`}>{inv.Status}</span>
+                        {(() => {
+                          const st = getPaymentSummary(inv, db.payments).status;
+                          const cls = st === 'Paid' ? (dm ? 'bg-emerald-500/15 text-emerald-400' : 'bg-emerald-100 text-emerald-700')
+                            : st === 'Partial' ? (dm ? 'bg-amber-500/15 text-amber-400' : 'bg-amber-100 text-amber-700')
+                            : (dm ? 'bg-rose-500/15 text-rose-400' : 'bg-rose-100 text-rose-700');
+                          return <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${cls}`}>{PAYMENT_STATUS_LABEL[st]}</span>;
+                        })()}
                       </div>
                     </div>
                   ))}

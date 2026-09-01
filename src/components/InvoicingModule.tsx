@@ -747,16 +747,21 @@ export default function InvoicingModule({
     return list.slice(0, 8);
   }, [itemPresets, newItemName]);
 
+  // Money widgets are derived from ACTUAL recorded payments (getPaymentSummary),
+  // not the legacy Status field — so partial payments tally correctly:
+  //   Collected  = sum of payments received (RM actually in)
+  //   Outstanding = sum of remaining balances (RM still owed)
   const stats = useMemo(() => {
-    const all = db.invoices;
-    return {
-      total: all.reduce((s, i) => s + (Number(i.Total_Amount) || 0), 0),
-      paid: all.filter(i => i.Status === 'Paid').reduce((s, i) => s + (Number(i.Total_Amount) || 0), 0),
-      pending: all.filter(i => i.Status === 'Pending').reduce((s, i) => s + (Number(i.Total_Amount) || 0), 0),
-      count: all.length,
-      pendingCount: all.filter(i => i.Status === 'Pending').length,
-    };
-  }, [db.invoices]);
+    let total = 0, paid = 0, pending = 0, pendingCount = 0;
+    db.invoices.forEach(i => {
+      const s = getPaymentSummary(i, db.payments);
+      total += Number(i.Total_Amount) || 0;
+      paid += s.paid;
+      pending += s.balance;
+      if (s.status !== 'Paid') pendingCount++;
+    });
+    return { total, paid, pending, count: db.invoices.length, pendingCount };
+  }, [db.invoices, db.payments]);
 
   const grandTotal = lineItems.reduce((s, i) => s + (i.qty || 0) * (i.price || 0), 0);
 
