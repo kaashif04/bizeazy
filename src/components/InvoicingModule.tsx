@@ -658,7 +658,6 @@ export default function InvoicingModule({
   const [showItemPresets, setShowItemPresets] = useState(false);
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
   const [editItem, setEditItem] = useState<LineItem>({ name: '', qty: 1, price: 0 });
-  const [saveCustomer, setSaveCustomer] = useState(false);
   const [discountType, setDiscountType] = useState<'none'|'percentage'|'fixed'>('none');
   const [discountValue, setDiscountValue] = useState<number>(0);
   const [includeExtraCharge, setIncludeExtraCharge] = useState(false);
@@ -805,7 +804,6 @@ export default function InvoicingModule({
       setModalAddress(invoice.Customer_Address && invoice.Customer_Address !== '-' ? invoice.Customer_Address : '');
       setModalStatus(invoice.Status as 'Paid' | 'Pending');
       setModalNotes(invoice.Notes || '');
-      setSaveCustomer(false);
       setDiscountType((invoice.Discount_Type as 'none'|'percentage'|'fixed') || 'none');
       setDiscountValue(invoice.Discount_Value || 0);
       setIncludeExtraCharge(false);
@@ -845,7 +843,6 @@ export default function InvoicingModule({
       setModalCustomer(''); setModalContact(''); setModalAddress(''); setModalStatus('Pending'); setModalNotes('');
       setLineItems([]);
       setNewItemName(''); setNewItemQty(1); setNewItemPrice(0);
-      setSaveCustomer(false);
       setDiscountType('none');
       setDiscountValue(0);
       setIncludeExtraCharge(false);
@@ -953,17 +950,28 @@ export default function InvoicingModule({
         })),
       ];
 
-      if (saveCustomer && modalCustomer.trim()) {
-        const exists = updatedCustomers.some(c => c.Customer_Name.toLowerCase() === modalCustomer.toLowerCase().trim());
-        if (!exists) {
-          updatedCustomers.push({
-            Customer_Name: modalCustomer.trim(),
-            Contact: resolvedContact,
-            Address: resolvedAddress,
-            Customer_Type: 'Regular',
-            Branch_Location: activeBranchLocation,
-          });
-        }
+    }
+
+    // Always keep the customer directory in sync (same as quotations) so future
+    // invoices & quotations autofill this customer. New customers are added;
+    // existing ones get missing contact/address backfilled.
+    const nameKey = modalCustomer.trim().toLowerCase();
+    if (nameKey) {
+      const idx = updatedCustomers.findIndex(c => c.Customer_Name.toLowerCase() === nameKey);
+      if (idx === -1) {
+        updatedCustomers.push({
+          Customer_Name: modalCustomer.trim(),
+          Contact: resolvedContact,
+          Address: resolvedAddress,
+          Customer_Type: 'Regular',
+          Branch_Location: activeBranchLocation,
+        });
+      } else {
+        const existing = updatedCustomers[idx];
+        const patched = { ...existing };
+        if ((!existing.Contact || existing.Contact === '-') && resolvedContact !== '-') patched.Contact = resolvedContact;
+        if ((!existing.Address || existing.Address === '-') && resolvedAddress !== '-') patched.Address = resolvedAddress;
+        updatedCustomers[idx] = patched;
       }
     }
 
@@ -988,7 +996,7 @@ export default function InvoicingModule({
       setIsSyncing(false);
     }
   }, [editingInvoice, modalOutlet, modalDate, modalCustomer, modalContact, modalAddress, modalStatus,
-    modalNotes, lineItems, saveCustomer, discountType, discountValue,
+    modalNotes, lineItems, discountType, discountValue,
     extraCharges, includeExtraCharge,
     db, profiles, activeBranchLocation, currency,
     spreadsheetId, accessToken, setDb, triggerToast, syncStateToSheets, setIsSyncing]);
@@ -1531,16 +1539,9 @@ export default function InvoicingModule({
                     )}
                   </div>
 
-                  {/* Save customer — only on create */}
-                  {!editingInvoice && (
-                    <label className="flex items-start gap-2.5 cursor-pointer">
-                      <input type="checkbox" checked={saveCustomer} onChange={e => setSaveCustomer(e.target.checked)} className="mt-0.5 accent-indigo-600" />
-                      <div>
-                        <span className="text-xs font-semibold text-gray-800 dark:text-slate-200 block">Save customer to database</span>
-                        <span className="text-[10px] text-gray-400 dark:text-slate-500">Adds this customer to your Sheets profile list.</span>
-                      </div>
-                    </label>
-                  )}
+                  <p className="text-[10px] text-gray-400 dark:text-slate-500">
+                    This customer is saved automatically for faster future invoices & quotations.
+                  </p>
                 </div>
 
                 {/* Right: line items — AI Studio style */}

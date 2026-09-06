@@ -58,6 +58,27 @@ interface DayForm {
 
 const SERVING_STYLES: ServingStyle[] = ['Packed Bento Boxes', 'Buffet Setup', 'Dome Serving'];
 
+// Preset sittings with their default start time. Picking one auto-fills the time
+// (still editable). "Custom" lets the user type any label.
+const SESSION_PRESETS: { label: string; time: string }[] = [
+  { label: 'Breakfast', time: '7:30 AM' },
+  { label: 'Lunch',     time: '12:00 PM' },
+  { label: 'Dinner',    time: '6:00 PM' },
+  { label: 'Tea Break', time: '4:00 PM' },
+  { label: 'Supper',    time: '9:00 PM' },
+];
+// 30-minute time options (12:00 AM … 11:30 PM) for the session time picker.
+const TIME_SLOTS: string[] = (() => {
+  const out: string[] = [];
+  for (let m = 0; m < 24 * 60; m += 30) {
+    const h = Math.floor(m / 60), min = m % 60;
+    const ampm = h < 12 ? 'AM' : 'PM';
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    out.push(`${h12}:${min === 0 ? '00' : min} ${ampm}`);
+  }
+  return out;
+})();
+
 const DEFAULT_CATERING_TERMS =
   'A 50% deposit is required to confirm the booking date. The remaining balance must be cleared on or before the final event date. Final headcount and menu changes must be finalized at least 3 working days prior to the first scheduled event date.';
 
@@ -713,7 +734,6 @@ export default function QuotationModule({
   const [modalContact, setModalContact] = useState('');
   const [modalAddress, setModalAddress] = useState('');
   const [modalNotes, setModalNotes] = useState('');
-  const [saveCustomer, setSaveCustomer] = useState(false);
   const [customerSuggestions, setCustomerSuggestions] = useState<Customer[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
@@ -724,6 +744,8 @@ export default function QuotationModule({
   const [itemDrafts, setItemDrafts] = useState<Record<string, { name: string; qty: number; price: number }>>({});
   // Session_ID whose menu-item preset dropdown is currently open (null = none).
   const [openPresetSession, setOpenPresetSession] = useState<string | null>(null);
+  // Sessions the user switched to a custom (typed) label rather than a preset.
+  const [customLabelSessions, setCustomLabelSessions] = useState<Record<string, boolean>>({});
 
   // Preset menu items pulled from past quotations & invoices, deduped by name
   // (keeping its last-used price). The current customer's quotation history is
@@ -812,6 +834,23 @@ export default function QuotationModule({
   const updateDay = (dayId: string, patch: Partial<DayForm>) => {
     setDays(prev => prev.map(d => d.Day_ID === dayId ? { ...d, ...patch } : d));
   };
+  // Setting the day's Pax also updates every item that still matches the old Pax,
+  // so changing the headcount bulk-updates the menu — but items you gave a
+  // different quantity are left untouched.
+  const setDayPax = (dayId: string, newPax: number) => {
+    setDays(prev => prev.map(d => {
+      if (d.Day_ID !== dayId) return d;
+      const oldPax = d.Pax;
+      return {
+        ...d,
+        Pax: newPax,
+        sessions: d.sessions.map(s => ({
+          ...s,
+          items: s.items.map(it => it.Quantity === oldPax ? { ...it, Quantity: newPax } : it),
+        })),
+      };
+    }));
+  };
 
   const addSession = (dayId: string) => {
     const newSession: SessionForm = {
@@ -830,21 +869,25 @@ export default function QuotationModule({
       : d));
   };
 
-  const getDraft = (sessionId: string) => itemDrafts[sessionId] || { name: '', qty: 1, price: 0 };
+  // qty defaults to 0 (= "unset") so the day's Pax is used unless the user types
+  // a specific quantity for this item.
+  const getDraft = (sessionId: string) => itemDrafts[sessionId] || { name: '', qty: 0, price: 0 };
   const setDraft = (sessionId: string, patch: Partial<{ name: string; qty: number; price: number }>) => {
     setItemDrafts(prev => ({ ...prev, [sessionId]: { ...getDraft(sessionId), ...patch } }));
   };
   const addItemToSession = (dayId: string, sessionId: string) => {
     const draft = getDraft(sessionId);
     if (!draft.name.trim()) return;
+    const day = days.find(d => d.Day_ID === dayId);
+    const qty = draft.qty || day?.Pax || 1; // fall back to the day's Pax
     const newItem: DayItemForm = {
       Item_ID: `QITM-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      Item_Name: draft.name.trim(), Quantity: draft.qty || 1, Price: draft.price || 0,
+      Item_Name: draft.name.trim(), Quantity: qty, Price: draft.price || 0,
     };
     setDays(prev => prev.map(d => d.Day_ID === dayId
       ? { ...d, sessions: d.sessions.map(s => s.Session_ID === sessionId ? { ...s, items: [...s.items, newItem] } : s) }
       : d));
-    setDraft(sessionId, { name: '', qty: 1, price: 0 });
+    setDraft(sessionId, { name: '', qty: 0, price: 0 });
   };
   const removeItemFromSession = (dayId: string, sessionId: string, itemId: string) => {
     setDays(prev => prev.map(d => d.Day_ID === dayId
@@ -889,7 +932,6 @@ export default function QuotationModule({
       setCateringTerms(quotation.Catering_Terms || DEFAULT_CATERING_TERMS);
       setDiscountType(quotation.Discount_Type || 'none');
       setDiscountValue(quotation.Discount_Value || 0);
-      setSaveCustomer(false);
 
       let charges: { label: string; amount: number }[] = [];
       try { charges = JSON.parse(quotation.Extra_Charges_JSON || '[]'); } catch { /* keep empty */ }
@@ -943,7 +985,6 @@ export default function QuotationModule({
       setExtraCharges([{ label: 'Delivery', amount: 0 }]);
       setDays([]);
       setItemDrafts({});
-      setSaveCustomer(false);
     }
     setIsModalOpen(true);
   };
@@ -1003,14 +1044,27 @@ export default function QuotationModule({
     const updatedDays = [...db.quotation_days.filter(d => d.Quotation_ID !== quotationId), ...newDays];
     const updatedItems = [...db.quotation_items.filter(it => it.Quotation_ID !== quotationId), ...newItems];
 
+    // Always keep the customer directory in sync so future quotations & invoices
+    // for this customer autofill. New customers are added; existing ones get any
+    // contact/address details backfilled that the saved record was missing.
     let updatedCustomers = [...db.customers];
-    if (saveCustomer && modalCustomer.trim()) {
-      const exists = updatedCustomers.some(c => c.Customer_Name.toLowerCase() === modalCustomer.toLowerCase().trim());
-      if (!exists) {
+    const nameKey = modalCustomer.trim().toLowerCase();
+    if (nameKey) {
+      const idx = updatedCustomers.findIndex(c => c.Customer_Name.toLowerCase() === nameKey);
+      if (idx === -1) {
         updatedCustomers.push({
-          Customer_Name: modalCustomer.trim(), Contact: modalContact.trim() || '-',
-          Customer_Type: 'Regular', Branch_Location: activeBranchLocation,
+          Customer_Name: modalCustomer.trim(),
+          Contact: modalContact.trim() || '-',
+          Address: modalAddress.trim() || '-',
+          Customer_Type: 'Regular',
+          Branch_Location: activeBranchLocation,
         });
+      } else {
+        const existing = updatedCustomers[idx];
+        const patched = { ...existing };
+        if ((!existing.Contact || existing.Contact === '-') && modalContact.trim()) patched.Contact = modalContact.trim();
+        if ((!existing.Address || existing.Address === '-') && modalAddress.trim()) patched.Address = modalAddress.trim();
+        updatedCustomers[idx] = patched;
       }
     }
 
@@ -1037,7 +1091,7 @@ export default function QuotationModule({
     }
   }, [editingQuotation, modalOutlet, modalDate, modalValidUntil, modalCustomer, modalContact, modalAddress, modalNotes,
     pricingMode, packageSubMode, flatPackageTotal, days, cateringTerms, discountType, discountValue,
-    includeExtraCharge, extraCharges, saveCustomer,
+    includeExtraCharge, extraCharges,
     db, profiles, activeBranchLocation, spreadsheetId, accessToken, setDb, triggerToast, syncStateToSheets, setIsSyncing]);
 
   // ── Delete ─────────────────────────────────────────────────────────────────
@@ -1537,15 +1591,9 @@ export default function QuotationModule({
                     <textarea value={cateringTerms} onChange={e => setCateringTerms(e.target.value)} rows={3} className={`${inputClass} resize-none`} />
                   </div>
 
-                  {!editingQuotation && (
-                    <label className="flex items-start gap-2.5 cursor-pointer">
-                      <input type="checkbox" checked={saveCustomer} onChange={e => setSaveCustomer(e.target.checked)} className="mt-0.5 accent-indigo-600" />
-                      <div>
-                        <span className="text-xs font-semibold text-gray-800 dark:text-slate-200 block">Save customer to database</span>
-                        <span className="text-[10px] text-gray-400 dark:text-slate-500">Adds this customer to your Sheets profile list.</span>
-                      </div>
-                    </label>
-                  )}
+                  <p className="text-[10px] text-gray-400 dark:text-slate-500">
+                    This customer is saved automatically for faster future quotations & invoices.
+                  </p>
                 </div>
 
                 {/* Right: day containers */}
@@ -1577,7 +1625,7 @@ export default function QuotationModule({
 
                           <div className="grid grid-cols-2 gap-2">
                             <input type="date" value={day.Event_Date} onChange={e => updateDay(day.Day_ID, { Event_Date: e.target.value })} className={`w-full ${isDarkMode ? '[color-scheme:dark]' : '[color-scheme:light]'} ${smallInputClass}`} required />
-                            <input type="number" min="0" placeholder="Pax" value={day.Pax || ''} onChange={e => updateDay(day.Day_ID, { Pax: Number(e.target.value) })} className={`font-mono ${smallInputClass}`} />
+                            <input type="number" min="0" placeholder="Pax (applies to new items)" value={day.Pax || ''} onChange={e => setDayPax(day.Day_ID, Number(e.target.value))} className={`font-mono ${smallInputClass}`} />
                           </div>
 
                           <div className="grid grid-cols-2 gap-2">
@@ -1612,18 +1660,54 @@ export default function QuotationModule({
                               const sessionTotal = session.items.reduce((s, it) => s + it.Quantity * it.Price, 0);
                               return (
                                 <div key={session.Session_ID} className={`rounded-lg border p-2 space-y-1.5 ${isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-gray-100 bg-white'}`}>
+                                  {(() => {
+                                    const presetMatch = SESSION_PRESETS.find(p => p.label.toLowerCase() === (session.Session_Label || '').trim().toLowerCase());
+                                    const isCustom = !!customLabelSessions[session.Session_ID] || (!!session.Session_Label && !presetMatch);
+                                    const selectValue = presetMatch ? presetMatch.label : (isCustom ? 'Custom' : '');
+                                    // Show the current time even if it isn't on the 30-min grid (e.g. legacy value).
+                                    const timeOptions = session.Session_Time && !TIME_SLOTS.includes(session.Session_Time)
+                                      ? [session.Session_Time, ...TIME_SLOTS] : TIME_SLOTS;
+                                    return (
                                   <div className="flex items-center gap-1.5">
-                                    <input type="text" placeholder="Session e.g. Breakfast" value={session.Session_Label}
-                                      onChange={e => updateSession(day.Day_ID, session.Session_ID, { Session_Label: e.target.value })}
-                                      className={`flex-1 min-w-0 ${smallInputClass}`} />
-                                    <input type="text" placeholder="Time e.g. 7:30 AM" value={session.Session_Time}
+                                    <div className="flex-1 min-w-0 flex flex-col gap-1">
+                                      <select
+                                        value={selectValue}
+                                        onChange={e => {
+                                          const val = e.target.value;
+                                          if (val === 'Custom') {
+                                            setCustomLabelSessions(prev => ({ ...prev, [session.Session_ID]: true }));
+                                            updateSession(day.Day_ID, session.Session_ID, { Session_Label: '' });
+                                          } else {
+                                            setCustomLabelSessions(prev => ({ ...prev, [session.Session_ID]: false }));
+                                            const p = SESSION_PRESETS.find(x => x.label === val);
+                                            updateSession(day.Day_ID, session.Session_ID, { Session_Label: val, Session_Time: p ? p.time : session.Session_Time });
+                                          }
+                                        }}
+                                        className={`w-full ${smallInputClass}`}
+                                      >
+                                        <option value="">Select sitting…</option>
+                                        {SESSION_PRESETS.map(p => <option key={p.label} value={p.label}>{p.label}</option>)}
+                                        <option value="Custom">Custom…</option>
+                                      </select>
+                                      {isCustom && (
+                                        <input type="text" placeholder="Custom sitting name" value={session.Session_Label} autoFocus
+                                          onChange={e => updateSession(day.Day_ID, session.Session_ID, { Session_Label: e.target.value })}
+                                          className={`w-full ${smallInputClass}`} />
+                                      )}
+                                    </div>
+                                    <select value={session.Session_Time}
                                       onChange={e => updateSession(day.Day_ID, session.Session_ID, { Session_Time: e.target.value })}
-                                      className={`w-28 ${smallInputClass}`} />
+                                      className={`w-28 ${smallInputClass}`}>
+                                      <option value="">Time…</option>
+                                      {timeOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                                    </select>
                                     <button type="button" onClick={() => removeSession(day.Day_ID, session.Session_ID)}
                                       className="text-rose-400 hover:text-rose-600 cursor-pointer p-0.5 rounded hover:bg-rose-50 dark:hover:bg-rose-950/30 shrink-0">
                                       <Trash2 className="w-3.5 h-3.5" />
                                     </button>
                                   </div>
+                                    );
+                                  })()}
 
                                   {/* Items within this session */}
                                   {session.items.map(item => (
@@ -1676,8 +1760,9 @@ export default function QuotationModule({
                                         );
                                       })()}
                                     </div>
-                                    <input type="number" min="0" placeholder="Qty" value={draft.qty || ''}
+                                    <input type="number" min="0" placeholder={day.Pax ? String(day.Pax) : 'Qty'} value={draft.qty || ''}
                                       onChange={e => setDraft(session.Session_ID, { qty: Number(e.target.value) })}
+                                      title="Leave blank to use the day's Pax"
                                       className={`w-14 text-center font-mono ${smallInputClass}`} />
                                     {pricingMode === 'itemized' && (
                                       <input type="number" min="0" step="any" placeholder="Price" value={draft.price || ''}
