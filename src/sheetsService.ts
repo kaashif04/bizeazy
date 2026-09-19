@@ -412,6 +412,9 @@ export const fetchDataAll = async (
       Citizenship:    citizenship,
       Age:            age,
       Joining_Date:   joiningDate,
+      Employer_Bears_Statutory:
+        row.Employer_Bears_Statutory === true ||
+        String(row.Employer_Bears_Statutory || '').toLowerCase() === 'true',
     };
   }).filter((e: any) => e.Employee_ID);
 
@@ -468,6 +471,7 @@ export const fetchDataAll = async (
       Payment_Transferred:      paymentTransferred,
       Transfer_Date:            transferDate,
       Is_Payment_Due:      row.Is_Payment_Due === true || String(row.Is_Payment_Due || '').toLowerCase() === 'true',
+      Employer_Statutory_Offset: Number(row.Employer_Statutory_Offset) || 0,
     };
   }).filter((p: any) => p.Payslip_ID);
 
@@ -574,7 +578,7 @@ export const fetchDataAll = async (
 // ── localStorage helpers for fields not yet in the Apps Script schema ────────
 export const saveEmployeeExtras = (
   employeeId: string,
-  extras: { Citizenship?: string; Age?: number; Joining_Date?: string }
+  extras: { Citizenship?: string; Age?: number; Joining_Date?: string; Employer_Bears_Statutory?: boolean }
 ) => {
   if (typeof window === 'undefined') return;
   try {
@@ -586,7 +590,7 @@ export const saveEmployeeExtras = (
 
 export const savePayslipExtras = (
   payslipId: string,
-  extras: { Payment_Transferred?: boolean; Transfer_Date?: string }
+  extras: { Payment_Transferred?: boolean; Transfer_Date?: string; Employer_Statutory_Offset?: number }
 ) => {
   if (typeof window === 'undefined') return;
   try {
@@ -673,6 +677,7 @@ export const syncStateToSheets = async (
     Citizenship: emp.Citizenship || 'Malaysian/PR',
     Age: emp.Age !== undefined ? emp.Age : '',
     Joining_Date: emp.Joining_Date || '',
+    Employer_Bears_Statutory: emp.Employer_Bears_Statutory || false,
   })) || [];
 
   const currentPayslipsFormatted = db.payslips?.map(ps => {
@@ -694,6 +699,7 @@ export const syncStateToSheets = async (
       Payment_Transferred: ps.Payment_Transferred || false,
       Transfer_Date: ps.Transfer_Date || '',
       Is_Payment_Due: ps.Is_Payment_Due || false,
+      Employer_Statutory_Offset: ps.Employer_Statutory_Offset || 0,
     };
   }) || [];
 
@@ -772,6 +778,7 @@ export const syncStateToSheets = async (
       Citizenship: citizenship,
       Age: age,
       Joining_Date: joiningDate,
+      Employer_Bears_Statutory: e.Employer_Bears_Statutory === true || String(e.Employer_Bears_Statutory || '').toLowerCase() === 'true',
     };
   });
 
@@ -806,6 +813,7 @@ export const syncStateToSheets = async (
       Deductions_JSON: JSON.stringify(deductionsArr),
       Payment_Transferred: isPaid,
       Transfer_Date: transferDate, Is_Payment_Due: false,
+      Employer_Statutory_Offset: Number(p.Employer_Statutory_Offset) || 0,
     };
   });
 

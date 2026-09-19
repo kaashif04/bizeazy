@@ -96,6 +96,16 @@ export interface Employee {
   Citizenship?: 'Malaysian/PR' | 'Foreigner';
   Age?: number;
   Joining_Date?: string;        // ISO date string e.g. "2026-05-15"
+  /**
+   * When true, the employer pays the employee's own EPF/SOCSO/EIS share on
+   * top of statutory obligations, so the payslip's net pay equals gross pay
+   * (Basic_Salary + allowances) minus only non-statutory deductions. The
+   * statutory amounts are still calculated and still shown on the payslip —
+   * this does not reduce or hide them, it adds an offsetting earnings line.
+   * See the note next to this toggle in the employee form for the legal basis
+   * and what still needs confirming with a payroll/tax advisor.
+   */
+  Employer_Bears_Statutory?: boolean;
 }
 
 export interface Payslip {
@@ -114,6 +124,20 @@ export interface Payslip {
   Employer_EIS: number;
   Total_Statutory_Deductions: number;
   Custom_Deductions: number;
+  /**
+   * Set when Employee.Employer_Bears_Statutory was true at generation time.
+   * Equal to Total_Statutory_Deductions, added back into Final_Net_Pay as a
+   * distinct earnings line — "Employer-Borne Statutory Contribution" — rather
+   * than folded silently into Basic_Pay or labelled a bonus. A bonus is itself
+   * subject to EPF/SOCSO in the month it's paid, which would require running
+   * the gross-up through the statutory calculation again; this field is not
+   * that, it is the employer covering the employee's own already-calculated
+   * share, still remitted to the employee's real EPF/SOCSO/EIS accounts.
+   * Stored on the payslip itself (not derived at render time) so the record
+   * is fixed to whatever the toggle and the rates were the month this was
+   * generated, even if either changes later.
+   */
+  Employer_Statutory_Offset: number;
   Final_Net_Pay: number;
   Branch_Location: string;
   Is_Saved: boolean;

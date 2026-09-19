@@ -56,6 +56,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
   const [empCitizenship, setEmpCitizenship] = useState<'Malaysian/PR' | 'Foreigner'>('Malaysian/PR');
   const [empAge, setEmpAge] = useState<number>(30);
   const [empJoiningDate, setEmpJoiningDate] = useState<string>('');
+  const [empBearsStatutory, setEmpBearsStatutory] = useState<boolean>(false);
 
   // Payslip Generator Workspace State
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
@@ -319,6 +320,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       setEmpCitizenship(employee.Citizenship || 'Malaysian/PR');
       setEmpAge(Number((employee as any).Age) || 30);
       setEmpJoiningDate(employee.Joining_Date || '');
+      setEmpBearsStatutory(employee.Employer_Bears_Statutory === true);
     } else {
       setEditingEmployee(null);
       setEmpName('');
@@ -329,6 +331,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       setEmpCitizenship('Malaysian/PR');
       setEmpAge(30);
       setEmpJoiningDate('');
+      setEmpBearsStatutory(false);
     }
     setIsEmployeeModalOpen(true);
   };
@@ -366,6 +369,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               Citizenship: empCitizenship,
               Age: empAge,
               Joining_Date: empJoiningDate,
+              Employer_Bears_Statutory: empBearsStatutory,
             }
           : emp
       );
@@ -385,6 +389,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
         Citizenship: empCitizenship,
         Age: empAge,
         Joining_Date: empJoiningDate,
+        Employer_Bears_Statutory: empBearsStatutory,
       };
       updatedEmployees.push(newEmp);
       triggerToast("Adding new Employee to the roster...", "info");
@@ -403,6 +408,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
         Citizenship: savedEmp.Citizenship,
         Age: savedEmp.Age,
         Joining_Date: savedEmp.Joining_Date,
+        Employer_Bears_Statutory: savedEmp.Employer_Bears_Statutory,
       });
     }
 
@@ -443,8 +449,16 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
     }
   };
 
-  // Open multi-step Payslip Generation workspace 
-  const handleOpenGenerator = () => {
+  // Open multi-step Payslip Generation workspace.
+  // Accepts an optional targetMonth (e.g. from a compliance reminder, which
+  // knows exactly which overdue month it means) so the workspace opens
+  // pointed at the right month instead of whatever selectedMonthYear happened
+  // to be. Passing it as a parameter rather than calling setSelectedMonthYear
+  // first matters: React state updates are async, so a caller that did
+  // setSelectedMonthYear(month) immediately followed by handleOpenGenerator()
+  // would still have this function close over the *old* selectedMonthYear
+  // value below, and silently load the wrong month's saved allowances/deductions.
+  const handleOpenGenerator = (targetMonth?: string) => {
     if (isStaff) {
       triggerToast("Access Denied: Staff accounts cannot generate payslips.", "error");
       return;
@@ -453,11 +467,12 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       triggerToast("No active employees listed on this outlet. Please add an employee first.", "warning");
       return;
     }
+    const monthForLookup = targetMonth || selectedMonthYear;
     // Initialize black inputs or load saved values with description-amount pairs
     const freshAllowances: Record<string, ItemizedItem[]> = {};
     const freshDeductions: Record<string, ItemizedItem[]> = {};
     activeBranchEmployees.forEach(e => {
-      const savedSlip = activeBranchPayslips.find(p => p.Employee_ID === e.Employee_ID && p.Month_Year === selectedMonthYear);
+      const savedSlip = activeBranchPayslips.find(p => p.Employee_ID === e.Employee_ID && p.Month_Year === monthForLookup);
       if (savedSlip && savedSlip.Allowances_JSON) {
         try {
           freshAllowances[e.Employee_ID] = JSON.parse(savedSlip.Allowances_JSON);
@@ -487,6 +502,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
     });
     setAllowancesMap(freshAllowances);
     setDeductionsMap(freshDeductions);
+    if (targetMonth) setSelectedMonthYear(targetMonth);
     setIsGeneratorOpen(true);
   };
 
@@ -511,7 +527,14 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
     const eisEmployer = calculateEmployerEIS(grossPay, citizenship, empAge);
 
     const totalStatutory = Number((epfEmployee + socsoEmployee + eisEmployee).toFixed(2));
-    const finalNet = Number((grossPay - totalStatutory - customDeductionSum).toFixed(2));
+
+    // If the employer has opted to bear this employee's own EPF/SOCSO/EIS
+    // share, the amount is still calculated and still shown as a deduction
+    // above (it still goes to the employee's real statutory accounts) — this
+    // offset just adds a matching earnings line so net pay works out to gross
+    // pay minus only the non-statutory deductions. See Employee.Employer_Bears_Statutory.
+    const statutoryOffset = emp.Employer_Bears_Statutory ? totalStatutory : 0;
+    const finalNet = Number((grossPay - totalStatutory - customDeductionSum + statutoryOffset).toFixed(2));
 
     const freshPayslip: Payslip = {
       Payslip_ID: `PAY-${emp.Employee_ID}-${selectedMonthYear.replace(' ', '-')}`,
@@ -529,6 +552,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       Employer_EIS: eisEmployer,
       Total_Statutory_Deductions: totalStatutory,
       Custom_Deductions: customDeductionSum,
+      Employer_Statutory_Offset: statutoryOffset,
       Final_Net_Pay: finalNet,
       Branch_Location: activeBranchLocation,
       Is_Saved: false,
@@ -634,6 +658,15 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
     } else {
       updatedPayslips.push(finalizedSlips);
     }
+
+    // Bridge Employer_Statutory_Offset locally the same way Payment_Transferred
+    // was bridged before it got its own Apps Script column — protects this
+    // payslip's net-pay figure from reverting to the pre-offset amount on a
+    // "Refresh Data" if the live spreadsheet hasn't been re-initialized with
+    // the new column yet.
+    savePayslipExtras(finalizedSlips.Payslip_ID, {
+      Employer_Statutory_Offset: finalizedSlips.Employer_Statutory_Offset,
+    });
 
     const nextDb = { ...db, payslips: updatedPayslips };
     setDb(nextDb);
@@ -800,9 +833,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                 <div className="flex items-center gap-2 shrink-0">
                   {!r.payslipSaved && (
                     <button
-                      onClick={() => {
-                        triggerToast(`Generate payslip for ${r.employee.Employee_Name} first before marking payment.`, 'error');
-                      }}
+                      onClick={() => handleOpenGenerator(r.monthLabel)}
                       className="px-3 py-1.5 text-[10px] font-bold rounded-lg
                         cursor-pointer bg-indigo-600 hover:bg-indigo-700
                         text-white transition-colors"
@@ -889,6 +920,14 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                           <span className={`px-1 rounded text-[9px] font-bold ${employee.Citizenship === 'Foreigner' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400' : 'bg-blue-100 dark:bg-blue-900/40 text-blue-750 dark:text-blue-450'}`}>
                             {employee.Citizenship || 'Malaysian/PR'}
                           </span>
+                          {employee.Employer_Bears_Statutory && (
+                            <span
+                              className="px-1 rounded text-[9px] font-bold bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400"
+                              title="Employer bears this employee's EPF/SOCSO/EIS share — net pay equals gross pay minus non-statutory deductions"
+                            >
+                              EPF/SOCSO Borne
+                            </span>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -1169,6 +1208,36 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                 </div>
               </div>
 
+              <div className={`p-3 rounded-xl border ${
+                isDarkMode ? 'bg-slate-950/50 border-slate-800' : 'bg-indigo-50/50 border-indigo-200'
+              }`}>
+                <label className="flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={empBearsStatutory}
+                    onChange={(e) => setEmpBearsStatutory(e.target.checked)}
+                    className="mt-0.5 cursor-pointer accent-indigo-600 w-3.5 h-3.5 shrink-0"
+                  />
+                  <span className="text-xs font-bold text-slate-900 dark:text-white leading-snug">
+                    Employer bears this employee's EPF, SOCSO &amp; EIS share
+                  </span>
+                </label>
+                <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
+                  Employee EPF/SOCSO/EIS is still calculated and still contributed to the employee's
+                  own accounts as normal — nothing here is skipped. Instead, the payslip adds a
+                  matching "Employer-Borne Statutory Contribution" earnings line, so net pay comes
+                  out equal to gross pay (basic + allowances) minus only non-statutory deductions.
+                </p>
+                <p className="text-[9px] text-amber-700 dark:text-amber-400 font-semibold mt-1.5 leading-relaxed">
+                  ⚠ An employer covering the employee's EPF share this way is permitted under the
+                  employer's own-option provision in the EPF Act 1991 (s.52) — this part is
+                  well-established. Whether the same applies cleanly to SOCSO/EIS, and how LHDN
+                  treats the offset amount for income tax, is less settled and this app does not
+                  file taxes for you. Confirm both with your payroll agent, company secretary or
+                  tax agent before relying on this for actual submissions.
+                </p>
+              </div>
+
               <div>
                 <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Age (for statutory rates)</label>
                 <input
@@ -1399,7 +1468,8 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       const eis = calculateEmployeeEIS(grossPayBase, citizenship, empAge);
 
                       const totalStatDeduc = epf + socso + eis;
-                      const netPay = Math.max(0, grossPayBase - totalStatDeduc - customDeductionSum);
+                      const rowStatutoryOffset = emp.Employer_Bears_Statutory ? totalStatDeduc : 0;
+                      const netPay = Math.max(0, grossPayBase - totalStatDeduc - customDeductionSum + rowStatutoryOffset);
 
                       return (
                         <tr key={emp.Employee_ID} className={isDarkMode ? 'hover:bg-slate-800/30' : 'hover:bg-slate-50'}>
@@ -1409,6 +1479,11 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                               <span>{emp.Position}</span>
                               <span>•</span>
                               <span className="font-bold text-slate-505 dark:text-slate-400 text-[9px] uppercase">{citizenship === 'Foreigner' ? 'Foreigner' : 'Malaysian'}</span>
+                              {emp.Employer_Bears_Statutory && (
+                                <span className="font-bold text-indigo-600 dark:text-indigo-400 text-[9px] uppercase" title="Employer bears this employee's EPF/SOCSO/EIS share">
+                                  • Statutory Borne by Employer
+                                </span>
+                              )}
                             </div>
                             {_daysLeft !== null && (
                               <div className={`text-[9px] font-bold mt-1 ${
@@ -1845,11 +1920,36 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                 </div>
               </div>
 
+              {/* Employer-Borne Statutory Contribution — only when the employer has
+                  opted (per-employee) to cover the employee's own EPF/SOCSO/EIS share.
+                  This is NOT a bonus: it is a distinct, itemized offset of the exact
+                  statutory deduction shown above, not extra discretionary pay — a
+                  bonus would itself be subject to EPF/SOCSO in the month paid, which
+                  this specifically is not intended to be. */}
+              {previewPayslip.Employer_Statutory_Offset > 0 && (
+                <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-300 dark:border-indigo-800">
+                  <div className="flex justify-between text-xs font-black text-indigo-700 dark:text-indigo-400">
+                    <span>Employer-Borne Statutory Contribution (EPF + SOCSO + EIS)</span>
+                    <span>RM {previewPayslip.Employer_Statutory_Offset.toFixed(2)}</span>
+                  </div>
+                  <p className="text-[9px] text-indigo-600/80 dark:text-indigo-400/70 mt-1">
+                    Employer pays this employee's own statutory share on their behalf, in addition
+                    to the employer's own EPF/SOCSO/EIS contribution shown below. The deductions
+                    above are still the real amounts contributed to this employee's EPF/SOCSO/EIS
+                    accounts — this line offsets them in net pay, it does not remove them.
+                  </p>
+                </div>
+              )}
+
               {/* Bold Outstanding Sum Net balance */}
               <div className="p-4 rounded-xl bg-[#f0fdf4] border-2 border-emerald-500 text-gray-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <h5 className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Employee Final Net Pay</h5>
-                  <p className="text-[9px] text-gray-600">Total Net RM transferred directly via Bank Accounts.</p>
+                  <p className="text-[9px] text-gray-600">
+                    {previewPayslip.Employer_Statutory_Offset > 0
+                      ? "Gross pay minus non-statutory deductions — EPF/SOCSO/EIS borne by employer. Transferred directly via Bank Accounts."
+                      : "Total Net RM transferred directly via Bank Accounts."}
+                  </p>
                 </div>
                 <div className="text-2xl font-black text-emerald-600 tracking-tight">
                   RM {previewPayslip.Final_Net_Pay.toFixed(2)}
