@@ -332,13 +332,13 @@ function syncData(payload, spreadsheetId) {
           Number(p.Employee_EPF) || 0, Number(p.Employer_EPF) || 0,
           Number(p.Employee_SOCSO) || 0, Number(p.Employer_SOCSO) || 0,
           Number(p.Employee_EIS) || 0, Number(p.Employer_EIS) || 0,
-          Number(p.Employee_SKBBK) || 0,
           Number(p.Total_Statutory_Deductions) || 0, Number(p.Custom_Deductions) || 0,
           Number(p.Final_Net_Pay) || 0, p.Branch_Location || '',
           p.Is_Saved ? true : false,
           p.Allowances_JSON || '', p.Deductions_JSON || '',
           p.Payment_Transferred ? true : false, p.Transfer_Date || '',
-          Number(p.Employer_Statutory_Offset) || 0
+          Number(p.Employer_Statutory_Offset) || 0,
+          Number(p.Employee_SKBBK) || 0
         ];
       });
       payslipsSheet.getRange(2, 1, psRows.length, psRows[0].length).setValues(psRows);
@@ -485,18 +485,20 @@ function initializeDatabase(spreadsheetId) {
     // causing Payment_Transferred to land under the wrong label and read as empty.
     var payslipsTab = ss.getSheetByName("Payslips");
     if (!payslipsTab) payslipsTab = ss.insertSheet("Payslips");
-    // Employee_SKBBK and Employer_Statutory_Offset appended at the end — same reasoning as above.
+    // Employer_Statutory_Offset and Employee_SKBBK appended at the END — same
+    // safe-append pattern used for Employees above. Inserting mid-list shifts
+    // every column after the insertion point and corrupts existing row data.
     enforceHeaders(payslipsTab, [
       'Payslip_ID','Employee_ID','Issue_Date','Month_Year',
       'Basic_Pay','Custom_Allowances','Total_Allowances',
       'Employee_EPF','Employer_EPF','Employee_SOCSO','Employer_SOCSO',
-      'Employee_EIS','Employer_EIS','Employee_SKBBK','Total_Statutory_Deductions',
+      'Employee_EIS','Employer_EIS','Total_Statutory_Deductions',
       'Custom_Deductions','Final_Net_Pay','Branch_Location','Is_Saved',
       'Allowances_JSON','Deductions_JSON','Payment_Transferred','Transfer_Date',
-      'Employer_Statutory_Offset'
+      'Employer_Statutory_Offset','Employee_SKBBK'
     ]);
     forceTextColumn(payslipsTab, 3);  // Issue_Date
-    forceTextColumn(payslipsTab, 23); // Transfer_Date (shifted right by 1 due to new SKBBK column)
+    forceTextColumn(payslipsTab, 22); // Transfer_Date (col 22 — SKBBK safely at end col 24)
 
     // ── Quotations ──
     var quotationsTab = ss.getSheetByName("Quotations");

@@ -677,12 +677,10 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       updatedPayslips.push(finalizedSlips);
     }
 
-    // Bridge Employer_Statutory_Offset locally the same way Payment_Transferred
-    // was bridged before it got its own Apps Script column — protects this
-    // payslip's net-pay figure from reverting to the pre-offset amount on a
-    // "Refresh Data" if the live spreadsheet hasn't been re-initialized with
-    // the new column yet.
+    // Bridge Is_Saved and Employer_Statutory_Offset locally so they survive
+    // a "Refresh Data" even if the Sheets sync hasn't completed yet.
     savePayslipExtras(finalizedSlips.Payslip_ID, {
+      Is_Saved: true,
       Employer_Statutory_Offset: finalizedSlips.Employer_Statutory_Offset,
     });
 
@@ -1241,18 +1239,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                   </span>
                 </label>
                 <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
-                  Employee EPF/SOCSO/EIS is still calculated and still contributed to the employee's
-                  own accounts as normal — nothing here is skipped. Instead, the payslip adds a
-                  matching "Employer-Borne Statutory Contribution" earnings line, so net pay comes
-                  out equal to gross pay (basic + allowances) minus only non-statutory deductions.
-                </p>
-                <p className="text-[9px] text-amber-700 dark:text-amber-400 font-semibold mt-1.5 leading-relaxed">
-                  ⚠ An employer covering the employee's EPF share this way is permitted under the
-                  employer's own-option provision in the EPF Act 1991 (s.52) — this part is
-                  well-established. Whether the same applies cleanly to SOCSO/EIS, and how LHDN
-                  treats the offset amount for income tax, is less settled and this app does not
-                  file taxes for you. Confirm both with your payroll agent, company secretary or
-                  tax agent before relying on this for actual submissions.
+                  Statutory deductions are still calculated &amp; remitted normally. The payslip adds an offsetting earnings line so the employee receives their full stated salary. Confirm with your payroll agent before use.
                 </p>
               </div>
 

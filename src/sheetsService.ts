@@ -591,7 +591,7 @@ export const saveEmployeeExtras = (
 
 export const savePayslipExtras = (
   payslipId: string,
-  extras: { Payment_Transferred?: boolean; Transfer_Date?: string; Employer_Statutory_Offset?: number }
+  extras: { Is_Saved?: boolean; Payment_Transferred?: boolean; Transfer_Date?: string; Employer_Statutory_Offset?: number }
 ) => {
   if (typeof window === 'undefined') return;
   try {
