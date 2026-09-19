@@ -125,6 +125,14 @@ export interface Payslip {
   Total_Statutory_Deductions: number;
   Custom_Deductions: number;
   /**
+   * SKBBK (Skim Keselamatan Bencana Bukan Kerja) — "Lindung 24 Jam"
+   * Effective 1 June 2026. Employee-only PERKESO Non-Employment Injury Scheme.
+   * Phase 1 rate: 0.75% of wages capped at RM6,000 (max RM45/month).
+   * Mandatory for foreign workers; voluntary for Malaysians (Cabinet 8 Jul 2026).
+   * Zero for Malaysian/PR and for foreigners aged 60+ (Category 2 only).
+   */
+  Employee_SKBBK: number;
+  /**
    * Set when Employee.Employer_Bears_Statutory was true at generation time.
    * Equal to Total_Statutory_Deductions, added back into Final_Net_Pay as a
    * distinct earnings line — "Employer-Borne Statutory Contribution" — rather

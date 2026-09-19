@@ -332,6 +332,7 @@ function syncData(payload, spreadsheetId) {
           Number(p.Employee_EPF) || 0, Number(p.Employer_EPF) || 0,
           Number(p.Employee_SOCSO) || 0, Number(p.Employer_SOCSO) || 0,
           Number(p.Employee_EIS) || 0, Number(p.Employer_EIS) || 0,
+          Number(p.Employee_SKBBK) || 0,
           Number(p.Total_Statutory_Deductions) || 0, Number(p.Custom_Deductions) || 0,
           Number(p.Final_Net_Pay) || 0, p.Branch_Location || '',
           p.Is_Saved ? true : false,
@@ -484,18 +485,18 @@ function initializeDatabase(spreadsheetId) {
     // causing Payment_Transferred to land under the wrong label and read as empty.
     var payslipsTab = ss.getSheetByName("Payslips");
     if (!payslipsTab) payslipsTab = ss.insertSheet("Payslips");
-    // Employer_Statutory_Offset appended at the end, same reasoning as above.
+    // Employee_SKBBK and Employer_Statutory_Offset appended at the end — same reasoning as above.
     enforceHeaders(payslipsTab, [
       'Payslip_ID','Employee_ID','Issue_Date','Month_Year',
       'Basic_Pay','Custom_Allowances','Total_Allowances',
       'Employee_EPF','Employer_EPF','Employee_SOCSO','Employer_SOCSO',
-      'Employee_EIS','Employer_EIS','Total_Statutory_Deductions',
+      'Employee_EIS','Employer_EIS','Employee_SKBBK','Total_Statutory_Deductions',
       'Custom_Deductions','Final_Net_Pay','Branch_Location','Is_Saved',
       'Allowances_JSON','Deductions_JSON','Payment_Transferred','Transfer_Date',
       'Employer_Statutory_Offset'
     ]);
     forceTextColumn(payslipsTab, 3);  // Issue_Date
-    forceTextColumn(payslipsTab, 22); // Transfer_Date
+    forceTextColumn(payslipsTab, 23); // Transfer_Date (shifted right by 1 due to new SKBBK column)
 
     // ── Quotations ──
     var quotationsTab = ss.getSheetByName("Quotations");

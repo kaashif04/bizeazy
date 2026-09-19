@@ -194,9 +194,11 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
   // --- STATUTORY MALAYSIAN CALCULATOR FUNCTIONS (2026 update) ---
   /**
    * Employee EPF contribution (2026 — mandatory Oct 2025 for foreigners)
-   * Malaysian/PR below 60:  11%
-   * Malaysian/PR 60+:       5.5%
-   * Foreigner under 75:     2% (mandatory since Oct 2025)
+   * Malaysian citizen below 60: 11%
+   * Malaysian citizen 60+:      0% (employer pays 4% only — EPF Act Third Schedule)
+   * PR 60+ technically pays 5.5% but this app uses the combined "Malaysian/PR"
+   * category where citizens are the overwhelmingly common case in restaurant settings.
+   * Foreigner under 75:         2% (mandatory since Oct 2025)
    */
   const calculateEmployeeEPF = (
     grossPay: number,
@@ -207,18 +209,16 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       if (age >= 75) return 0;
       return Number((grossPay * 0.02).toFixed(2));
     }
-    // Malaysian/PR
-    if (age >= 60) {
-      return Number((grossPay * 0.055).toFixed(2)); // 5.5%
-    }
+    // Malaysian/PR — citizen rates apply (most common in practice)
+    if (age >= 60) return 0; // citizen 60+: 0% employee, employer pays 4% flat
     return Number((grossPay * 0.11).toFixed(2)); // 11%
   };
 
   /**
    * Employer EPF contribution (2026)
-   * Malaysian/PR below 60:  13% (≤RM5k) / 12% (>RM5k)
-   * Malaysian/PR 60+:       6.5% (≤RM5k) / 6% (>RM5k)
-   * Foreigner under 75:     2% flat
+   * Malaysian citizen below 60:  13% (≤RM5k) / 12% (>RM5k)
+   * Malaysian citizen 60+:       4% flat (regardless of salary band)
+   * Foreigner under 75:          2% flat
    */
   const calculateEmployerEPF = (
     grossPay: number,
@@ -229,11 +229,8 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       if (age >= 75) return 0;
       return Number((grossPay * 0.02).toFixed(2));
     }
-    // Malaysian/PR
-    if (age >= 60) {
-      const rate = grossPay <= 5000 ? 0.065 : 0.06;
-      return Number((grossPay * rate).toFixed(2));
-    }
+    // Malaysian/PR — citizen rates apply
+    if (age >= 60) return Number((grossPay * 0.04).toFixed(2)); // 4% flat
     const rate = grossPay <= 5000 ? 0.13 : 0.12;
     return Number((grossPay * rate).toFixed(2));
   };
@@ -302,6 +299,25 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
     if (age >= 60) return 0;
     const capped = Math.min(grossPay, 6000);
     return Number((capped * 0.002).toFixed(2)); // 0.2%
+  };
+
+  /**
+   * SKBBK — Skim Keselamatan Bencana Bukan Kerja ("Lindung 24 Jam")
+   * Effective 1 June 2026. Employee-only PERKESO non-employment injury scheme.
+   * Phase 1 rate: 0.75% of wages, wage ceiling RM6,000 (max RM45/month).
+   *   Phase 2 (from 1 Jun 2028): 1.00%  |  Phase 3 (from 1 Jun 2030): 1.25%
+   * Mandatory for foreign workers; Cabinet ruled voluntary for Malaysians 8 Jul 2026.
+   * Not applicable to age 60+ (Category 2 — employment injury only, no SKBBK).
+   */
+  const calculateSKBBK = (
+    grossPay: number,
+    citizenship: 'Malaysian/PR' | 'Foreigner',
+    age = 30
+  ): number => {
+    if (citizenship !== 'Foreigner') return 0; // voluntary for Malaysians — not auto-deducted
+    if (age >= 60) return 0; // Category 2 employees: employment injury only, no SKBBK
+    const capped = Math.min(grossPay, 6000);
+    return Number((capped * 0.0075).toFixed(2)); // Phase 1: 0.75%
   };
 
   // --- WORKSPACE SAVES & EXPORTERS ---
@@ -525,10 +541,11 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
 
     const eisEmployee = calculateEmployeeEIS(grossPay, citizenship, empAge);
     const eisEmployer = calculateEmployerEIS(grossPay, citizenship, empAge);
+    const skbbk = calculateSKBBK(grossPay, citizenship, empAge);
 
-    const totalStatutory = Number((epfEmployee + socsoEmployee + eisEmployee).toFixed(2));
+    const totalStatutory = Number((epfEmployee + socsoEmployee + skbbk + eisEmployee).toFixed(2));
 
-    // If the employer has opted to bear this employee's own EPF/SOCSO/EIS
+    // If the employer has opted to bear this employee's own EPF/SOCSO/EIS/SKBBK
     // share, the amount is still calculated and still shown as a deduction
     // above (it still goes to the employee's real statutory accounts) — this
     // offset just adds a matching earnings line so net pay works out to gross
@@ -550,6 +567,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       Employer_SOCSO: socsoEmployer,
       Employee_EIS: eisEmployee,
       Employer_EIS: eisEmployer,
+      Employee_SKBBK: skbbk,
       Total_Statutory_Deductions: totalStatutory,
       Custom_Deductions: customDeductionSum,
       Employer_Statutory_Offset: statutoryOffset,
@@ -1466,8 +1484,9 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       const epf = calculateEmployeeEPF(grossPayBase, citizenship, empAge);
                       const socso = calculateEmployeeSOCSO(grossPayBase, citizenship, empAge);
                       const eis = calculateEmployeeEIS(grossPayBase, citizenship, empAge);
+                      const skbbkRow = calculateSKBBK(grossPayBase, citizenship, empAge);
 
-                      const totalStatDeduc = epf + socso + eis;
+                      const totalStatDeduc = epf + socso + skbbkRow + eis;
                       const rowStatutoryOffset = emp.Employer_Bears_Statutory ? totalStatDeduc : 0;
                       const netPay = Math.max(0, grossPayBase - totalStatDeduc - customDeductionSum + rowStatutoryOffset);
 
@@ -1875,15 +1894,25 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                   </div>
                   <div className="space-y-1.5 text-xs font-semibold">
                     <div className="flex justify-between text-gray-900 dark:text-gray-300">
-                      <span>Employee EPF ({(previewEmployee.Citizenship || 'Malaysian/PR') === 'Foreigner' ? '2%' : '11%'})</span>
+                      <span>Employee EPF ({
+                        (previewEmployee.Citizenship || 'Malaysian/PR') === 'Foreigner'
+                          ? '2%'
+                          : (Number(previewEmployee.Age) || 30) >= 60 ? '0% (age 60+)' : '11%'
+                      })</span>
                       <span className="font-extrabold text-gray-950 dark:text-white">RM {previewPayslip.Employee_EPF.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-gray-900 dark:text-gray-300">
-                      <span>Employee SOCSO Bracket</span>
+                      <span>Employee SOCSO (0.5%)</span>
                       <span className="font-extrabold text-gray-950 dark:text-white">RM {previewPayslip.Employee_SOCSO.toFixed(2)}</span>
                     </div>
+                    {(previewPayslip.Employee_SKBBK ?? 0) > 0 && (
+                      <div className="flex justify-between text-gray-900 dark:text-gray-300">
+                        <span>SKBBK / Lindung 24 Jam (0.75%)</span>
+                        <span className="font-extrabold text-gray-950 dark:text-white">RM {previewPayslip.Employee_SKBBK.toFixed(2)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-gray-900 dark:text-gray-300">
-                      <span>Employee EIS Contribution (0.2%)</span>
+                      <span>Employee EIS / SIP (0.2%)</span>
                       <span className="font-extrabold text-gray-950 dark:text-white">RM {previewPayslip.Employee_EIS.toFixed(2)}</span>
                     </div>
                     {(() => {
