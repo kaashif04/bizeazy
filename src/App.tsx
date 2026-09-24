@@ -1691,20 +1691,18 @@ export default function App() {
                     text-size-adjust: 100% !important;
                   }
                   body, html { margin: 0 !important; padding: 0 !important; background: white !important; }
-                  /* The whole app (mounted at #root) is a sibling of this portaled overlay
-                     under <body> — hide it outright so it can't push the print area down
-                     or get counted as extra pages. visibility:hidden alone keeps layout
-                     boxes in place, which is why this must be display:none. */
-                  #root { display: none !important; }
-                  body * { visibility: hidden !important; }
-                  #invoice-print-area, #invoice-print-area * { visibility: visible !important; }
-                  /* visibility:hidden keeps layout boxes in place — the header/footer bars
-                     must be fully removed (display:none), not just hidden, or they leave a
-                     blank gap above/below the content. */
+                  /* Remove every body child from layout except our overlay — display:none
+                     eliminates layout boxes entirely, preventing phantom page-height gaps
+                     that visibility:hidden (which keeps boxes) would leave behind. */
+                  body > * { display: none !important; }
+                  body > #preview-studio-overlay { display: block !important; }
                   #preview-studio-header, #preview-studio-footer { display: none !important; }
                   /* Ancestors must not constrain height/overflow/padding/centering, or
-                     content gets clipped to page 1 or pushed down by leftover flex spacing. */
-                  #preview-studio-overlay, #preview-studio-dialog, #preview-stage-container {
+                     content gets clipped to page 1 or pushed down by leftover flex spacing.
+                     #preview-studio-body is the intermediate flex div between dialog and
+                     stage container — it must also be reset or overflow:hidden clips content. */
+                  #preview-studio-overlay, #preview-studio-dialog,
+                  #preview-studio-body, #preview-stage-container {
                     position: static !important;
                     height: auto !important;
                     max-height: none !important;
@@ -1723,6 +1721,7 @@ export default function App() {
                     width: 210mm !important;
                     min-height: 297mm !important;
                     height: auto !important;
+                    overflow: visible !important;
                     transform: none !important;
                     transform-origin: top left !important;
                     background: white !important;
@@ -1766,7 +1765,7 @@ export default function App() {
                 </div>
 
                 {/* Body */}
-                <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+                <div id="preview-studio-body" className="flex-1 flex flex-col lg:flex-row overflow-hidden">
 
                   {/* RIGHT: Paper canvas — no flex here on purpose; margin:auto on the page
                       itself centers it reliably on every browser without depending on any

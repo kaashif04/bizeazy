@@ -92,7 +92,15 @@ function getSheetRowsAsObjects(sheet) {
       // string the frontend (and <input type="date">) expects — making the field
       // look empty/wrong every time, even though the value was saved correctly.
       if (v instanceof Date) {
-        v = Utilities.formatDate(v, tz, 'yyyy-MM-dd');
+        // Sheets auto-converts time strings (e.g. "7:30 AM") to Date objects
+        // anchored at the Lotus/Sheets epoch (Dec 30 1899). Formatting those as
+        // yyyy-MM-dd produces "1899-12-30" — useless garbage. Detect by year and
+        // return a human-readable time string instead.
+        if (v.getFullYear() <= 1899) {
+          v = Utilities.formatDate(v, tz, 'h:mm a');
+        } else {
+          v = Utilities.formatDate(v, tz, 'yyyy-MM-dd');
+        }
       }
       obj[h] = v !== undefined ? v : '';
     });

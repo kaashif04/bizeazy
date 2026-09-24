@@ -516,7 +516,9 @@ export const fetchDataAll = async (
     Quotation_ID: String(row.Quotation_ID || ''),
     Day_ID:       String(row.Day_ID || ''),
     Session_Label: String(row.Session_Label || ''),
-    Session_Time:  String(row.Session_Time || ''),
+    // Code.gs formats time serials (year 1899) correctly after v3.10 fix.
+    // Guard here strips any lingering "1899-12-30" values from older cached data.
+    Session_Time:  (() => { const t = String(row.Session_Time || ''); return t.startsWith('1899') ? '' : t; })(),
     Item_Name:    String(row.Item_Name || ''),
     Quantity:     Number(row.Quantity) || 0,
     Price:        Number(row.Price) || 0,

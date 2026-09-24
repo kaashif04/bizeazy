@@ -265,13 +265,11 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
             -webkit-text-size-adjust: 100% !important; text-size-adjust: 100% !important;
           }
           body, html { margin: 0 !important; padding: 0 !important; background: white !important; }
-          /* The whole app (mounted at #root) is a sibling of this portaled overlay under
-             <body> — hide it outright so it can't push the print area down or get counted
-             as extra pages. visibility:hidden alone keeps layout boxes in place, which is
-             why this must be display:none. */
-          #root { display: none !important; }
-          body * { visibility: hidden !important; }
-          #quotation-print-area, #quotation-print-area * { visibility: visible !important; }
+          /* Remove every body child from layout except our overlay — display:none
+             eliminates layout boxes entirely, preventing phantom page-height gaps
+             that visibility:hidden (which keeps boxes) would leave behind. */
+          body > * { display: none !important; }
+          body > #quotation-preview-overlay { display: block !important; }
           #quotation-preview-header { display: none !important; }
           /* Ancestors must not constrain height/overflow/padding/centering, or content
              gets clipped to page 1 or pushed down by leftover flex spacing. */
@@ -284,6 +282,7 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
           #quotation-print-area {
             position: static !important;
             width: 210mm !important; min-height: 297mm !important; height: auto !important;
+            overflow: visible !important;
             transform: none !important; background: white !important; border: none !important;
             box-shadow: none !important; margin: 0 !important;
             -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
@@ -559,9 +558,11 @@ function KitchenSheetModal({ data, onClose }: { data: PreviewData; onClose: () =
             -webkit-text-size-adjust: 100% !important; text-size-adjust: 100% !important;
           }
           body, html { margin: 0 !important; padding: 0 !important; background: white !important; }
-          #root { display: none !important; }
-          body * { visibility: hidden !important; }
-          #kitchen-sheet-print-area, #kitchen-sheet-print-area * { visibility: visible !important; }
+          /* Remove every body child from layout except our overlay — display:none
+             eliminates layout boxes entirely, preventing phantom page-height gaps
+             that visibility:hidden (which keeps boxes) would leave behind. */
+          body > * { display: none !important; }
+          body > #kitchen-sheet-overlay { display: block !important; }
           #kitchen-sheet-header { display: none !important; }
           #kitchen-sheet-overlay, #kitchen-sheet-dialog, #kitchen-sheet-stage {
             position: static !important; height: auto !important;
@@ -572,6 +573,7 @@ function KitchenSheetModal({ data, onClose }: { data: PreviewData; onClose: () =
           #kitchen-sheet-print-area {
             position: static !important;
             width: 210mm !important; min-height: 297mm !important; height: auto !important;
+            overflow: visible !important;
             transform: none !important; background: white !important; border: none !important;
             box-shadow: none !important; margin: 0 !important;
             -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
