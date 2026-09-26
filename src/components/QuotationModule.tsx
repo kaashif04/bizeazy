@@ -283,6 +283,9 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
             position: static !important;
             width: 210mm !important; min-height: 297mm !important; height: auto !important;
             overflow: visible !important;
+            /* justify-between pushes the footer to the bottom of the 297mm container,
+               causing a blank gap between the day tables and the totals block. */
+            justify-content: flex-start !important;
             transform: none !important; background: white !important; border: none !important;
             box-shadow: none !important; margin: 0 !important;
             -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
@@ -415,7 +418,13 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
                   const sessionGroups: { label: string; time: string; rows: QuotationItem[] }[] = [];
                   dayItems.forEach(it => {
                     const label = it.Session_Label || '';
-                    const time = it.Session_Time || '';
+                    const rawTime = it.Session_Time || '';
+                    const presetFallback = SESSION_PRESETS.find(
+                      p => p.label.toLowerCase() === label.toLowerCase()
+                    );
+                    const time = (rawTime === '' || rawTime === '12:00 AM') && presetFallback
+                      ? presetFallback.time
+                      : rawTime;
                     let group = sessionGroups.find(g => g.label === label && g.time === time);
                     if (!group) { group = { label, time, rows: [] }; sessionGroups.push(group); }
                     group.rows.push(it);
@@ -574,6 +583,7 @@ function KitchenSheetModal({ data, onClose }: { data: PreviewData; onClose: () =
             position: static !important;
             width: 210mm !important; min-height: 297mm !important; height: auto !important;
             overflow: visible !important;
+            justify-content: flex-start !important;
             transform: none !important; background: white !important; border: none !important;
             box-shadow: none !important; margin: 0 !important;
             -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
@@ -652,7 +662,16 @@ function KitchenSheetModal({ data, onClose }: { data: PreviewData; onClose: () =
                   const sessionGroups: { label: string; time: string; rows: QuotationItem[] }[] = [];
                   dayItems.forEach(it => {
                     const label = it.Session_Label || '';
-                    const time = it.Session_Time || '';
+                    const rawTime = it.Session_Time || '';
+                    // "12:00 AM" (midnight) is the value Sheets stores when no session
+                    // time was set — fall back to the preset's conventional time so
+                    // the kitchen sheet shows "7:30 AM" / "12:00 PM" / etc. instead of midnight.
+                    const presetFallback = SESSION_PRESETS.find(
+                      p => p.label.toLowerCase() === label.toLowerCase()
+                    );
+                    const time = (rawTime === '' || rawTime === '12:00 AM') && presetFallback
+                      ? presetFallback.time
+                      : rawTime;
                     let group = sessionGroups.find(g => g.label === label && g.time === time);
                     if (!group) { group = { label, time, rows: [] }; sessionGroups.push(group); }
                     group.rows.push(it);
@@ -947,7 +966,16 @@ export default function QuotationModule({
         const sessionMap = new Map<string, SessionForm>();
         dayItems.forEach(it => {
           const label = it.Session_Label || '';
-          const time = it.Session_Time || '';
+          const rawTime = it.Session_Time || '';
+          // "12:00 AM" (midnight) is Sheets' sentinel for "no time set" — auto-correct
+          // to the preset's conventional time when loading into the editor so saving
+          // repairs the stored value without requiring manual intervention.
+          const presetFallback = SESSION_PRESETS.find(
+            p => p.label.toLowerCase() === label.toLowerCase()
+          );
+          const time = (rawTime === '' || rawTime === '12:00 AM') && presetFallback
+            ? presetFallback.time
+            : rawTime;
           const key = `${label}|||${time}`;
           if (!sessionMap.has(key)) {
             sessionMap.set(key, {

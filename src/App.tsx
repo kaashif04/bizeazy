@@ -1722,6 +1722,11 @@ export default function App() {
                     min-height: 297mm !important;
                     height: auto !important;
                     overflow: visible !important;
+                    /* justify-between pushes the totals footer to the very bottom of the
+                       297mm container, creating a large blank gap between the line items
+                       and the footer. flex-start lets content flow naturally top-to-bottom
+                       with no artificial spacing. */
+                    justify-content: flex-start !important;
                     transform: none !important;
                     transform-origin: top left !important;
                     background: white !important;

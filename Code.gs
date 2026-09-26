@@ -539,6 +539,11 @@ function initializeDatabase(spreadsheetId) {
       'Item_ID','Quotation_ID','Day_ID','Session_Label','Session_Time',
       'Item_Name','Quantity','Price','Subtotal'
     ]);
+    // Keep Session_Time as plain text so Sheets does not silently auto-convert
+    // "7:30 AM" → a time serial (year-1899 Date), which previously forced Code.gs
+    // to detect and re-format those serials. Text format means the round-trip is
+    // always string → string with no date arithmetic in the middle.
+    forceTextColumn(quotationItemsTab, 5); // Session_Time
 
     return { success: true };
   } catch (err) {
