@@ -643,3 +643,232 @@ function initializeDatabase(spreadsheetId) {
     return { success: false, error: err.toString() };
   }
 }
+
+// ─── Salary reminders (email) ─────────────────────────────────
+/**
+ * ponytail: the salary rule below MIRRORS src/utils/notifications.ts — the
+ * 7-day deadline, which month counts, and who is owed a payslip. Apps Script
+ * cannot import the TypeScript, so the two must be edited together. If they
+ * ever need to diverge, move this scan to a Supabase function that shares the
+ * frontend's code instead of re-deriving it.
+ */
+var SALARY_DEADLINE_DAYS = 7;
+var APP_URL_PROP = 'APP_URL';          // optional: link to the deployed frontend
+var NOTIFY_CONFIG_KEY = 'notifications';
+
+var GS_MONTHS = ['January','February','March','April','May','June',
+                 'July','August','September','October','November','December'];
+
+/** Last day of the month `back` months before `today`. back=1 → last month. */
+function monthEndBack(today, back) {
+  return new Date(today.getFullYear(), today.getMonth() - back + 1, 0);
+}
+
+function monthLabelOf(date) {
+  return GS_MONTHS[date.getMonth()] + ' ' + date.getFullYear();
+}
+
+/** Month_Year may hold "September 2026" or an ISO date Sheets converted. */
+function normaliseMonthLabelGs(raw) {
+  var value = String(raw || '');
+  if (!value) return '';
+  var iso = value.match(/^(\d{4})-(\d{2})/);
+  if (iso) return GS_MONTHS[Number(iso[2]) - 1] + ' ' + iso[1];
+  return value;
+}
+
+function parseLocalDateGs(value) {
+  var m = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return null;
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+}
+
+/** Joined on or before month end, and past their first full month of service. */
+function owedForMonthGs(emp, end, today) {
+  if (today <= end) return false;
+  var joined = parseLocalDateGs(emp.Joining_Date);
+  if (joined) {
+    if (joined > end) return false;
+    var firstEligible = new Date(joined.getFullYear(), joined.getMonth() + 1, joined.getDate());
+    if (today < firstEligible) return false;
+  }
+  return true;
+}
+
+function isTruthyCell(v) {
+  return v === true || String(v || '').toLowerCase() === 'true';
+}
+
+/**
+ * Who is still unpaid for the most recent ended month in one company's book.
+ * Returns null when there is nothing to report.
+ */
+function unpaidSalaryForCompany(spreadsheetId, today) {
+  var ss = getDatabase(spreadsheetId);
+  var empTab = ss.getSheetByName('Employees');
+  var slipTab = ss.getSheetByName('Payslips');
+  if (!empTab) return null;
+
+  var employees = getSheetRowsAsObjects(empTab).filter(function(e) { return String(e.Employee_ID || ''); });
+  var payslips  = slipTab ? getSheetRowsAsObjects(slipTab) : [];
+
+  var end = monthEndBack(today, 1);
+  var label = monthLabelOf(end);
+  var deadline = new Date(end.getTime());
+  deadline.setDate(deadline.getDate() + SALARY_DEADLINE_DAYS);
+  var daysLeft = Math.ceil((deadline.getTime() - today.getTime()) / 86400000);
+
+  var owed = employees.filter(function(e) { return owedForMonthGs(e, end, today); });
+  var unpaid = owed.filter(function(e) {
+    return !payslips.some(function(p) {
+      return String(p.Employee_ID) === String(e.Employee_ID)
+        && normaliseMonthLabelGs(p.Month_Year) === label
+        && isTruthyCell(p.Payment_Transferred);
+    });
+  });
+  if (!unpaid.length) return null;
+
+  return {
+    month: label,
+    daysLeft: daysLeft,
+    overdue: daysLeft < 0,
+    owedCount: owed.length,
+    unpaid: unpaid.map(function(e) {
+      return {
+        name: String(e.Employee_Name || e.Employee_ID),
+        branch: String(e.Branch_Location || e.Assigned_Outlet || ''),
+        salary: Number(e.Basic_Salary) || 0
+      };
+    })
+  };
+}
+
+/** Active admins of a company who have an email address on file. */
+function adminEmailsFor(companyId) {
+  return getSheetRowsAsObjects(usersTab()).filter(function(u) {
+    return String(u.Company_ID) === String(companyId)
+      && String(u.Role).toLowerCase() === 'admin'
+      && String(u.Active).toLowerCase() !== 'false'
+      && String(u.Email || '').indexOf('@') !== -1;
+  }).map(function(u) { return String(u.Email).trim(); });
+}
+
+/** A company can opt out with a Config row: notifications → {"salary_email":false} */
+function salaryEmailEnabled(spreadsheetId) {
+  var cfg = getAppConfig(spreadsheetId);
+  var settings = cfg && cfg.success && cfg.data ? cfg.data[NOTIFY_CONFIG_KEY] : null;
+  return !settings || settings.salary_email !== false;
+}
+
+function reminderBody(companyName, due) {
+  var lines = [];
+  lines.push(due.overdue
+    ? 'Salary for ' + due.month + ' is OVERDUE by ' + Math.abs(due.daysLeft) + ' day(s).'
+    : 'Salary for ' + due.month + ' is due in ' + due.daysLeft + ' day(s).');
+  lines.push('Wages are payable within ' + SALARY_DEADLINE_DAYS +
+             ' days of the end of the wage period (Employment Act s.19).');
+  lines.push('');
+  lines.push(due.unpaid.length + ' of ' + due.owedCount + ' staff not yet marked paid:');
+  due.unpaid.forEach(function(u) {
+    lines.push('  • ' + u.name + (u.branch ? ' (' + u.branch + ')' : ''));
+  });
+  var appUrl = PropertiesService.getScriptProperties().getProperty(APP_URL_PROP);
+  if (appUrl) { lines.push(''); lines.push('Open BizEazy: ' + appUrl); }
+  lines.push('');
+  lines.push('— BizEazy, ' + companyName);
+  lines.push('To stop these, set the Config tab row "' + NOTIFY_CONFIG_KEY +
+             '" to {"salary_email":false} in your spreadsheet.');
+  return lines.join('\n');
+}
+
+/**
+ * Emails every company's admins about unpaid salary. Runs from a daily trigger;
+ * safe to run by hand. Sends nothing when nothing is due.
+ */
+function sendDueReminders() {
+  var today = new Date();
+  var sent = 0;
+  getSheetRowsAsObjects(companiesTab()).forEach(function(c) {
+    var sheetId = String(c.Spreadsheet_ID || '');
+    var companyName = String(c.Company_Name || 'Your company');
+    if (!sheetId) return;
+    try {
+      if (!salaryEmailEnabled(sheetId)) return;
+      var due = unpaidSalaryForCompany(sheetId, today);
+      if (!due) return;
+      var to = adminEmailsFor(c.Company_ID);
+      if (!to.length) {
+        Logger.log('No admin email on file for %s — skipped.', companyName);
+        return;
+      }
+      MailApp.sendEmail({
+        to: to.join(','),
+        subject: (due.overdue ? '[Overdue] ' : '[Reminder] ') + 'Salary ' + due.month + ' — ' + companyName,
+        body: reminderBody(companyName, due)
+      });
+      sent++;
+    } catch (err) {
+      // One broken tenant must not stop the rest of the run.
+      Logger.log('Reminder failed for %s: %s', companyName, err.toString());
+    }
+  });
+  Logger.log('Salary reminders sent: %s', sent);
+  return sent;
+}
+
+/** Run once from the editor to schedule the daily 8am scan. */
+function installReminderTrigger() {
+  removeReminderTrigger();
+  ScriptApp.newTrigger('sendDueReminders').timeBased().atHour(8).everyDays(1).create();
+  Logger.log('Daily salary reminder installed for ~08:00.');
+}
+
+function removeReminderTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'sendDueReminders') ScriptApp.deleteTrigger(t);
+  });
+}
+
+/** Pure-logic check for the reminder date rules. Touches no sheets, sends nothing. */
+function runReminderSelfCheck() {
+  function ok(cond, msg) { if (!cond) throw new Error('SELF-CHECK FAILED: ' + msg); }
+
+  var sepEnd = new Date(2026, 8, 30);
+  ok(monthEndBack(new Date(2026, 9, 3), 1).getTime() === sepEnd.getTime(),
+     'on 3 Oct, one month back must end 30 Sep');
+  ok(monthEndBack(new Date(2026, 8, 30), 1).getMonth() === 7,
+     'on 30 Sep, one month back must still be August');
+  ok(monthLabelOf(sepEnd) === 'September 2026', 'month label must read "September 2026"');
+
+  ok(normaliseMonthLabelGs('2026-09-01') === 'September 2026', 'an ISO month must normalise to a label');
+  ok(normaliseMonthLabelGs('September 2026') === 'September 2026', 'a label must be left alone');
+  ok(normaliseMonthLabelGs('') === '', 'blank stays blank');
+
+  ok(parseLocalDateGs('2026-05-15').getDate() === 15, 'a date must not shift a day');
+  ok(parseLocalDateGs('rubbish') === null, 'nonsense must not parse');
+
+  var oct5 = new Date(2026, 9, 5);
+  ok(owedForMonthGs({}, sepEnd, oct5), 'an employee with no joining date is owed');
+  ok(!owedForMonthGs({}, new Date(2026, 9, 31), oct5), 'the current month is not owed');
+  ok(!owedForMonthGs({ Joining_Date: '2026-10-02' }, sepEnd, oct5), 'joined after month end is not owed');
+  ok(owedForMonthGs({ Joining_Date: '2026-09-15' }, sepEnd, new Date(2026, 9, 20)),
+     'a mid-month joiner is owed after a full month');
+  ok(!owedForMonthGs({ Joining_Date: '2026-09-15' }, sepEnd, new Date(2026, 9, 10)),
+     'a mid-month joiner is not owed before a full month');
+
+  ok(isTruthyCell(true) && isTruthyCell('TRUE') && isTruthyCell('true'),
+     'a checked cell must read as paid however Sheets returns it');
+  ok(!isTruthyCell(false) && !isTruthyCell('') && !isTruthyCell('no'),
+     'anything else must read as unpaid');
+
+  // The deadline boundary, same rule as the frontend countdown.
+  var deadline = new Date(sepEnd.getTime());
+  deadline.setDate(deadline.getDate() + SALARY_DEADLINE_DAYS);
+  ok(Math.ceil((deadline.getTime() - new Date(2026, 9, 7).getTime()) / 86400000) === 0,
+     '7 Oct is the deadline day itself, not yet overdue');
+  ok(Math.ceil((deadline.getTime() - new Date(2026, 9, 8).getTime()) / 86400000) === -1,
+     '8 Oct is one day overdue');
+
+  Logger.log('All reminder self-checks passed.');
+  return 'All reminder self-checks passed.';
+}

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { DatabaseState, Employee, Payslip, CompanyProfile } from '../types';
 import { activeOutlet as resolveActiveOutlet, outletLabel } from '../utils/outlets';
+import { salaryDeadline, owedForMonth } from '../utils/notifications';
 import { saveEmployeeExtras, savePayslipExtras } from '../sheetsService';
 
 interface PayrollDashboardProps {
@@ -1408,35 +1409,18 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       const _yr = parseInt(_ys, 10);
                       const _today = new Date();
                       const _mEnd = new Date(_yr, _mi + 1, 0);
-                      const _ended = _today > _mEnd;
-                      const _ddlDate = _ended ? new Date(_mEnd.getTime()) : null;
-                      if (_ddlDate) _ddlDate.setDate(_ddlDate.getDate() + 7);
-                      const _daysLeft = _ddlDate
-                        ? Math.ceil((_ddlDate.getTime() - _today.getTime()) / 86400000)
-                        : null;
-                      const _overdue = _daysLeft !== null && _daysLeft < 0;
+                      // One definition of the 7-day statutory deadline, shared with
+                      // the notification bell and the email reminder.
+                      const _dl = salaryDeadline(_mEnd, _today);
+                      const _daysLeft = _dl.ended ? _dl.daysLeft : null;
+                      const _overdue = _dl.ended && _dl.overdue;
 
                       const eligible = activeBranchEmployees.filter(emp => {
-                        // Rule 1: Selected month must have fully ended — no current/future months
-                        if (_today <= _mEnd) return false;
-
-                        if (emp.Joining_Date) {
-                          // Parse as local date to avoid UTC timezone shift
-                          const parts = emp.Joining_Date.split('-');
-                          const jy = parseInt(parts[0], 10);
-                          const jm = parseInt(parts[1], 10) - 1; // 0-indexed
-                          const jd = parseInt(parts[2], 10);
-                          const j = new Date(jy, jm, jd);
-
-                          // Rule 2: Employee must have joined on or before the last day of the month
-                          // (allows partial-month payslips for employees who joined mid-month)
-                          if (j > _mEnd) return false;
-
-                          // Rule 3: 1-month working stage — today must be >= joining date + 1 calendar month
-                          // e.g. joins May 15 → first payslip available June 15
-                          const firstEligible = new Date(jy, jm + 1, jd);
-                          if (_today < firstEligible) return false;
-                        }
+                        // Rules 1-3 — month fully ended, joined on or before month end,
+                        // and past their first full month of service — live in
+                        // utils/notifications.ts so the generator, the bell and the
+                        // email reminder cannot disagree about who is owed.
+                        if (!owedForMonth(emp, _mEnd, _today)) return false;
 
                         // Rule 4: No saved payslip already exists for this employee + month
                         return !activeBranchPayslips.some(p => {

@@ -11,6 +11,7 @@ import {
 import { LoginScreen, RegisterScreen } from './components/AuthScreens';
 import { UsersModal } from './components/UsersModal';
 import { CompanyProfilesModal, DEFAULT_TEMPLATE } from './components/CompanyProfilesModal';
+import { NotificationBell } from './components/NotificationBell';
 import { DatabaseState, CompanyProfile, TemplateCustomization, InvoiceItem } from './types';
 import { getPaymentSummary, PAYMENT_STATUS_LABEL } from './utils/payments';
 import {
@@ -884,11 +885,14 @@ export default function App() {
           </div>
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-8 space-y-5 sm:space-y-8">
 
-            <div>
-              <h1 className={`text-xl font-black tracking-tight ${dm ? 'text-white' : 'text-slate-900'}`}>Hub Overview</h1>
-              <p className={`text-xs font-medium mt-0.5 ${dm ? 'text-slate-500' : 'text-slate-400'}`}>
-                {profiles.find(p => p.id === activeOutlet)?.name || activeOutlet}
-              </p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h1 className={`text-xl font-black tracking-tight ${dm ? 'text-white' : 'text-slate-900'}`}>Hub Overview</h1>
+                <p className={`text-xs font-medium mt-0.5 truncate ${dm ? 'text-slate-500' : 'text-slate-400'}`}>
+                  {activeOutletName || activeOutlet}
+                </p>
+              </div>
+              <NotificationBell db={db} profiles={profiles} isDark={isDark} onOpenView={setActiveView} />
             </div>
 
             {/* 4 stat cards */}
@@ -1092,11 +1096,14 @@ export default function App() {
                 </p>
               </div>
             </div>
-            {isDataLoading && (
-              <span className="flex items-center gap-1.5 text-[10px] text-gray-500 dark:text-slate-400 flex-shrink-0">
-                <Loader2 className="w-3 h-3 animate-spin" /> Loading…
-              </span>
-            )}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {isDataLoading && (
+                <span className="flex items-center gap-1.5 text-[10px] text-gray-500 dark:text-slate-400">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Loading…
+                </span>
+              )}
+              <NotificationBell db={db} profiles={profiles} isDark={isDark} onOpenView={setActiveView} />
+            </div>
           </header>
 
           {/* Module content */}

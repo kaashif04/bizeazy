@@ -80,6 +80,36 @@ Two consequences worth knowing:
 - **A branch cannot be removed while records point at it.** The modal counts the
   attached invoices, quotations and employees and refuses, rather than orphaning them.
 
+## Reminders
+
+Two halves, one rule.
+
+**In the app** — a bell in the header, counting what needs attention. Every item is
+derived from the loaded rows on each render (`src/utils/notifications.ts`), so there is
+nothing to mark read and nothing stored: an item disappears when the thing it is about
+is dealt with, and cannot be dismissed into hiding a real problem. It covers unpaid
+salary for the most recent ended month, invoices unsettled past 30 days, and quotations
+lapsing within 3 days that were never billed.
+
+**By email** — `sendDueReminders()` in `Code.gs` scans every company daily and emails
+its active admins when salary for the last ended month is not marked paid. Install the
+8am trigger once:
+
+1. Select `installReminderTrigger` in the function dropdown and Run (it asks for the
+   Gmail scope the first time). `removeReminderTrigger` undoes it.
+2. Optional: set a script property `APP_URL` to put a link to the app in the email.
+3. A company opts out by setting its Config tab row `notifications` to
+   `{"salary_email":false}`.
+
+Admins only receive mail if their user row has an email address — set those under
+**Users & Access**.
+
+The salary rule is the **Employment Act s.19** 7-day window, defined once in
+`src/utils/notifications.ts` and used by the payslip generator's countdown, the bell and
+the email. Apps Script cannot import TypeScript, so `Code.gs` re-derives it — and
+`notifications.selfcheck.ts` loads `Code.gs` and fails if the two ever disagree about
+the deadline or about who is owed a payslip.
+
 ## Checks
 
 | What | How |
@@ -87,11 +117,16 @@ Two consequences worth knowing:
 | Backend auth logic | `runAuthSelfCheck()` in the Apps Script editor |
 | Session / remember-me rules | `npx tsx src/auth.selfcheck.ts` |
 | Outlet resolution, incl. legacy rows | `npx tsx src/utils/outlets.selfcheck.ts` |
+| Reminder rules + Code.gs mirror drift | `npx tsx src/utils/notifications.selfcheck.ts` |
+| Reminder date rules, in Apps Script | `runReminderSelfCheck()` in the editor |
 | Types | `npm run lint` |
 
 ## Known limits
 
-- Notifications (salary due, payment reminders) are not built yet — that is Phase 3.
+- Email reminders cover salary only. Overdue invoices and lapsing quotations appear in
+  the app but are not emailed.
+- There is no UI toggle for email reminders; it is the `notifications` row in the
+  company's Config tab.
 - Branch names must be unique within a company, because rows are stamped with the name.
 - `saveInvoice` and `updateInvoiceStatus` were removed from the backend: the app has
   always written invoices through `syncData`, so both were unreachable.
