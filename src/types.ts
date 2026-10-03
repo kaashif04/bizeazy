@@ -3,10 +3,19 @@
  * Matches exactly with Google Sheets relational database schema.
  */
 
+/**
+ * An outlet (branch/brand/store) is identified by its key in the company's
+ * Config tab, so a company can have as many as it likes. The two original
+ * keys are kept as ids on the first company purely so no stored row had to be
+ * rewritten; nothing displays an id.
+ */
+export type OutletId = string;
+export type OutletType = OutletId;   // retained name, widened meaning
+
 export interface Invoice {
   Invoice_ID: string;      // Primary Key
   Date: string;            // Format: YYYY-MM-DD
-  Company: 'Bistro' | 'Nasi Kandar'; // Outlet slot selector
+  Company: OutletId;       // Outlet id — the key under which it lives in the company's Config tab
   Customer_Name: string;
   Customer_Type: 'Regular' | 'New';
   Status: 'Paid' | 'Pending';
@@ -66,7 +75,8 @@ export interface TemplateCustomization {
 }
 
 export interface CompanyProfile {
-  id: 'Bistro' | 'Nasi Kandar';
+  id: OutletId;              // Config tab key. 'Bistro'/'Nasi Kandar' on the original
+                             // company; generated (outlet-xxxx) for any added since.
   name: string;
   company_name?: string;     // Corporate name (optional, e.g. "Culinary Holdings Group")
   store_name?: string;       // Specific store name (optional, e.g. "Bistro Georgetown Branch")
@@ -82,14 +92,13 @@ export interface CompanyProfile {
   template?: TemplateCustomization; // Per-outlet design — shared by Invoice & Quotation previews
 }
 
-export type OutletType = 'Bistro' | 'Nasi Kandar';
 
 export interface Employee {
   Employee_ID: string;
   Employee_Name: string;
   IC_Passport: string;
   Position: string;
-  Assigned_Outlet: 'Bistro' | 'Nasi Kandar';
+  Assigned_Outlet: OutletId;
   Basic_Salary: number;
   Bank_Details: string;
   Branch_Location: string;
@@ -164,7 +173,7 @@ export interface Quotation {
   Quotation_ID: string;
   Date: string;                          // issue date, YYYY-MM-DD
   Valid_Until?: string;                  // YYYY-MM-DD
-  Company: 'Bistro' | 'Nasi Kandar';
+  Company: OutletId;
   Customer_Name: string;
   Customer_Contact?: string;
   Customer_Address?: string;

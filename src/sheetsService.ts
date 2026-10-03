@@ -21,6 +21,7 @@ import {
   Quotation, QuotationDay, QuotationItem, PricingMode, PackageSubMode, ServingStyle
 } from './types';
 import { gasGet, gasPost, getApiUrl, setApiUrl, DEFAULT_API_URL } from './auth';
+import { resolveOutletId, outletLabel } from './utils/outlets';
 
 // Sign-in now lives in auth.ts (user ID + password against the Users directory).
 // Firebase Google sign-in is gone: the Google token it produced was never used
@@ -39,8 +40,7 @@ const mapInvoicesToRows = (invoices: Invoice[], profiles?: CompanyProfile[]): an
     let companyName: string = i.Company;
     if (profiles) {
       const match = profiles.find(p => p.id === i.Company);
-      if (match?.store_name) companyName = match.store_name;
-      else if (match?.name) companyName = match.name;
+      if (match) companyName = outletLabel(match);
     }
     return [
       i.Invoice_ID, i.Date, companyName, i.Customer_Name, i.Status,
@@ -145,42 +145,9 @@ export const fetchDataAll = async (
     );
     const resolvedType = matchedCustomer ? matchedCustomer.Customer_Type : 'Regular';
 
-    let resolvedCompany: 'Bistro' | 'Nasi Kandar' = 'Bistro';
-    const rowComp = String(row.Company || '').trim().toLowerCase();
     const invId = String(row.Invoice_ID || '');
-
-    if (profiles && profiles.length > 0) {
-      const bProfile = profiles.find(p => p.id === 'Bistro');
-      const nkProfile = profiles.find(p => p.id === 'Nasi Kandar');
-      const bPrefix = bProfile?.series_format || 'BIS';
-      const nkPrefix = nkProfile?.series_format || 'NK';
-
-      if (
-        invId.startsWith(bPrefix) || invId.startsWith('LEG-BIS') ||
-        rowComp === (bProfile?.store_name || '').trim().toLowerCase() ||
-        rowComp === (bProfile?.name || '').trim().toLowerCase()
-      ) {
-        resolvedCompany = 'Bistro';
-      } else if (
-        invId.startsWith(nkPrefix) || invId.startsWith('LEG-NK') ||
-        rowComp === (nkProfile?.store_name || '').trim().toLowerCase() ||
-        rowComp === (nkProfile?.name || '').trim().toLowerCase()
-      ) {
-        resolvedCompany = 'Nasi Kandar';
-      } else {
-        resolvedCompany = (
-          invId.includes('NK') || rowComp === 'nasi kandar' ||
-          rowComp.indexOf('nasi') !== -1
-        ) ? 'Nasi Kandar' : 'Bistro';
-      }
-    } else {
-      if (
-        invId.includes('NK') || invId.startsWith('LEG-NK') ||
-        rowComp === 'nasi kandar' || rowComp.indexOf('nasi') !== -1
-      ) {
-        resolvedCompany = 'Nasi Kandar';
-      }
-    }
+    // Rows store the outlet's display NAME; map it back to an outlet id.
+    const resolvedCompany = resolveOutletId(row.Company, invId, profiles || []);
 
     // ── Source A: Invoice_Items_JSON inline column ────────
     if (row.Invoice_Items_JSON) {
@@ -313,7 +280,7 @@ export const fetchDataAll = async (
       Employee_Name:  String(row.Employee_Name || ''),
       IC_Passport:    String(row.IC_Passport || ''),
       Position:       String(row.Position || ''),
-      Assigned_Outlet:(row.Assigned_Outlet === 'Nasi Kandar' ? 'Nasi Kandar' : 'Bistro') as 'Bistro' | 'Nasi Kandar',
+      Assigned_Outlet: resolveOutletId(row.Assigned_Outlet, '', profiles || []),
       Basic_Salary:   Number(row.Basic_Salary) || 0,
       Bank_Details:   bankDetails,
       Branch_Location:String(row.Branch_Location || ''),
@@ -390,7 +357,7 @@ export const fetchDataAll = async (
     Quotation_ID:       String(row.Quotation_ID || ''),
     Date:               String(row.Date || ''),
     Valid_Until:        row.Valid_Until ? String(row.Valid_Until) : undefined,
-    Company:            (row.Company === 'Nasi Kandar' ? 'Nasi Kandar' : 'Bistro') as 'Bistro' | 'Nasi Kandar',
+    Company:            resolveOutletId(row.Company, row.Quotation_ID, profiles || []),
     Customer_Name:      String(row.Customer_Name || ''),
     Customer_Contact:   String(row.Customer_Contact || '-'),
     Customer_Address:   String(row.Customer_Address || '-'),
@@ -549,8 +516,7 @@ export const syncStateToSheets = async (
     let companyName: string = inv.Company;
     if (profiles) {
       const match = profiles.find(p => p.id === inv.Company);
-      if (match?.store_name) companyName = match.store_name;
-      else if (match?.name) companyName = match.name;
+      if (match) companyName = outletLabel(match);
     }
     const matchingItems = db.invoice_items?.filter(item => item.Invoice_ID === inv.Invoice_ID) || [];
     return {
@@ -678,7 +644,7 @@ export const syncStateToSheets = async (
     return {
       Employee_ID: e.Employee_ID || '', Employee_Name: e.Employee_Name || '',
       IC_Passport: e.IC_Passport || '', Position: e.Position || '',
-      Assigned_Outlet: e.Assigned_Outlet || 'Bistro', Basic_Salary: e.Basic_Salary || 0,
+      Assigned_Outlet: e.Assigned_Outlet || '', Basic_Salary: e.Basic_Salary || 0,
       Bank_Details: cleanBank,
       Branch_Location: e.Branch_Location || '',
       Citizenship: citizenship,
@@ -725,7 +691,7 @@ export const syncStateToSheets = async (
 
   const normalizedOtherQuotations = otherQuotations.map((q: any) => ({
     Quotation_ID: q.Quotation_ID || '', Date: q.Date || '', Valid_Until: q.Valid_Until || '',
-    Company: q.Company || 'Bistro', Customer_Name: q.Customer_Name || '',
+    Company: q.Company || '', Customer_Name: q.Customer_Name || '',
     Customer_Contact: q.Customer_Contact || '-', Customer_Address: q.Customer_Address || '-',
     Pricing_Mode: q.Pricing_Mode || 'itemized', Package_Sub_Mode: q.Package_Sub_Mode || '',
     Flat_Package_Total: q.Flat_Package_Total || 0,

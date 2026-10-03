@@ -90,9 +90,7 @@ function handleAction(action, p, token) {
     if (action === 'initializeDatabase')  return initializeDatabase(sheetId);
     if (action === 'changePassword')      return changeOwnPassword(session, p);
 
-    if (action === 'saveConfig')          return hasModule(session, 'settings')  ? saveAppConfig(p.config, sheetId) : denied();
-    if (action === 'saveInvoice')         return hasModule(session, 'invoicing') ? saveInvoice(p.payload || p, sheetId) : denied();
-    if (action === 'updateInvoiceStatus') return hasModule(session, 'invoicing') ? updateInvoiceStatus(p.invoiceId, p.status, sheetId) : denied();
+    if (action === 'saveConfig')          return hasModule(session, 'settings') ? saveAppConfig(p.config, sheetId) : denied();
 
     if (action === 'listUsers')           return listUsers(session);
     if (action === 'createUser')          return createUser(session, p);
@@ -200,8 +198,8 @@ function getAppConfig(spreadsheetId) {
     }
 
     var defaultCfg = {
-      Bistro: {
-        store_name: 'My Outlet', company_name: '', address: '', email: '', phone: '',
+      main: {
+        store_name: 'Main Branch', company_name: '', address: '', email: '', phone: '',
         currency_symbol: 'RM', series_format: 'INV-26-',
         logo_url: '', footer_text: '', payment_info: ''
       }
@@ -387,7 +385,7 @@ function syncData(payload, spreadsheetId, session) {
       var empRows = payload.employees.map(function(emp) {
         return [
           emp.Employee_ID || '', emp.Employee_Name || '', emp.IC_Passport || '',
-          emp.Position || '', emp.Assigned_Outlet || 'Bistro',
+          emp.Position || '', emp.Assigned_Outlet || '',
           Number(emp.Basic_Salary) || 0, emp.Bank_Details || '',
           emp.Branch_Location || '', emp.Citizenship || 'Malaysian/PR',
           (emp.Age !== undefined && emp.Age !== null && emp.Age !== '') ? Number(emp.Age) : '',
@@ -430,7 +428,7 @@ function syncData(payload, spreadsheetId, session) {
       if (payload.quotations && payload.quotations.length > 0) {
         var qtnRows = payload.quotations.map(function(q) {
           return [
-            q.Quotation_ID || '', q.Date || '', q.Valid_Until || '', q.Company || 'Bistro',
+            q.Quotation_ID || '', q.Date || '', q.Valid_Until || '', q.Company || '',
             q.Customer_Name || '', q.Customer_Contact || '-', q.Customer_Address || '-',
             q.Pricing_Mode || 'itemized', q.Package_Sub_Mode || '',
             Number(q.Flat_Package_Total) || 0, q.Extra_Charges_JSON || '',
@@ -643,118 +641,5 @@ function initializeDatabase(spreadsheetId) {
     return { success: true };
   } catch (err) {
     return { success: false, error: err.toString() };
-  }
-}
-
-// ─── updateInvoiceStatus ──────────────────────────────────────
-function updateInvoiceStatus(invoiceId, newStatus, spreadsheetId) {
-  var lock = LockService.getScriptLock();
-  try {
-    lock.waitLock(15000);
-    var ss    = getDatabase(spreadsheetId);
-    var sheet = ss.getSheetByName("Invoices");
-    var data  = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
-    for (var i = 0; i < data.length; i++) {
-      if (data[i][0] === invoiceId) {
-        sheet.getRange(i + 2, 5).setValue(newStatus);
-        return { success: true };
-      }
-    }
-    return { success: false, error: "Invoice ID not found" };
-  } catch (err) {
-    return { success: false, error: err.toString() };
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-// ─── saveInvoice ──────────────────────────────────────────────
-function saveInvoice(payload, spreadsheetId) {
-  var lock = LockService.getScriptLock();
-  try {
-    lock.waitLock(20000);
-    var ss            = getDatabase(spreadsheetId);
-    var invoicesSheet = ss.getSheetByName("Invoices");
-    var patronsSheet  = ss.getSheetByName("Patrons") || ss.getSheetByName("Customers");
-    var itemsSheet    = ss.getSheetByName("Invoice_Items");
-    if (!itemsSheet) {
-      itemsSheet = ss.insertSheet("Invoice_Items");
-      itemsSheet.appendRow(['Item_ID','Invoice_ID','Item_Name','Quantity','Price','Subtotal']);
-    }
-
-    var existingInvoices = getSheetRowsAsObjects(invoicesSheet);
-
-    // Determine outlet from config
-    var isBistro = true;
-    try {
-      var configStr = PropertiesService.getScriptProperties().getProperty('GLOBAL_CONFIG');
-      if (configStr) {
-        var cfg = JSON.parse(configStr);
-        var nkName = ((cfg.nk && (cfg.nk.name || cfg.nk.store_name)) || 'kiya').toLowerCase();
-        var inputCompany = String(payload.company || '').toLowerCase();
-        if (inputCompany.indexOf('kiya') !== -1 || inputCompany.indexOf('kandar') !== -1 || inputCompany === nkName)
-          isBistro = false;
-      }
-    } catch (_) {
-      if (String(payload.company || '').toLowerCase().indexOf('nasi') !== -1) isBistro = false;
-    }
-
-    var prefix = payload.isLegacy
-      ? (isBistro ? "LEG-BIS-" : "LEG-NK-")
-      : (isBistro ? "BIS-26-"  : "NK-26-");
-
-    var maxId = 0;
-    existingInvoices.forEach(function(inv) {
-      if (inv.Invoice_ID && inv.Invoice_ID.indexOf(prefix) === 0) {
-        var val = parseInt(inv.Invoice_ID.substring(prefix.length), 10);
-        if (!isNaN(val) && val > maxId) maxId = val;
-      }
-    });
-
-    var finalId    = prefix + String(maxId + 1).padStart(4, '0');
-    var branchLoc  = payload.branchLocation || (isBistro ? "A1 Bistro" : "Kiya's Restaurant");
-    var itemsJson  = JSON.stringify(payload.items || []);
-
-    invoicesSheet.appendRow([
-      finalId, payload.date, payload.company, payload.customerName,
-      payload.status, payload.totalAmount, payload.discountValue || 0,
-      payload.subtotalAmount || payload.totalAmount, payload.notes || '',
-      payload.customerContact || '-', payload.customerAddress || '-',
-      branchLoc, itemsJson
-    ]);
-
-    // Write items to Invoice_Items tab too
-    if (payload.items && payload.items.length > 0) {
-      payload.items.forEach(function(item, idx) {
-        itemsSheet.appendRow([
-          item.Item_ID || (finalId + '-' + (idx + 1)),
-          finalId,
-          item.Item_Name || '',
-          Number(item.Quantity) || 0,
-          Number(item.Price) || 0,
-          Number(item.Subtotal) || 0
-        ]);
-      });
-    }
-
-    // Save customer if requested
-    if (payload.saveAsRegular && patronsSheet) {
-      var existing = getSheetRowsAsObjects(patronsSheet);
-      var alreadyExists = existing.some(function(c) {
-        return (c.Customer_Name || '').toLowerCase() === (payload.customerName || '').toLowerCase();
-      });
-      if (!alreadyExists) {
-        patronsSheet.appendRow([
-          payload.customerName, payload.customerContact || '-',
-          'Regular', payload.customerAddress || '-', branchLoc
-        ]);
-      }
-    }
-
-    return { success: true, invoiceId: finalId };
-  } catch (err) {
-    return { success: false, error: err.toString() };
-  } finally {
-    lock.releaseLock();
   }
 }

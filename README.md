@@ -59,18 +59,39 @@ spreadsheet in the script owner's Drive. To require an invite code, add a script
 property `REGISTRATION_CODE` (Project Settings ▸ Script Properties). Leave it unset to
 keep sign-ups open.
 
+### Branches
+
+A company has as many branches (brands, outlets, stores) as it likes, managed under
+**Branches & Documents**. Each carries its own name, address, logo, invoice series and
+document design.
+
+An outlet's **id is its key in the Config tab**, which is why lifting the original
+two-branch cap needed no data migration: the first company keeps `Bistro` and
+`Nasi Kandar` as ids, invisibly, while branches added since get a generated
+`outlet-xxxx`. Stored rows go on naming their branch in the `Company` column exactly as
+before, and `resolveOutletId` in `src/utils/outlets.ts` maps that back to an id on read —
+by name, then by invoice-series prefix, then by the legacy `LEG-BIS`/`LEG-NK` shapes.
+
+Two consequences worth knowing:
+
+- **Renaming a branch does not rewrite history.** Older rows keep the old name in their
+  `Company` column and are re-attached by their invoice prefix, so give every branch a
+  distinct series and avoid changing it afterwards.
+- **A branch cannot be removed while records point at it.** The modal counts the
+  attached invoices, quotations and employees and refuses, rather than orphaning them.
+
 ## Checks
 
 | What | How |
 |---|---|
 | Backend auth logic | `runAuthSelfCheck()` in the Apps Script editor |
 | Session / remember-me rules | `npx tsx src/auth.selfcheck.ts` |
+| Outlet resolution, incl. legacy rows | `npx tsx src/utils/outlets.selfcheck.ts` |
 | Types | `npm run lint` |
 
 ## Known limits
 
-- An outlet id is still one of two legacy slots (`Bistro` / `Nasi Kandar`), so a company
-  is capped at two branches and a newly registered one starts with a single outlet
-  parked in the first slot. Adding, renaming and removing branches freely is the next
-  piece of work, and it is a type change in `src/types.ts` plus the `isBistro ? …` sites.
-- Notifications (salary due, payment reminders) are not built yet.
+- Notifications (salary due, payment reminders) are not built yet — that is Phase 3.
+- Branch names must be unique within a company, because rows are stamped with the name.
+- `saveInvoice` and `updateInvoiceStatus` were removed from the backend: the app has
+  always written invoices through `syncData`, so both were unreachable.

@@ -354,12 +354,11 @@ function registerCompany(p) {
     var sheetId = ss.getId();
     initializeDatabase(sheetId);
 
-    // ponytail: a new company starts with ONE outlet parked in the legacy
-    // 'Bistro' config slot, because Invoice.Company is still the two-value
-    // union type in types.ts. Phase 2 widens that to a real outlet id and adds
-    // add/remove-branch UI; nothing user-visible reads this key, only the id.
+    // One outlet to start with, keyed by a real outlet id. The admin adds more
+    // under Branches & Documents; the key is the id, so adding a branch is
+    // adding a key.
     saveAppConfig({
-      Bistro: {
+      main: {
         store_name: companyName,
         company_name: companyName,
         address: '', email: email, phone: '',

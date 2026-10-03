@@ -48,6 +48,7 @@ import {
   Invoice, InvoiceItem, CompanyProfile,
   TemplateCustomization, DatabaseState
 } from '../types';
+import { hexToRgb, outletLabel, outletInitials } from '../utils/outlets';
 
 declare module 'jspdf' {
   interface jsPDF { lastAutoTable: { finalY: number }; }
@@ -56,16 +57,6 @@ declare module 'jspdf' {
 // ─────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────
-const hexToRgb = (hex: string): [number, number, number] => {
-  const clean = (hex || '').replace('#', '');
-  if (clean.length < 6) return [180, 83, 9];
-  return [
-    parseInt(clean.slice(0, 2), 16) || 30,
-    parseInt(clean.slice(2, 4), 16) || 140,
-    parseInt(clean.slice(4, 6), 16) || 120,
-  ];
-};
-
 const getOutletConfig = (invoice: Invoice, profiles: CompanyProfile[]) => {
   return profiles.find(p => p.id === invoice.Company) || null;
 };
@@ -102,26 +93,24 @@ export const downloadInvoicePDF = (
 
   const subItems = db.invoice_items.filter(i => i.Invoice_ID === invoiceId);
   const profile  = getOutletConfig(invoice, profiles);
-  const isBistro = invoice.Company === 'Bistro';
-
+  // Blank outlet fields print blank. They used to fall back to the first
+  // company's real address, phone and email, which would now put one company's
+  // contact details on another's invoice.
   const outletCfg = {
-    store_name:      profile?.store_name || profile?.name || (isBistro ? 'La Bistro Cafe' : 'Nasi Kandar Heritage'),
+    store_name:      profile ? outletLabel(profile) : invoice.Company,
     company_name:    profile?.company_name || '',
-    subtitle:        profile?.subtitle    || (isBistro ? 'Gourmet Western & Artisan Brews' : 'Traditional Penang Curry & Street Spices'),
-    address:         profile?.address     || (isBistro ? '100-B, Macalister Road, Georgetown' : '45-C, Chulia Street, Georgetown'),
-    email:           profile?.email       || 'accounts@culinaryholding.com',
-    phone:           profile?.phone       || (isBistro ? '+60 4-234 5678' : '+60 4-876 5432'),
+    subtitle:        profile?.subtitle || '',
+    address:         profile?.address || '',
+    email:           profile?.email || '',
+    phone:           profile?.phone || '',
     currency_symbol: profile?.currency_symbol || invoice.Currency_Symbol || fallbackCurrency,
-    footer_text:     customStyles?.terms_footer || profile?.footer_text ||
-                     (isBistro ? 'Thank you for dining with us! Payment is due within 3 days.'
-                               : 'Please settle invoice balance to secure order.'),
+    footer_text:     customStyles?.terms_footer || profile?.footer_text || '',
     logo_url:        profile?.logo_url     || '',
     payment_info:    profile?.payment_info || '',
   };
 
-  const themeColor: [number, number, number] = customStyles?.primary_color
-    ? hexToRgb(customStyles.primary_color)
-    : (isBistro ? [180, 83, 9] : [6, 95, 70]);
+  const themeColor: [number, number, number] =
+    hexToRgb(customStyles?.primary_color || profile?.template?.primary_color || '#B45309');
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
@@ -357,22 +346,21 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 
   const items    = db.invoice_items.filter(i => i.Invoice_ID === invoiceId);
   const profile  = getOutletConfig(invoice, profiles);
-  const isBistro = invoice.Company === 'Bistro';
-
   const outletCfg = {
-    store_name:   profile?.store_name    || profile?.name || (isBistro ? 'La Bistro Cafe' : 'Nasi Kandar Heritage'),
+    store_name:   profile ? outletLabel(profile) : invoice.Company,
     company_name: profile?.company_name  || '',
-    subtitle:     profile?.subtitle      || (isBistro ? 'Gourmet Western & Artisan Brews' : 'Traditional Penang Curry & Street Spices'),
+    subtitle:     profile?.subtitle      || '',
     address:      profile?.address       || '',
     email:        profile?.email         || '',
     phone:        profile?.phone         || '',
     currency:     profile?.currency_symbol || invoice.Currency_Symbol || 'RM',
-    footer_text:  customStyles?.terms_footer || profile?.footer_text || `Thank you for choosing ${profile?.name || invoice.Company}!`,
+    footer_text:  customStyles?.terms_footer || profile?.footer_text
+                  || `Thank you for choosing ${profile ? outletLabel(profile) : invoice.Company}!`,
     logo_url:     profile?.logo_url      || '',
     payment_info: profile?.payment_info  || '',
   };
 
-  const accent   = customStyles?.primary_color || (isBistro ? '#B45309' : '#065F46');
+  const accent   = customStyles?.primary_color || profile?.template?.primary_color || '#B45309';
   const fmt      = (n: number) => `${outletCfg.currency} ${Number(n).toFixed(2)}`;
   const subtotal = invoice.Subtotal_Amount ?? invoice.Total_Amount;
 

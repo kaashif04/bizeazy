@@ -10,8 +10,13 @@ import {
 } from './auth';
 import { LoginScreen, RegisterScreen } from './components/AuthScreens';
 import { UsersModal } from './components/UsersModal';
+import { CompanyProfilesModal, DEFAULT_TEMPLATE } from './components/CompanyProfilesModal';
 import { DatabaseState, CompanyProfile, TemplateCustomization, InvoiceItem } from './types';
 import { getPaymentSummary, PAYMENT_STATUS_LABEL } from './utils/payments';
+import {
+  activeOutlet as resolveActiveOutlet, outletLabel, outletColor, outletInitials,
+  newOutletId, outletUsage,
+} from './utils/outlets';
 import { attachA4Scale } from './utils/a4scale';
 import { PayrollDashboard } from './components/PayrollDashboard';
 import InvoicingModule from './components/InvoicingModule';
@@ -83,74 +88,55 @@ const EMPTY_DB: DatabaseState = {
   invoices: [], invoice_items: [], payments: [], customers: [], employees: [], payslips: [],
   quotations: [], quotation_days: [], quotation_items: [],
 };
-// Per-outlet design defaults — used until a profile's own `template` is saved in Settings.
-const DEFAULT_TEMPLATE: TemplateCustomization = {
-  primary_color: '#0D9488',
-  secondary_color: '#F0FDF4',
-  text_dark: '#1E293B',
-  font_family: 'Inter',
-  title_size: 'text-2xl',
-  body_size: 'text-xs',
-  padding: 'p-8',
-  layout_order: 'logo-left',
-  hide_payment_details: false,
-  terms_footer: '',
-};
+// Used only until the company's own Config tab loads. A single neutral outlet:
+// the id stays 'Bistro' so that if config never loads, legacy rows still match.
 const DEFAULT_PROFILES: CompanyProfile[] = [
   {
-    id: 'Bistro', name: 'La Bistro Cafe', store_name: 'La Bistro Cafe',
-    address: '100-B, Macalister Road, Georgetown',
-    email: 'accounts@culinaryholding.com', phone: '+60 4-234 5678',
-    currency_symbol: 'RM', series_format: 'BIS-26-',
-    footer_text: 'Thank you for dining with us! Payment is due within 3 days.',
-  },
-  {
-    id: 'Nasi Kandar', name: 'Nasi Kandar Heritage', store_name: 'Nasi Kandar Heritage',
-    address: '45-C, Chulia Street, Georgetown',
-    email: 'accounts@culinaryholding.com', phone: '+60 4-876 5432',
-    currency_symbol: 'RM', series_format: 'NK-26-',
-    footer_text: 'Please settle invoice balance to secure your delivery order.',
+    id: 'Bistro', name: 'My Outlet', store_name: 'My Outlet',
+    address: '', email: '', phone: '',
+    currency_symbol: 'RM', series_format: 'INV-26-',
+    template: DEFAULT_TEMPLATE,
   },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+// The original deployment stored outlets under the lowercase keys 'bistro' and
+// 'nk'; later saves used 'Bistro' and 'Nasi Kandar'. Normalise so both spellings
+// mean the same outlet rather than two.
+const LEGACY_KEY_ALIASES: Record<string, string> = { bistro: 'Bistro', nk: 'Nasi Kandar' };
+
 function gasConfigToProfiles(gasConfig: any): CompanyProfile[] {
-  // Accept already-mapped profiles array immediately
-  if (Array.isArray(gasConfig)) { return gasConfig; }
+  // Accept an already-mapped profiles array immediately
+  if (Array.isArray(gasConfig)) return gasConfig.length ? gasConfig : DEFAULT_PROFILES;
+  if (!gasConfig || typeof gasConfig !== 'object') return DEFAULT_PROFILES;
 
-  if (!gasConfig) return DEFAULT_PROFILES;
+  const seen = new Set<string>();
+  const profiles: CompanyProfile[] = [];
 
-  // Support two key formats:
-  //  • Our saved format  →  keys: 'Bistro' / 'Nasi Kandar'
-  //  • GAS default format → keys: 'bistro' / 'nk'  (properties: name, prefix, contact)
-  const bistroRaw = gasConfig['Bistro'] || gasConfig['bistro'];
-  const nkRaw     = gasConfig['Nasi Kandar'] || gasConfig['nk'];
-
-  const build = (
-    id: 'Bistro' | 'Nasi Kandar',
-    raw: any,
-    defaultName: string,
-    defaultPrefix: string,
-  ): CompanyProfile => ({
-    id,
-    name:            raw.store_name  || raw.name    || defaultName,
-    store_name:      raw.store_name  || raw.name    || defaultName,
-    company_name:    raw.company_name || '',
-    address:         raw.address     || '',
-    email:           raw.email       || '',
-    phone:           raw.phone       || raw.contact || '',
-    currency_symbol: raw.currency_symbol || 'RM',
-    logo_url:        raw.logo_url    || '',
-    footer_text:     raw.footer_text || '',
-    payment_info:    raw.payment_info || '',
-    series_format:   raw.series_format || raw.prefix || defaultPrefix,
-    template:        raw.template || DEFAULT_TEMPLATE,
+  Object.keys(gasConfig).forEach(key => {
+    const raw = gasConfig[key] || {};
+    const id = LEGACY_KEY_ALIASES[key.toLowerCase()] || key;
+    if (seen.has(id)) return;        // both spellings present — first wins
+    seen.add(id);
+    const label = raw.store_name || raw.name || id;
+    profiles.push({
+      id,
+      name:            label,
+      store_name:      label,
+      company_name:    raw.company_name || '',
+      address:         raw.address || '',
+      email:           raw.email || '',
+      phone:           raw.phone || raw.contact || '',
+      currency_symbol: raw.currency_symbol || 'RM',
+      logo_url:        raw.logo_url || '',
+      footer_text:     raw.footer_text || '',
+      payment_info:    raw.payment_info || '',
+      series_format:   raw.series_format || raw.prefix || 'INV-26-',
+      template:        raw.template || DEFAULT_TEMPLATE,
+    });
   });
 
-  const result: CompanyProfile[] = [];
-  if (bistroRaw) result.push(build('Bistro',       bistroRaw, 'A1 Bistro',         'A1-26-'));
-  if (nkRaw)     result.push(build('Nasi Kandar',   nkRaw,    "Kiya's Restaurant",  'KIYAS-26-'));
-  return result.length > 0 ? result : DEFAULT_PROFILES;
+  return profiles.length > 0 ? profiles : DEFAULT_PROFILES;
 }
 
 // ─── Toast Container ──────────────────────────────────────────────────────────
@@ -179,354 +165,6 @@ function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: 
   );
 }
 
-// ─── Company Profiles Modal ───────────────────────────────────────────────────
-function CompanyProfilesModal({
-  profiles, isDark, onClose, onSave,
-}: {
-  profiles: CompanyProfile[];
-  isDark: boolean;
-  onClose: () => void;
-  onSave: (updated: CompanyProfile[]) => Promise<void>;
-}) {
-  const init = (id: 'Bistro' | 'Nasi Kandar') =>
-    profiles.find(p => p.id === id) || DEFAULT_PROFILES.find(p => p.id === id)!;
-
-  const [bistro, setBistro] = useState({ ...init('Bistro') });
-  const [nk, setNk] = useState({ ...init('Nasi Kandar') });
-  const [saving, setSaving] = useState(false);
-  // Only the outlets this company actually has. Until Phase 2 widens the outlet
-  // id beyond the two legacy slots, a one-outlet company simply has one tab.
-  const outletIds = (['Bistro', 'Nasi Kandar'] as const).filter(id => profiles.some(p => p.id === id));
-  const tabIds = outletIds.length ? outletIds : (['Bistro'] as const);
-  const [activeTab, setActiveTab] = useState<'Bistro' | 'Nasi Kandar'>(tabIds[0]);
-  const logoInputRef = useRef<HTMLInputElement>(null);
-
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const keepPng = file.type === 'image/png';
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const maxPx = 160;
-        const scale = Math.min(maxPx / img.width, maxPx / img.height, 1);
-        canvas.width  = Math.round(img.width  * scale);
-        canvas.height = Math.round(img.height * scale);
-        const ctx = canvas.getContext('2d')!;
-        if (!keepPng) {
-          // Non-PNG formats have no transparency — fill white so JPEG has no black background
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-        }
-        // PNG keeps the alpha channel intact; canvas default is transparent
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        setter('logo_url', keepPng
-          ? canvas.toDataURL('image/png')
-          : canvas.toDataURL('image/jpeg', 0.85)
-        );
-      };
-      img.src = ev.target?.result as string;
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
-  };
-
-  const update = (
-    setter: React.Dispatch<React.SetStateAction<CompanyProfile>>,
-    field: keyof CompanyProfile,
-    val: string,
-  ) => setter(prev => ({ ...prev, [field]: val }));
-
-  const updateTemplate = (
-    setter: React.Dispatch<React.SetStateAction<CompanyProfile>>,
-    field: keyof TemplateCustomization,
-    val: string | boolean,
-  ) => setter(prev => ({ ...prev, template: { ...(prev.template || DEFAULT_TEMPLATE), [field]: val } }));
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      // Save only the outlets that exist, so the untouched legacy slot is not
-      // written back as a phantom second branch.
-      await onSave(tabIds.map(id => (id === 'Bistro' ? bistro : nk)));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const inputCls = `w-full px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-    isDark
-      ? 'bg-slate-950 border-slate-700 text-slate-100'
-      : 'bg-gray-50 border-gray-200 text-gray-900'
-  }`;
-
-  const current = activeTab === 'Bistro' ? bistro : nk;
-  const setter = activeTab === 'Bistro'
-    ? (f: keyof CompanyProfile, v: string) => update(setBistro, f, v)
-    : (f: keyof CompanyProfile, v: string) => update(setNk, f, v);
-  const setTemplate = activeTab === 'Bistro'
-    ? (f: keyof TemplateCustomization, v: string | boolean) => updateTemplate(setBistro, f, v)
-    : (f: keyof TemplateCustomization, v: string | boolean) => updateTemplate(setNk, f, v);
-  const tmpl = current.template || DEFAULT_TEMPLATE;
-
-  const fields: { key: keyof CompanyProfile; label: string; placeholder: string; hint?: string; multiline?: boolean }[] = [
-    { key: 'name', label: 'Display / Public Name', placeholder: 'La Bistro Cafe' },
-    { key: 'company_name', label: 'Corporate Entity Name', placeholder: 'Culinary Holdings Sdn Bhd' },
-    { key: 'address', label: 'Physical Address', placeholder: '100-B, Macalister Road, Georgetown' },
-    { key: 'email', label: 'Email', placeholder: 'accounts@example.com' },
-    { key: 'phone', label: 'Phone', placeholder: '+60 4-234 5678' },
-    { key: 'currency_symbol', label: 'Currency Symbol', placeholder: 'RM' },
-    { key: 'series_format', label: 'Invoice Prefix / Series', placeholder: 'BIS-26-', hint: 'e.g. BIS-26- → BIS-26-0001' },
-    { key: 'payment_info', label: 'Remittance / Bank Details', placeholder: 'Public Bank : 3814096800\nAccount Name : Ya Barr Solutions\nSwift: PBBEMYKL', hint: 'One detail per line — shown under "Remittance Instructions" on the invoice', multiline: true },
-    { key: 'footer_text', label: 'Invoice Footer / Terms', placeholder: 'Thank you for dining with us!', multiline: true },
-  ];
-
-  return (
-    <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className={`w-full max-w-lg rounded-2xl shadow-2xl flex flex-col max-h-[90vh] ${isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white border border-gray-200'}`}>
-
-        {/* Header */}
-        <div className={`flex items-center justify-between px-5 py-4 border-b flex-shrink-0 ${isDark ? 'border-slate-800' : 'border-gray-100'}`}>
-          <div className="flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-indigo-500" />
-            <h2 className="text-sm font-bold text-gray-900 dark:text-white">Company Profiles</h2>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-slate-200 cursor-pointer">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Outlet tabs */}
-        <div className={`flex border-b flex-shrink-0 ${isDark ? 'border-slate-800' : 'border-gray-100'}`}>
-          {tabIds.map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-2.5 text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
-                activeTab === tab
-                  ? 'border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-300'
-                  : 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200'
-              }`}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${tab === 'Bistro' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-              {tab === 'Bistro' ? (bistro.store_name || bistro.name) : (nk.store_name || nk.name)}
-            </button>
-          ))}
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-5 space-y-3">
-          {fields.map(({ key, label, placeholder, hint, multiline }) => (
-            <div key={key}>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1">
-                {label}
-              </label>
-              {multiline ? (
-                <textarea
-                  value={(current[key] as string) || ''}
-                  onChange={e => setter(key, e.target.value)}
-                  placeholder={placeholder}
-                  rows={3}
-                  className={`${inputCls} resize-y`}
-                />
-              ) : (
-                <input
-                  type="text"
-                  value={(current[key] as string) || ''}
-                  onChange={e => setter(key, e.target.value)}
-                  placeholder={placeholder}
-                  className={inputCls}
-                />
-              )}
-              {hint && <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-0.5">{hint}</p>}
-            </div>
-          ))}
-
-          {/* Logo upload */}
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">
-              Company Logo
-            </label>
-            <div className="flex items-center gap-3">
-              <div className={`w-14 h-14 rounded-xl border flex items-center justify-center flex-shrink-0 overflow-hidden ${isDark ? 'border-slate-700 bg-slate-950' : 'border-gray-200 bg-gray-50'}`}>
-                {current.logo_url ? (
-                  <img src={current.logo_url} alt="Logo" className="w-full h-full object-contain p-1" />
-                ) : (
-                  <Building2 className="w-6 h-6 text-gray-300 dark:text-slate-600" />
-                )}
-              </div>
-              <div className="flex flex-col gap-1.5 flex-1">
-                <input
-                  type="file"
-                  ref={logoInputRef}
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleLogoUpload}
-                />
-                <button
-                  type="button"
-                  onClick={() => logoInputRef.current?.click()}
-                  className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-colors ${isDark ? 'border-slate-700 text-slate-300 hover:bg-slate-800' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}
-                >
-                  <Upload className="w-3 h-3" />
-                  {current.logo_url ? 'Change Logo' : 'Upload Logo'}
-                </button>
-                {current.logo_url && (
-                  <button
-                    type="button"
-                    onClick={() => setter('logo_url', '')}
-                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer text-red-500 border-red-200 dark:border-red-900/40 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                  >
-                    <X className="w-3 h-3" />
-                    Remove
-                  </button>
-                )}
-              </div>
-            </div>
-            <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-1">Auto-resized on upload. Saves with your profile to Google Sheets.</p>
-          </div>
-
-          {/* Design — applies to both Invoice and Quotation previews for this outlet */}
-          <div className={`pt-3 border-t space-y-3 ${isDark ? 'border-slate-800' : 'border-gray-100'}`}>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400">
-              Document Design — {current.store_name || current.name}
-            </p>
-
-            {/* Accent color */}
-            <div className="space-y-1.5">
-              <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wide">Brand Primary Accent</label>
-              <div className="flex flex-wrap gap-2 items-center">
-                {[
-                  { name: 'Teal', value: '#0D9488' },
-                  { name: 'Warm Amber', value: '#B45309' },
-                  { name: 'Emerald', value: '#065F46' },
-                  { name: 'Classic Slate', value: '#334155' },
-                  { name: 'Cobalt Blue', value: '#1D4ED8' },
-                  { name: 'Crimson Rose', value: '#BE123C' },
-                  { name: 'Royal Indigo', value: '#4338CA' },
-                  { name: 'Charcoal', value: '#1E293B' },
-                ].map(c => (
-                  <button key={c.value} type="button" onClick={() => setTemplate('primary_color', c.value)}
-                    className={`w-6 h-6 rounded-full border cursor-pointer hover:scale-110 active:scale-95 transition-transform ${tmpl.primary_color === c.value ? 'ring-2 ring-offset-2 ring-indigo-500' : 'border-gray-300 dark:border-slate-600'}`}
-                    style={{ backgroundColor: c.value }} title={c.name} />
-                ))}
-                <input type="text" value={tmpl.primary_color}
-                  onChange={e => setTemplate('primary_color', e.target.value)}
-                  className={`w-24 px-2 py-1 text-xs font-mono font-bold rounded border ${isDark ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'}`} />
-              </div>
-            </div>
-
-            {/* Font */}
-            <div>
-              <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1">Typography Font Face</label>
-              <select value={tmpl.font_family} onChange={e => setTemplate('font_family', e.target.value)} className={inputCls}>
-                <option value="Inter">Inter (Clean Swiss Sans)</option>
-                <option value="Space Grotesk">Space Grotesk (Tech Modernist)</option>
-                <option value="Outfit">Outfit (Friendly Circular)</option>
-                <option value="Playfair Display">Playfair Display (Serif Elegance)</option>
-                <option value="JetBrains Mono">JetBrains Mono (Precision Mono)</option>
-              </select>
-            </div>
-
-            {/* Logo / brand alignment */}
-            <div>
-              <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1">Logo & Brand Alignment</label>
-              <div className="grid grid-cols-2 gap-1.5">
-                {[
-                  { label: 'Standard Left', value: 'logo-left' },
-                  { label: 'Push Right', value: 'logo-right' },
-                  { label: 'Center Stacked', value: 'stacked' },
-                  { label: 'Modern Split', value: 'logo-split' },
-                ].map(opt => (
-                  <button key={opt.value} type="button" onClick={() => setTemplate('layout_order', opt.value)}
-                    className={`p-2 border rounded-lg font-bold text-[10px] tracking-tight transition-all cursor-pointer ${
-                      tmpl.layout_order === opt.value
-                        ? 'bg-indigo-600 border-indigo-600 text-white'
-                        : isDark ? 'bg-slate-950 border-slate-700 text-slate-300 hover:bg-slate-800' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-100'
-                    }`}>
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Title + Body size */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1">Title Size</label>
-                <select value={tmpl.title_size} onChange={e => setTemplate('title_size', e.target.value)} className={inputCls}>
-                  <option value="text-lg">Compact (LG)</option>
-                  <option value="text-xl">Standard (XL)</option>
-                  <option value="text-2xl">Large (2XL)</option>
-                  <option value="text-3xl">Display (3XL)</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1">Body Size</label>
-                <select value={tmpl.body_size} onChange={e => setTemplate('body_size', e.target.value)} className={inputCls}>
-                  <option value="text-[10px]">Tiny (10px)</option>
-                  <option value="text-xs">Standard (12px)</option>
-                  <option value="text-sm">Comfort (14px)</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Margins */}
-            <div>
-              <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1">Sheet Outer Margins</label>
-              <div className="grid grid-cols-3 gap-1.5">
-                {[{ label: 'Compact', value: 'p-4' }, { label: 'Cozy', value: 'p-8' }, { label: 'Generous', value: 'p-12' }].map(opt => (
-                  <button key={opt.value} type="button" onClick={() => setTemplate('padding', opt.value)}
-                    className={`py-1.5 border rounded-lg text-[10px] font-bold cursor-pointer transition-all ${
-                      tmpl.padding === opt.value
-                        ? 'bg-indigo-600 border-indigo-600 text-white'
-                        : isDark ? 'bg-slate-950 border-slate-700 text-slate-400 hover:bg-slate-800' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-100'
-                    }`}>
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Footer terms (Invoice only — Quotation keeps its own Catering Terms field) */}
-            <div>
-              <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1">Invoice Footer / Custom Terms</label>
-              <textarea rows={2} value={tmpl.terms_footer}
-                onChange={e => setTemplate('terms_footer', e.target.value)}
-                placeholder="Thank you for your business!"
-                className={`${inputCls} resize-none`} />
-            </div>
-          </div>
-
-          <div className={`flex items-center justify-end gap-2 pt-3 border-t ${isDark ? 'border-slate-800' : 'border-gray-100'}`}>
-            <button
-              type="button"
-              onClick={onClose}
-              className={`px-4 py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors ${
-                isDark ? 'bg-transparent border-slate-700 text-slate-300 hover:bg-slate-800' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer shadow-sm"
-            >
-              {saving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : null}
-              {saving ? 'Saving…' : 'Save to Google Sheets'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-// ─── Settings Modal ───────────────────────────────────────────────────────────
 function SettingsModal({
   company, isDark, onClose, onSave,
 }: {
@@ -697,8 +335,8 @@ function Sidebar({
       <div className="px-2 py-2 border-t border-gray-100 dark:border-slate-800 flex-shrink-0">
         <div className="text-[9px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500 px-2 mb-1.5">Active Branch</div>
         <div className="space-y-0.5">
-          {profiles.map(p => {
-            const branchName = p.store_name || p.name;
+          {profiles.map((p, idx) => {
+            const branchName = outletLabel(p);
             const isActive = activeBranchLocation.toLowerCase() === branchName.toLowerCase();
             return (
               <button
@@ -710,7 +348,7 @@ function Sidebar({
                     : 'text-gray-500 dark:text-slate-500 hover:bg-gray-50 dark:hover:bg-slate-800'
                 }`}
               >
-                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${p.id === 'Bistro' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: outletColor(p, idx) }} />
                 <span className="truncate">{branchName}</span>
               </button>
             );
@@ -863,9 +501,11 @@ export default function App() {
       }
       const data = await fetchDataAll(sheetId, '', resolvedProfiles);
       setDb(data);
-      setActiveBranchLocation(prev =>
-        prev || resolvedProfiles[0]?.store_name || resolvedProfiles[0]?.name || 'La Bistro Cafe'
-      );
+      setActiveBranchLocation(prev => {
+        // Keep the user's branch if it still exists; otherwise fall to the first.
+        const stillThere = prev && resolvedProfiles.some(p => outletLabel(p) === prev);
+        return stillThere ? prev : (resolvedProfiles[0] ? outletLabel(resolvedProfiles[0]) : '');
+      });
       triggerToast('Data loaded from Google Sheets.', 'success');
     } catch (err: any) {
       triggerToast(`Data load failed: ${err.message}`, 'error');
@@ -999,14 +639,9 @@ export default function App() {
 
   // ─── Hub Overview (standalone layout with own sidebar) ──────────────────────
   if (activeView === 'hub') {
-    const bistroProfile = profiles.find(p => p.id === 'Bistro');
-    const nkProfile     = profiles.find(p => p.id === 'Nasi Kandar');
-    const bistroName    = bistroProfile?.store_name || bistroProfile?.name || 'La Bistro Cafe';
-    const nkName        = nkProfile?.store_name    || nkProfile?.name    || 'Nasi Kandar Heritage';
-    const activeOutlet: 'Bistro' | 'Nasi Kandar' =
-      (activeBranchLocation.toLowerCase().includes('kandar') ||
-       activeBranchLocation.toLowerCase().includes('kiya'))
-        ? 'Nasi Kandar' : 'Bistro';
+    const activeProfile = resolveActiveOutlet(profiles, activeBranchLocation);
+    const activeOutlet   = activeProfile?.id || '';
+    const activeOutletName = activeProfile ? outletLabel(activeProfile) : '';
     const dm = isDark;
 
     const activeInvoicesHub  = db.invoices.filter(inv => inv.Company === activeOutlet);
@@ -1095,7 +730,7 @@ export default function App() {
           {/* Branch selector */}
           <div className={`px-3 py-3 border-t space-y-1 ${dm ? 'border-slate-800' : 'border-slate-100'}`}>
             <p className={`text-[9px] font-bold uppercase tracking-widest px-2 mb-2 ${dm ? 'text-slate-600' : 'text-slate-400'}`}>Active Branch</p>
-            {profiles.map(p => ({ id: p.id, label: p.store_name || p.name })).map(b => (
+            {profiles.map((p, idx) => ({ id: p.id, label: outletLabel(p), color: outletColor(p, idx) })).map(b => (
               <button
                 key={b.id}
                 onClick={() => {
@@ -1108,7 +743,7 @@ export default function App() {
                     : (dm ? 'text-slate-500 hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50')
                 }`}
               >
-                <span className={`w-2 h-2 rounded-full shrink-0 ${b.id === 'Bistro' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: b.color }} />
                 {b.label}
               </button>
             ))}
@@ -1230,22 +865,22 @@ export default function App() {
           {/* Branch switcher — mobile only */}
           <div className={`md:hidden flex items-center gap-2 px-4 py-2 border-b ${dm ? 'border-slate-800 bg-[#0f1623]' : 'border-slate-100 bg-white'}`}>
             <span className={`text-[9px] font-bold uppercase tracking-wider ${dm ? 'text-slate-500' : 'text-slate-400'}`}>Branch:</span>
-            <button
-              onClick={() => setActiveBranchLocation(bistroName)}
-              className={`px-2.5 py-1 text-[10px] font-bold rounded-full transition-colors cursor-pointer ${
-                activeOutlet === 'Bistro'
-                  ? 'bg-indigo-600 text-white'
-                  : (dm ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700')
-              }`}
-            >{bistroName}</button>
-            <button
-              onClick={() => setActiveBranchLocation(nkName)}
-              className={`px-2.5 py-1 text-[10px] font-bold rounded-full transition-colors cursor-pointer ${
-                activeOutlet === 'Nasi Kandar'
-                  ? 'bg-indigo-600 text-white'
-                  : (dm ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700')
-              }`}
-            >{nkName}</button>
+            <div className="flex items-center gap-2 overflow-x-auto">
+              {profiles.map(p => {
+                const label = outletLabel(p);
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => setActiveBranchLocation(label)}
+                    className={`px-2.5 py-1 text-[10px] font-bold rounded-full whitespace-nowrap transition-colors cursor-pointer ${
+                      activeOutlet === p.id
+                        ? 'bg-indigo-600 text-white'
+                        : (dm ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700')
+                    }`}
+                  >{label}</button>
+                );
+              })}
+            </div>
           </div>
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-8 space-y-5 sm:space-y-8">
 
@@ -1307,7 +942,7 @@ export default function App() {
                 <div className={`flex items-center justify-between px-5 py-4 border-b ${dm ? 'border-slate-800' : 'border-slate-100'}`}>
                   <div>
                     <p className={`text-sm font-black tracking-tight ${dm ? 'text-white' : 'text-slate-900'}`}>Recent Invoices</p>
-                    <p className={`text-[10px] font-medium ${dm ? 'text-slate-600' : 'text-slate-400'}`}>{activeOutlet === 'Bistro' ? bistroName : nkName}</p>
+                    <p className={`text-[10px] font-medium ${dm ? 'text-slate-600' : 'text-slate-400'}`}>{activeOutletName}</p>
                   </div>
                   <button onClick={() => { setActiveView('invoicing'); triggerToast('Opening Invoicing...', 'success'); }} className={`text-[11px] font-bold cursor-pointer transition-colors ${dm ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-600 hover:text-indigo-800'}`}>View All →</button>
                 </div>
@@ -1391,7 +1026,7 @@ export default function App() {
 
         {/* Modals + toasts share the hub layout */}
         {isProfilesOpen && (
-          <CompanyProfilesModal profiles={profiles} isDark={isDark} onClose={() => setIsProfilesOpen(false)} onSave={handleProfilesSave} />
+          <CompanyProfilesModal profiles={profiles} db={db} isDark={isDark} onClose={() => setIsProfilesOpen(false)} onSave={handleProfilesSave} />
         )}
         {isSettingsOpen && (
           <SettingsModal company={session.company} isDark={isDark} onClose={() => setIsSettingsOpen(false)} onSave={handleSettingsSave} />
@@ -1537,6 +1172,7 @@ export default function App() {
       {isProfilesOpen && (
         <CompanyProfilesModal
           profiles={profiles}
+          db={db}
           isDark={isDark}
           onClose={() => setIsProfilesOpen(false)}
           onSave={handleProfilesSave}
@@ -1733,13 +1369,13 @@ export default function App() {
                               <img src={profile.logo_url} alt="Logo" className="max-h-20 w-auto max-w-[140px] object-contain shrink-0" referrerPolicy="no-referrer" />
                             ) : (
                               <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white font-black text-xl uppercase shadow-lg shrink-0" style={{ backgroundColor: customStyles.primary_color }}>
-                                {profile?.logo_url ? profile.logo_url.substring(0, 2) : (invoice.Company === 'Bistro' ? 'LB' : 'NK')}
+                                {profile ? outletInitials(profile) : '?'}
                               </div>
                             )}
                             <div className="min-w-0">
                               {parentCompanyName && <p className="text-[9px] font-extrabold uppercase text-gray-400 tracking-wider mb-0.5 break-words">{parentCompanyName}</p>}
                               <h1 className={`font-black tracking-tight text-gray-900 leading-tight break-words ${customStyles.title_size || 'text-2xl'}`}>
-                                {profile?.name || (invoice.Company === 'Bistro' ? 'La Bistro Cafe' : 'Nasi Kandar Heritage')}
+                                {profile ? outletLabel(profile) : invoice.Company}
                               </h1>
                               {storeOutletName && (
                                 <p className="text-[10px] font-bold mt-0.5 uppercase break-words" style={{ color: customStyles.primary_color }}>

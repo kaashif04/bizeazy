@@ -5,6 +5,7 @@ import {
   Briefcase, FileText, Check, DollarSign, HelpCircle, Save 
 } from 'lucide-react';
 import { DatabaseState, Employee, Payslip, CompanyProfile } from '../types';
+import { activeOutlet as resolveActiveOutlet, outletLabel } from '../utils/outlets';
 import { saveEmployeeExtras, savePayslipExtras } from '../sheetsService';
 
 interface PayrollDashboardProps {
@@ -112,8 +113,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
   }, [db.payslips, activeBranchLocation]);
 
   const activeOutletProfile = useMemo(() => {
-    const isBistro = activeBranchLocation.toLowerCase().indexOf('bistro') !== -1;
-    return profiles.find(p => isBistro ? p.id === 'Bistro' : p.id === 'Nasi Kandar') || profiles[0];
+    return resolveActiveOutlet(profiles, activeBranchLocation) || profiles[0];
   }, [profiles, activeBranchLocation]);
 
   // --- PAYROLL COMPLIANCE REMINDERS (Malaysian Employment Act: 7-day rule) ---
@@ -398,7 +398,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
         Employee_Name: empName,
         IC_Passport: empIC,
         Position: empPosition,
-        Assigned_Outlet: activeBranchLocation.toLowerCase().indexOf('bistro') !== -1 ? 'Bistro' : 'Nasi Kandar',
+        Assigned_Outlet: resolveActiveOutlet(profiles, activeBranchLocation)?.id || '',
         Basic_Salary: empSalary,
         Bank_Details: empBank,
         Branch_Location: activeBranchLocation,

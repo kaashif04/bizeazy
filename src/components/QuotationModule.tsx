@@ -8,6 +8,9 @@ import {
   DatabaseState, Quotation, QuotationDay, QuotationItem, Customer, CompanyProfile,
   PricingMode, PackageSubMode, ServingStyle, TemplateCustomization, Invoice, InvoiceItem,
 } from '../types';
+import {
+  activeOutlet as resolveActiveOutlet, outletLabel, outletColor, outletInitials,
+} from '../utils/outlets';
 import { generateInvoiceId } from './InvoicingModule';
 import { attachA4Scale } from '../utils/a4scale';
 
@@ -86,13 +89,13 @@ const DEFAULT_CATERING_TERMS =
 // Uses the same per-company "Invoice Prefix / Series" (CompanyProfile.series_format)
 // that Invoice IDs already use, instead of a hardcoded outlet name.
 function generateQuotationId(
-  outlet: 'Bistro' | 'Nasi Kandar',
+  outlet: string,
   profiles: CompanyProfile[],
   existingQuotations: Quotation[],
 ): string {
   const profile = profiles.find(p => p.id === outlet);
-  const rawPrefix = profile?.series_format || (outlet === 'Bistro' ? 'BIS-26-' : 'NK-26-');
-  const cleanPrefix = rawPrefix.replace(/-+$/, '') || (outlet === 'Bistro' ? 'BIS' : 'NK');
+  const rawPrefix = profile?.series_format || 'INV-26-';
+  const cleanPrefix = rawPrefix.replace(/-+$/, '') || 'INV';
   const now = new Date();
   const month = now.toLocaleString('en-US', { month: 'long' });
   const year = now.getFullYear();
@@ -352,7 +355,7 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
                     <img src={profile.logo_url} alt="Logo" className="max-h-20 w-auto max-w-[140px] object-contain shrink-0" referrerPolicy="no-referrer" />
                   ) : (
                     <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white font-black text-xl uppercase shadow-lg shrink-0" style={{ backgroundColor: accent }}>
-                      {quotation.Company === 'Bistro' ? 'LB' : 'NK'}
+                      {profile ? outletInitials(profile) : '?'}
                     </div>
                   )}
                   <div className="min-w-0">
@@ -741,14 +744,14 @@ export default function QuotationModule({
 }: QuotationModuleProps) {
 
   const [search, setSearch] = useState('');
-  const [filterOutlet, setFilterOutlet] = useState<'All' | 'Bistro' | 'Nasi Kandar'>('All');
+  const [filterOutlet, setFilterOutlet] = useState<string>('All');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(null);
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [kitchenSheetData, setKitchenSheetData] = useState<PreviewData | null>(null);
 
-  const [modalOutlet, setModalOutlet] = useState<'Bistro' | 'Nasi Kandar'>('Bistro');
+  const [modalOutlet, setModalOutlet] = useState<string>('');
   const [modalDate, setModalDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [modalValidUntil, setModalValidUntil] = useState('');
   const [modalCustomer, setModalCustomer] = useState('');
@@ -803,8 +806,7 @@ export default function QuotationModule({
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const activeProfile = useMemo(() => {
-    const isBistro = activeBranchLocation.toLowerCase().includes('bistro');
-    return profiles.find(p => isBistro ? p.id === 'Bistro' : p.id === 'Nasi Kandar') || profiles[0];
+    return resolveActiveOutlet(profiles, activeBranchLocation) || profiles[0];
   }, [profiles, activeBranchLocation]);
 
   const currency = activeProfile?.currency_symbol || 'RM';
@@ -1000,8 +1002,7 @@ export default function QuotationModule({
       setItemDrafts({});
     } else {
       setEditingQuotation(null);
-      const isBistro = activeBranchLocation.toLowerCase().includes('bistro');
-      setModalOutlet(isBistro ? 'Bistro' : 'Nasi Kandar');
+      setModalOutlet(resolveActiveOutlet(profiles, activeBranchLocation)?.id || profiles[0]?.id || '');
       setModalDate(new Date().toISOString().slice(0, 10));
       setModalValidUntil('');
       setModalCustomer(''); setModalContact(''); setModalAddress(''); setModalNotes('');
@@ -1314,12 +1315,14 @@ export default function QuotationModule({
                         ) : <span className="text-gray-400 text-[10px]">—</span>}
                       </td>
                       <td className="px-4 py-3.5">
-                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase whitespace-nowrap ${
-                          q.Company === 'Bistro'
-                            ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400'
-                            : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400'
-                        }`}>
-                          {p?.store_name || q.Company}
+                        <span
+                          className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase whitespace-nowrap"
+                          style={{
+                            color: outletColor(p, profiles.findIndex(pr => pr.id === q.Company)),
+                            backgroundColor: outletColor(p, profiles.findIndex(pr => pr.id === q.Company)) + '1f',
+                          }}
+                        >
+                          {p ? outletLabel(p) : q.Company}
                         </span>
                       </td>
                       <td className="px-4 py-3.5 font-medium text-gray-700 dark:text-slate-300 max-w-[160px] truncate">{q.Customer_Name}</td>
@@ -1445,18 +1448,18 @@ export default function QuotationModule({
                   <div>
                     <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">Outlet *</label>
                     <div className="flex gap-2">
-                      {(['Bistro', 'Nasi Kandar'] as const).map(outlet => (
+                      {profiles.map(outletProfile => (
                         <button
-                          key={outlet}
+                          key={outletProfile.id}
                           type="button"
-                          onClick={() => setModalOutlet(outlet)}
+                          onClick={() => setModalOutlet(outletProfile.id)}
                           className={`flex-1 py-2 text-xs font-bold rounded-lg border transition-colors cursor-pointer ${
-                            modalOutlet === outlet
+                            modalOutlet === outletProfile.id
                               ? 'bg-indigo-600 border-indigo-600 text-white'
                               : isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-300 hover:border-slate-500' : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
                           }`}
                         >
-                          {profiles.find(p => p.id === outlet)?.store_name || outlet}
+                          {outletLabel(outletProfile)}
                         </button>
                       ))}
                     </div>

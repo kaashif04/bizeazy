@@ -7,6 +7,9 @@ import {
 } from 'lucide-react';
 import { DatabaseState, Invoice, InvoiceItem, Customer, CompanyProfile, Payment } from '../types';
 import { getPaymentSummary, PAYMENT_METHODS, PAYMENT_STATUS_LABEL, newPaymentId, PaymentStatus } from '../utils/payments';
+import {
+  activeOutlet as resolveActiveOutlet, outletLabel, outletColor, hexToRgb,
+} from '../utils/outlets';
 
 // Colour tokens for the derived payment status badge (Paid / Partial / Unpaid).
 const STATUS_BADGE: Record<PaymentStatus, string> = {
@@ -208,12 +211,14 @@ interface LineItem {
 
 // ─── Invoice ID generator ─────────────────────────────────────────────────────
 export function generateInvoiceId(
-  outlet: 'Bistro' | 'Nasi Kandar',
+  outlet: string,
   profiles: CompanyProfile[],
   existingInvoices: Invoice[],
 ): string {
   const profile = profiles.find(p => p.id === outlet);
-  const prefix = profile?.series_format || (outlet === 'Bistro' ? 'BIS-26-' : 'NK-26-');
+  // Every outlet carries its own series. 'INV-26-' only covers one that has
+  // somehow never been given one.
+  const prefix = profile?.series_format || 'INV-26-';
   let maxIndex = 0;
   existingInvoices.forEach(inv => {
     if (inv.Invoice_ID?.startsWith(prefix)) {
@@ -227,8 +232,8 @@ export function generateInvoiceId(
 // ─── jsPDF generation — matches AI Studio quality ────────────────────────────
 function generatePDF(invoice: Invoice, items: InvoiceItem[], profile: CompanyProfile) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const isBistro = invoice.Company === 'Bistro';
-  const themeRGB: [number, number, number] = isBistro ? [180, 83, 9] : [6, 95, 70];
+  // The outlet's own configured accent, not one of two baked-in colours.
+  const themeRGB = hexToRgb(profile.template?.primary_color || '#B45309');
   const currency   = profile.currency_symbol || 'RM';
   const storeName  = profile.store_name || profile.name;
   const corpName   = (profile.company_name || '').toUpperCase();
@@ -454,9 +459,7 @@ interface PreviewState {
 function InvoicePreviewModal({
   invoice, items, profile, onClose, onDownload,
 }: PreviewState & { onClose: () => void; onDownload: () => void }) {
-  const isBistro    = invoice.Company === 'Bistro';
-  const themeHeader = isBistro ? 'bg-[#b45309] text-white' : 'bg-[#065f46] text-white';
-  const themeTotal  = isBistro ? 'text-amber-700' : 'text-emerald-700';
+  const accent      = profile.template?.primary_color || '#B45309';
   const currency    = profile.currency_symbol || 'RM';
   const storeName   = profile.store_name || profile.name;
   const subtotal    = Number(invoice.Subtotal_Amount) || Number(invoice.Total_Amount);
@@ -559,7 +562,7 @@ function InvoicePreviewModal({
           {/* ── Items table ─────────────────────────────────────────────── */}
           <table className="w-full mb-6 border-collapse">
             <thead>
-              <tr className={themeHeader}>
+              <tr className="text-white" style={{ backgroundColor: accent }}>
                 <th className="py-3 px-3 text-left text-xs font-bold w-10">#</th>
                 <th className="py-3 px-3 text-left text-xs font-bold">ITEM DESCRIPTION</th>
                 <th className="py-3 px-3 text-right text-xs font-bold">UNIT PRICE</th>
@@ -602,7 +605,7 @@ function InvoicePreviewModal({
                 <span className="font-mono">{currency} {subtotal.toFixed(2)}</span>
               </div>
               <hr className="border-gray-200 mb-2" />
-              <div className={`flex justify-between font-bold text-base ${themeTotal}`}>
+              <div className="flex justify-between font-bold text-base" style={{ color: accent }}>
                 <span>Grand Total:</span>
                 <span className="font-mono">{currency} {Number(invoice.Total_Amount).toLocaleString('en-MY', { minimumFractionDigits: 2 })}</span>
               </div>
@@ -632,7 +635,7 @@ export default function InvoicingModule({
 
   // ── Filter state ─────────────────────────────────────────────────────────────
   const [search, setSearch] = useState('');
-  const [filterOutlet, setFilterOutlet] = useState<'All' | 'Bistro' | 'Nasi Kandar'>('All');
+  const [filterOutlet, setFilterOutlet] = useState<string>('All');
   const [filterStatus, setFilterStatus] = useState<'All' | PaymentStatus>('All');
   type SortMode = 'date-desc' | 'date-asc' | 'id-desc' | 'id-asc';
   const [sortBy, setSortBy] = useState<SortMode>('date-desc');
@@ -644,7 +647,7 @@ export default function InvoicingModule({
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
 
   // Form fields
-  const [modalOutlet, setModalOutlet] = useState<'Bistro' | 'Nasi Kandar'>('Bistro');
+  const [modalOutlet, setModalOutlet] = useState<string>('');
   const [modalDate, setModalDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [modalCustomer, setModalCustomer] = useState('');
   const [modalContact, setModalContact] = useState('');
@@ -675,8 +678,7 @@ export default function InvoicingModule({
 
   // ── Derived ───────────────────────────────────────────────────────────────────
   const activeProfile = useMemo(() => {
-    const isBistro = activeBranchLocation.toLowerCase().includes('bistro');
-    return profiles.find(p => isBistro ? p.id === 'Bistro' : p.id === 'Nasi Kandar') || profiles[0];
+    return resolveActiveOutlet(profiles, activeBranchLocation) || profiles[0];
   }, [profiles, activeBranchLocation]);
 
   const currency = activeProfile?.currency_symbol || 'RM';
@@ -797,7 +799,7 @@ export default function InvoicingModule({
     if (invoice) {
       // Edit mode — pre-fill from existing invoice
       setEditingInvoice(invoice);
-      setModalOutlet(invoice.Company as 'Bistro' | 'Nasi Kandar');
+      setModalOutlet(invoice.Company);
       setModalDate(invoice.Date);
       setModalCustomer(invoice.Customer_Name);
       setModalContact(invoice.Customer_Contact && invoice.Customer_Contact !== '-' ? invoice.Customer_Contact : '');
@@ -837,8 +839,7 @@ export default function InvoicingModule({
     } else {
       // Create mode
       setEditingInvoice(null);
-      const isBistro = activeBranchLocation.toLowerCase().includes('bistro');
-      setModalOutlet(isBistro ? 'Bistro' : 'Nasi Kandar');
+      setModalOutlet(resolveActiveOutlet(profiles, activeBranchLocation)?.id || profiles[0]?.id || '');
       setModalDate(new Date().toISOString().slice(0, 10));
       setModalCustomer(''); setModalContact(''); setModalAddress(''); setModalStatus('Pending'); setModalNotes('');
       setLineItems([]);
@@ -1191,12 +1192,14 @@ export default function InvoicingModule({
                       <td className="px-5 py-3.5 font-mono font-bold text-gray-900 dark:text-white whitespace-nowrap">{inv.Invoice_ID}</td>
                       <td className="px-4 py-3.5 text-gray-500 dark:text-slate-400 whitespace-nowrap">{inv.Date}</td>
                       <td className="px-4 py-3.5">
-                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase whitespace-nowrap ${
-                          inv.Company === 'Bistro'
-                            ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400'
-                            : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400'
-                        }`}>
-                          {p?.store_name || inv.Company}
+                        <span
+                          className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase whitespace-nowrap"
+                          style={{
+                            color: outletColor(p, profiles.findIndex(pr => pr.id === inv.Company)),
+                            backgroundColor: outletColor(p, profiles.findIndex(pr => pr.id === inv.Company)) + '1f',
+                          }}
+                        >
+                          {p ? outletLabel(p) : inv.Company}
                         </span>
                       </td>
                       <td className="px-4 py-3.5 font-medium text-gray-700 dark:text-slate-300 max-w-[160px] truncate">{inv.Customer_Name}</td>
@@ -1350,20 +1353,20 @@ export default function InvoicingModule({
                   <div>
                     <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">Outlet *</label>
                     <div className="flex gap-2">
-                      {(['Bistro', 'Nasi Kandar'] as const).map(outlet => (
+                      {profiles.map(outletProfile => (
                         <button
-                          key={outlet}
+                          key={outletProfile.id}
                           type="button"
-                          onClick={() => setModalOutlet(outlet)}
+                          onClick={() => setModalOutlet(outletProfile.id)}
                           className={`flex-1 py-2 text-xs font-bold rounded-lg border transition-colors cursor-pointer ${
-                            modalOutlet === outlet
+                            modalOutlet === outletProfile.id
                               ? 'bg-indigo-600 border-indigo-600 text-white'
                               : isDarkMode
                                 ? 'bg-slate-950 border-slate-700 text-slate-300 hover:border-slate-500'
                                 : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
                           }`}
                         >
-                          {profiles.find(p => p.id === outlet)?.store_name || outlet}
+                          {outletLabel(outletProfile)}
                         </button>
                       ))}
                     </div>
