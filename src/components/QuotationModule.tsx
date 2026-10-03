@@ -11,6 +11,7 @@ import {
 import {
   activeOutlet as resolveActiveOutlet, outletLabel, outletColor, outletInitials,
 } from '../utils/outlets';
+import { Sheet } from './ui/Sheet';
 import { generateInvoiceId } from './InvoicingModule';
 import { attachA4Scale } from '../utils/a4scale';
 
@@ -257,7 +258,7 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
   // Portal straight to <body> so printing isn't constrained by any ancestor in the
   // app's own layout (sidebar, page wrappers, etc.) — see print CSS below for why.
   return createPortal(
-    <div id="quotation-preview-overlay" className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-2 sm:p-4 overflow-y-auto w-full h-full">
+    <div id="quotation-preview-overlay" data-document className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-2 sm:p-4 overflow-y-auto w-full h-full">
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
           @page { size: A4 portrait; margin: 0mm; }
@@ -303,9 +304,9 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
            every line of text microscopic. Only @media print forces the literal 210mm size. */
       `}} />
 
-      <div id="quotation-preview-dialog" className="bg-gray-100 text-slate-900 w-full max-w-5xl rounded-2xl shadow-2xl flex flex-col overflow-hidden text-left h-[90vh]">
+      <div id="quotation-preview-dialog" className="bg-ink-100 text-ink-900 w-full max-w-5xl rounded-2xl shadow-2xl flex flex-col overflow-hidden text-left h-[90vh]">
         {/* Header bar */}
-        <div id="quotation-preview-header" className="px-6 py-4 bg-slate-900 text-white flex justify-between items-center border-b border-gray-800 gap-3">
+        <div id="quotation-preview-header" className="px-6 py-4 bg-ink-900 text-white flex justify-between items-center border-b border-ink-800 gap-3">
           <div className="flex items-center gap-2.5">
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
             <h3 className="text-sm font-bold tracking-tight">Quotation Preview</h3>
@@ -313,12 +314,12 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
           <div className="flex items-center gap-2">
             <button
               onClick={() => window.print()}
-              className="px-4 py-1.5 cursor-pointer bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-md active:scale-95"
+              className="px-4 py-1.5 cursor-pointer bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-md active:scale-95"
             >
               <Printer className="w-3.5 h-3.5" />
               Print / Save A4
             </button>
-            <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded-lg transition-all text-gray-400 hover:text-white cursor-pointer">
+            <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded-lg transition-all text-ink-500 hover:text-white cursor-pointer">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -327,11 +328,11 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
         {/* Paper canvas — no flex here on purpose; margin:auto on the page itself centers
             it reliably on every browser without depending on any flexbox cross-axis sizing
             behavior, which is what was leaving a side gap on real mobile browsers. */}
-        <div id="quotation-stage-container" ref={attachA4Scale} className="flex-1 bg-slate-800 p-2 sm:p-8 overflow-auto w-full">
+        <div id="quotation-stage-container" ref={attachA4Scale} className="flex-1 bg-ink-800 p-2 sm:p-8 overflow-auto w-full">
           <div className="a4-spacer mx-auto">
           <div
             id="quotation-print-area"
-            className={`a4-page @container bg-white w-[794px] text-gray-800 shadow-2xl relative overflow-hidden min-h-[1123px] flex flex-col justify-between border border-gray-300 ${customStyles.padding || 'p-8'} ${customStyles.body_size || 'text-xs'}`}
+            className={`a4-page @container bg-white w-[794px] text-ink-800 shadow-2xl relative overflow-hidden min-h-[1123px] flex flex-col justify-between border border-ink-300 ${customStyles.padding || 'p-8'} ${customStyles.body_size || 'text-xs'}`}
             style={{ borderColor: accent, fontFamily: fontFamilyCss(customStyles.font_family) }}
           >
             <div>
@@ -359,60 +360,60 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
                     </div>
                   )}
                   <div className="min-w-0">
-                    {corpName && <p className="text-[9px] font-extrabold uppercase text-gray-400 tracking-wider mb-0.5 break-words">{corpName}</p>}
-                    <h1 className={`font-black tracking-tight text-gray-900 leading-tight break-words ${customStyles.title_size || 'text-2xl'}`}>{storeName}</h1>
+                    {corpName && <p className="text-2xs font-extrabold uppercase text-ink-500 tracking-wider mb-0.5 break-words">{corpName}</p>}
+                    <h1 className={`font-black tracking-tight text-ink-900 leading-tight break-words ${customStyles.title_size || 'text-2xl'}`}>{storeName}</h1>
                   </div>
                 </div>
                 {/* min-w-0 (not shrink-0) lets this wrap instead of forcing the header row
                     wider than the page — flex items default to a content-based minimum
                     width that ignores normal text wrapping unless this is set. */}
-                <div className={`text-[10px] text-gray-500 leading-relaxed space-y-0.5 min-w-0 break-words text-center @lg:max-w-[55%] ${
+                <div className={`text-2xs text-ink-500 leading-relaxed space-y-0.5 min-w-0 break-words text-center @lg:max-w-[55%] ${
                   customStyles.layout_order === 'logo-right' ? '@lg:text-left' : customStyles.layout_order === 'stacked' ? '@lg:text-center' : '@lg:text-right'
                 }`}>
-                  {profile?.address && <p className="font-semibold text-gray-700">{profile.address}</p>}
+                  {profile?.address && <p className="font-semibold text-ink-700">{profile.address}</p>}
                   <p>Contact: {[profile?.phone, profile?.email].filter(Boolean).join(' | ')}</p>
                 </div>
               </div>
 
-              <hr className="border-gray-200 mb-5" />
+              <hr className="border-ink-200 mb-5" />
 
               {/* Quotation ID + Validity */}
               <div className="flex items-start justify-between mb-5 gap-4">
                 <div className="flex-1">
-                  <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest block mb-1">Quotation</span>
-                  <h3 className="text-2xl font-black text-gray-900 font-mono tracking-tight leading-none mb-3">{quotation.Quotation_ID}</h3>
-                  <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest block mb-1">Issued Stamp</span>
-                  <p className="text-xs font-semibold text-slate-700">{quotation.Date}</p>
+                  <span className="text-2xs font-extrabold text-ink-500 uppercase tracking-widest block mb-1">Quotation</span>
+                  <h3 className="text-2xl font-black text-ink-900 font-mono tracking-tight leading-none mb-3">{quotation.Quotation_ID}</h3>
+                  <span className="text-2xs font-extrabold text-ink-500 uppercase tracking-widest block mb-1">Issued Stamp</span>
+                  <p className="text-xs font-semibold text-ink-700">{quotation.Date}</p>
                 </div>
                 <div className="text-right shrink-0">
-                  <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest block mb-2">Validity</span>
+                  <span className="text-2xs font-extrabold text-ink-500 uppercase tracking-widest block mb-2">Validity</span>
                   {quotation.Valid_Until ? (
-                    <span className="inline-block px-4 py-1.5 rounded-lg font-extrabold text-[10px] uppercase tracking-widest text-white"
+                    <span className="inline-block px-4 py-1.5 rounded-lg font-extrabold text-2xs uppercase tracking-widest text-white"
                       style={{ backgroundColor: expired ? '#DC2626' : accent }}>
                       {expired ? 'Expired' : `Valid Until ${quotation.Valid_Until}`}
                     </span>
                   ) : (
-                    <span className="text-[10px] text-gray-400">No expiry set</span>
+                    <span className="text-2xs text-ink-500">No expiry set</span>
                   )}
                 </div>
               </div>
 
-              <hr className="border-gray-100 mb-5" />
+              <hr className="border-ink-100 mb-5" />
 
               {/* Client block */}
-              <div className="print-keep-together border border-gray-200 rounded-2xl p-4 mb-6 bg-white">
-                <span className="text-[8px] font-extrabold text-gray-400 uppercase tracking-widest block mb-2">Prepared For</span>
-                <p className="text-sm font-black text-gray-900 mb-0.5">{quotation.Customer_Name}</p>
-                <p className="text-[10.5px] text-gray-500">Mobile / Email: {quotation.Customer_Contact && quotation.Customer_Contact !== '-' ? quotation.Customer_Contact : '-'}</p>
+              <div className="print-keep-together border border-ink-200 rounded-2xl p-4 mb-6 bg-white">
+                <span className="text-[8px] font-extrabold text-ink-500 uppercase tracking-widest block mb-2">Prepared For</span>
+                <p className="text-sm font-black text-ink-900 mb-0.5">{quotation.Customer_Name}</p>
+                <p className="text-[10.5px] text-ink-500">Mobile / Email: {quotation.Customer_Contact && quotation.Customer_Contact !== '-' ? quotation.Customer_Contact : '-'}</p>
                 {quotation.Customer_Address && quotation.Customer_Address !== '-' && (
-                  <p className="text-[10.5px] text-gray-600 font-medium mt-1">{quotation.Customer_Address}</p>
+                  <p className="text-[10.5px] text-ink-600 font-medium mt-1">{quotation.Customer_Address}</p>
                 )}
               </div>
 
               {/* Day-by-day breakdown */}
               <div className="space-y-4 mb-6">
                 {sortedDays.length === 0 && (
-                  <p className="text-center text-gray-400 italic py-4">No event dates recorded.</p>
+                  <p className="text-center text-ink-500 italic py-4">No event dates recorded.</p>
                 )}
                 {sortedDays.map(day => {
                   const dayItems = items.filter(it => it.Day_ID === day.Day_ID);
@@ -433,55 +434,55 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
                     group.rows.push(it);
                   });
                   return (
-                    <div key={day.Day_ID} className="print-keep-together border border-gray-200 rounded-xl overflow-hidden">
+                    <div key={day.Day_ID} className="print-keep-together border border-ink-200 rounded-xl overflow-hidden">
                       <div className="px-3 py-2.5 flex flex-wrap items-center justify-between gap-2 text-white" style={{ backgroundColor: accent }}>
                         <div>
-                          <p className="text-[11px] font-bold">{formatEventDate(day.Event_Date)}</p>
-                          <p className="text-[9px] opacity-90">{day.Pax} pax &middot; {day.Serving_Style}</p>
+                          <p className="text-2xs font-bold">{formatEventDate(day.Event_Date)}</p>
+                          <p className="text-2xs opacity-90">{day.Pax} pax &middot; {day.Serving_Style}</p>
                         </div>
                         {quotation.Pricing_Mode === 'package' && quotation.Package_Sub_Mode === 'per_day' && (
-                          <span className="text-[10px] font-extrabold bg-white/20 px-2.5 py-1 rounded-lg">
+                          <span className="text-2xs font-extrabold bg-white/20 px-2.5 py-1 rounded-lg">
                             {currency} {(day.Day_Package_Rate || 0).toFixed(2)}
                           </span>
                         )}
                       </div>
 
                       {sessionGroups.length === 0 && (
-                        <p className="py-3 text-center text-gray-400 italic text-[10.5px]">No menu items added</p>
+                        <p className="py-3 text-center text-ink-500 italic text-[10.5px]">No menu items added</p>
                       )}
 
                       {sessionGroups.map((group, gi) => {
                         const groupTotal = group.rows.reduce((s, it) => s + (it.Subtotal || it.Quantity * it.Price), 0);
                         return (
-                          <div key={gi} className={`print-keep-together ${gi > 0 ? 'border-t border-gray-200' : ''}`}>
+                          <div key={gi} className={`print-keep-together ${gi > 0 ? 'border-t border-ink-200' : ''}`}>
                             {(group.label || group.time) && (
-                              <div className="px-3 py-2 bg-gray-50 flex items-center justify-between gap-2 border-l-[3px]" style={{ borderColor: accent }}>
-                                <span className="text-[11px] font-extrabold uppercase tracking-wide" style={{ color: accent }}>{group.label || 'Session'}</span>
-                                {group.time && <span className="text-[10px] font-bold text-gray-700">{group.time}</span>}
+                              <div className="px-3 py-2 bg-ink-50 flex items-center justify-between gap-2 border-l-[3px]" style={{ borderColor: accent }}>
+                                <span className="text-2xs font-extrabold uppercase tracking-wide" style={{ color: accent }}>{group.label || 'Session'}</span>
+                                {group.time && <span className="text-2xs font-bold text-ink-700">{group.time}</span>}
                               </div>
                             )}
                             <table className="w-full table-fixed text-[10.5px] border-collapse">
                               <thead>
-                                <tr className="bg-gray-50 text-gray-500 text-[9px] font-bold uppercase tracking-wide">
+                                <tr className="bg-ink-50 text-ink-500 text-2xs font-bold uppercase tracking-wide">
                                   <th className="py-1.5 px-3 text-left">Menu Item</th>
                                   <th className="py-1.5 px-2 text-center w-16">Qty</th>
                                   {quotation.Pricing_Mode === 'itemized' && <th className="py-1.5 px-2 text-right w-20">Unit Price</th>}
                                   {quotation.Pricing_Mode === 'itemized' && <th className="py-1.5 px-3 text-right w-20">Subtotal</th>}
                                 </tr>
                               </thead>
-                              <tbody className="divide-y divide-gray-100">
+                              <tbody className="divide-y divide-ink-100">
                                 {group.rows.map(it => (
                                   <tr key={it.Item_ID}>
-                                    <td className="py-1.5 px-3 font-medium text-gray-800 break-words">{it.Item_Name}</td>
-                                    <td className="py-1.5 px-2 text-center text-gray-600">{it.Quantity}</td>
-                                    {quotation.Pricing_Mode === 'itemized' && <td className="py-1.5 px-2 text-right text-gray-600 font-mono">{currency} {it.Price.toFixed(2)}</td>}
-                                    {quotation.Pricing_Mode === 'itemized' && <td className="py-1.5 px-3 text-right font-bold text-gray-900 font-mono">{currency} {(it.Subtotal || it.Quantity * it.Price).toFixed(2)}</td>}
+                                    <td className="py-1.5 px-3 font-medium text-ink-800 break-words">{it.Item_Name}</td>
+                                    <td className="py-1.5 px-2 text-center text-ink-600">{it.Quantity}</td>
+                                    {quotation.Pricing_Mode === 'itemized' && <td className="py-1.5 px-2 text-right text-ink-600 font-mono">{currency} {it.Price.toFixed(2)}</td>}
+                                    {quotation.Pricing_Mode === 'itemized' && <td className="py-1.5 px-3 text-right font-bold text-ink-900 font-mono">{currency} {(it.Subtotal || it.Quantity * it.Price).toFixed(2)}</td>}
                                   </tr>
                                 ))}
                               </tbody>
                             </table>
                             {quotation.Pricing_Mode === 'itemized' && (
-                              <div className="px-3 py-1 text-right text-[9px] font-bold text-gray-500">
+                              <div className="px-3 py-1 text-right text-2xs font-bold text-ink-500">
                                 Session Subtotal: {currency} {groupTotal.toFixed(2)}
                               </div>
                             )}
@@ -490,7 +491,7 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
                       })}
 
                       {quotation.Pricing_Mode === 'itemized' && dayItems.length > 0 && (
-                        <div className="px-3 py-1.5 bg-gray-100 text-right text-[10px] font-bold text-gray-700 border-t border-gray-200">
+                        <div className="px-3 py-1.5 bg-ink-100 text-right text-2xs font-bold text-ink-700 border-t border-ink-200">
                           Day Subtotal: {currency} {dayItemTotal.toFixed(2)}
                         </div>
                       )}
@@ -502,29 +503,29 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
               {/* Totals — @lg container query (see header above for why container query,
                   not sm: viewport breakpoint). */}
               <div className="flex justify-end mb-8 print-keep-together">
-                <div className="w-full @lg:w-[260px] border border-gray-200 rounded-xl p-4 bg-white space-y-2.5 shrink-0">
-                  <div className="flex justify-between items-center text-[11px]">
-                    <span className="text-gray-500">Subtotal Amount:</span>
-                    <span className="font-mono font-semibold text-gray-800">{currency} {subtotal.toFixed(2)}</span>
+                <div className="w-full @lg:w-[260px] border border-ink-200 rounded-xl p-4 bg-white space-y-2.5 shrink-0">
+                  <div className="flex justify-between items-center text-2xs">
+                    <span className="text-ink-500">Subtotal Amount:</span>
+                    <span className="font-mono font-semibold text-ink-800">{currency} {subtotal.toFixed(2)}</span>
                   </div>
                   {charges.map((c, i) => (
-                    <div key={i} className="flex justify-between items-center text-[11px]">
-                      <span className="text-gray-500">{c.label}:</span>
+                    <div key={i} className="flex justify-between items-center text-2xs">
+                      <span className="text-ink-500">{c.label}:</span>
                       {c.amount === 0 ? (
                         <span className="font-mono font-extrabold text-emerald-600">FREE</span>
                       ) : (
-                        <span className="font-mono text-gray-700">{currency} {c.amount.toFixed(2)}</span>
+                        <span className="font-mono text-ink-700">{currency} {c.amount.toFixed(2)}</span>
                       )}
                     </div>
                   ))}
                   {quotation.Discount_Type && quotation.Discount_Type !== 'none' && (
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-gray-500">Discount:</span>
+                    <div className="flex justify-between items-center text-2xs">
+                      <span className="text-ink-500">Discount:</span>
                       <span className="font-mono font-bold text-amber-700">-{currency} {discountAmt.toFixed(2)}</span>
                     </div>
                   )}
-                  <div className="border-t border-gray-200 pt-2.5 flex justify-between items-center">
-                    <span className="text-sm font-black text-gray-900">Grand Total:</span>
+                  <div className="border-t border-ink-200 pt-2.5 flex justify-between items-center">
+                    <span className="text-sm font-black text-ink-900">Grand Total:</span>
                     <span className="text-sm font-black font-mono" style={{ color: accent }}>{currency} {quotation.Total_Amount.toFixed(2)}</span>
                   </div>
                 </div>
@@ -532,11 +533,11 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
             </div>
 
             {/* Footer */}
-            <div className="border-t border-gray-200 pt-5 mt-auto text-center space-y-1 select-none">
-              <p className="text-[9px] font-bold text-gray-500 italic leading-relaxed">
+            <div className="border-t border-ink-200 pt-5 mt-auto text-center space-y-1 select-none">
+              <p className="text-2xs font-bold text-ink-500 italic leading-relaxed">
                 {quotation.Catering_Terms || DEFAULT_CATERING_TERMS}
               </p>
-              <p className="text-[8px] font-mono text-gray-300 uppercase tracking-widest">Generated Securely by BizEazyInvoicing</p>
+              <p className="text-[8px] font-mono text-ink-300 uppercase tracking-widest">Generated Securely by BizEazyInvoicing</p>
             </div>
           </div>
           </div>
@@ -559,7 +560,7 @@ function KitchenSheetModal({ data, onClose }: { data: PreviewData; onClose: () =
   const sortedDays = [...days].sort((a, b) => a.Event_Date.localeCompare(b.Event_Date));
 
   return createPortal(
-    <div id="kitchen-sheet-overlay" className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-2 sm:p-4 overflow-y-auto w-full h-full">
+    <div id="kitchen-sheet-overlay" data-document className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-2 sm:p-4 overflow-y-auto w-full h-full">
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
           @page { size: A4 portrait; margin: 0mm; }
@@ -599,8 +600,8 @@ function KitchenSheetModal({ data, onClose }: { data: PreviewData; onClose: () =
            every line of text microscopic. Only @media print forces the literal 210mm size. */
       `}} />
 
-      <div id="kitchen-sheet-dialog" className="bg-gray-100 text-slate-900 w-full max-w-5xl rounded-2xl shadow-2xl flex flex-col overflow-hidden text-left h-[90vh]">
-        <div id="kitchen-sheet-header" className="px-6 py-4 bg-slate-900 text-white flex justify-between items-center border-b border-gray-800 gap-3">
+      <div id="kitchen-sheet-dialog" className="bg-ink-100 text-ink-900 w-full max-w-5xl rounded-2xl shadow-2xl flex flex-col overflow-hidden text-left h-[90vh]">
+        <div id="kitchen-sheet-header" className="px-6 py-4 bg-ink-900 text-white flex justify-between items-center border-b border-ink-800 gap-3">
           <div className="flex items-center gap-2.5">
             <ChefHat className="w-4 h-4 text-amber-400" />
             <h3 className="text-sm font-bold tracking-tight">Kitchen Prep Sheet</h3>
@@ -608,23 +609,23 @@ function KitchenSheetModal({ data, onClose }: { data: PreviewData; onClose: () =
           <div className="flex items-center gap-2">
             <button
               onClick={() => window.print()}
-              className="px-4 py-1.5 cursor-pointer bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-md active:scale-95"
+              className="px-4 py-1.5 cursor-pointer bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-md active:scale-95"
             >
               <Printer className="w-3.5 h-3.5" />
               Print / Save A4
             </button>
-            <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded-lg transition-all text-gray-400 hover:text-white cursor-pointer">
+            <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded-lg transition-all text-ink-500 hover:text-white cursor-pointer">
               <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
         {/* No flex here on purpose — see Quotation preview for why */}
-        <div id="kitchen-sheet-stage" ref={attachA4Scale} className="flex-1 bg-slate-800 p-2 sm:p-8 overflow-auto w-full">
+        <div id="kitchen-sheet-stage" ref={attachA4Scale} className="flex-1 bg-ink-800 p-2 sm:p-8 overflow-auto w-full">
           <div className="a4-spacer mx-auto">
           <div
             id="kitchen-sheet-print-area"
-            className="a4-page bg-white w-[794px] text-gray-900 shadow-2xl relative overflow-hidden min-h-[1123px] flex flex-col border border-gray-300 p-8 text-xs"
+            className="a4-page bg-white w-[794px] text-ink-900 shadow-2xl relative overflow-hidden min-h-[1123px] flex flex-col border border-ink-300 p-8 text-xs"
             style={{ fontFamily: fontFamilyCss(customStyles.font_family) }}
           >
             <div>
@@ -632,31 +633,31 @@ function KitchenSheetModal({ data, onClose }: { data: PreviewData; onClose: () =
 
               <div className="mt-4 flex items-center justify-between mb-1">
                 <div>
-                  <h1 className="font-black tracking-tight text-gray-900 text-2xl">{storeName}</h1>
+                  <h1 className="font-black tracking-tight text-ink-900 text-2xl">{storeName}</h1>
                   <p className="text-xs font-bold uppercase tracking-wide" style={{ color: accent }}>Kitchen Prep Sheet — Internal Use Only</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest">Quotation Ref</p>
-                  <p className="text-sm font-mono font-bold text-gray-800">{quotation.Quotation_ID}</p>
+                  <p className="text-2xs font-extrabold text-ink-500 uppercase tracking-widest">Quotation Ref</p>
+                  <p className="text-sm font-mono font-bold text-ink-800">{quotation.Quotation_ID}</p>
                 </div>
               </div>
 
-              <hr className="border-gray-200 my-4" />
+              <hr className="border-ink-200 my-4" />
 
               <div className="mb-6 print-keep-together">
-                <p className="text-[10px] text-gray-500">
-                  Client: <span className="font-bold text-gray-900">{quotation.Customer_Name}</span>
+                <p className="text-2xs text-ink-500">
+                  Client: <span className="font-bold text-ink-900">{quotation.Customer_Name}</span>
                 </p>
                 {quotation.Notes && quotation.Notes.trim() && (
                   <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
-                    <p className="text-[9px] font-extrabold text-amber-700 uppercase tracking-widest mb-1">Special Notes</p>
-                    <p className="text-xs text-gray-800">{quotation.Notes}</p>
+                    <p className="text-2xs font-extrabold text-amber-700 uppercase tracking-widest mb-1">Special Notes</p>
+                    <p className="text-xs text-ink-800">{quotation.Notes}</p>
                   </div>
                 )}
               </div>
 
               {sortedDays.length === 0 && (
-                <p className="text-center text-gray-400 italic py-4">No event dates recorded.</p>
+                <p className="text-center text-ink-500 italic py-4">No event dates recorded.</p>
               )}
 
               <div className="space-y-4">
@@ -681,37 +682,37 @@ function KitchenSheetModal({ data, onClose }: { data: PreviewData; onClose: () =
                   });
 
                   return (
-                    <div key={day.Day_ID} className="print-keep-together border border-gray-200 rounded-xl overflow-hidden">
+                    <div key={day.Day_ID} className="print-keep-together border border-ink-200 rounded-xl overflow-hidden">
                       <div className="px-3 py-2.5 flex flex-wrap items-center justify-between gap-2 text-white" style={{ backgroundColor: accent }}>
                         <p className="text-[12px] font-extrabold">{formatEventDate(day.Event_Date)}</p>
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-extrabold bg-white/20 px-2.5 py-1 rounded-lg uppercase">{day.Serving_Style}</span>
-                          <span className="text-[10px] font-extrabold bg-white/20 px-2.5 py-1 rounded-lg">PAX: {day.Pax}</span>
+                          <span className="text-2xs font-extrabold bg-white/20 px-2.5 py-1 rounded-lg uppercase">{day.Serving_Style}</span>
+                          <span className="text-2xs font-extrabold bg-white/20 px-2.5 py-1 rounded-lg">PAX: {day.Pax}</span>
                         </div>
                       </div>
 
                       {sessionGroups.length === 0 && (
-                        <p className="py-3 text-center text-gray-400 italic text-[10.5px]">No menu items added</p>
+                        <p className="py-3 text-center text-ink-500 italic text-[10.5px]">No menu items added</p>
                       )}
 
                       {sessionGroups.map((group, gi) => (
-                        <div key={gi} className="print-keep-together border-t border-gray-100 first:border-t-0">
-                          <div className="px-3 py-2 bg-gray-50 flex items-center justify-between gap-2 border-l-[3px]" style={{ borderColor: accent }}>
-                            <span className="text-[11px] font-extrabold uppercase tracking-wide" style={{ color: accent }}>{group.label || 'Session'}</span>
-                            {group.time && <span className="text-[10px] font-bold text-gray-700">{group.time}</span>}
+                        <div key={gi} className="print-keep-together border-t border-ink-100 first:border-t-0">
+                          <div className="px-3 py-2 bg-ink-50 flex items-center justify-between gap-2 border-l-[3px]" style={{ borderColor: accent }}>
+                            <span className="text-2xs font-extrabold uppercase tracking-wide" style={{ color: accent }}>{group.label || 'Session'}</span>
+                            {group.time && <span className="text-2xs font-bold text-ink-700">{group.time}</span>}
                           </div>
-                          <table className="w-full table-fixed text-[11px] border-collapse">
+                          <table className="w-full table-fixed text-2xs border-collapse">
                             <thead>
-                              <tr className="bg-gray-50 text-gray-500 text-[9px] font-bold uppercase tracking-wide">
+                              <tr className="bg-ink-50 text-ink-500 text-2xs font-bold uppercase tracking-wide">
                                 <th className="py-1.5 px-3 text-left">Menu Item</th>
                                 <th className="py-1.5 px-3 text-right w-20">Qty</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-100">
+                            <tbody className="divide-y divide-ink-100">
                               {group.rows.map(it => (
                                 <tr key={it.Item_ID}>
-                                  <td className="py-1.5 px-3 font-semibold text-gray-900 break-words">{it.Item_Name}</td>
-                                  <td className="py-1.5 px-3 text-right font-mono font-bold text-gray-700">{it.Quantity}</td>
+                                  <td className="py-1.5 px-3 font-semibold text-ink-900 break-words">{it.Item_Name}</td>
+                                  <td className="py-1.5 px-3 text-right font-mono font-bold text-ink-700">{it.Quantity}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -724,8 +725,8 @@ function KitchenSheetModal({ data, onClose }: { data: PreviewData; onClose: () =
               </div>
             </div>
 
-            <div className="border-t border-gray-200 pt-4 mt-6 text-center">
-              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Internal Kitchen Use Only — Not for Client Distribution</p>
+            <div className="border-t border-ink-200 pt-4 mt-6 text-center">
+              <p className="text-2xs font-bold text-ink-500 uppercase tracking-widest">Internal Kitchen Use Only — Not for Client Distribution</p>
             </div>
           </div>
           </div>
@@ -1210,11 +1211,11 @@ export default function QuotationModule({
     setKitchenSheetData({ quotation: q, days: qDays, items: qItems, profile });
   };
 
-  const inputClass = `w-full px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-    isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
+  const inputClass = `w-full px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-brand-500 ${
+    isDarkMode ? 'bg-ink-950 border-ink-700 text-ink-100' : 'bg-white border-ink-200 text-ink-900'
   }`;
-  const smallInputClass = `px-2.5 py-1.5 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-    isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
+  const smallInputClass = `px-2.5 py-1.5 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-brand-500 ${
+    isDarkMode ? 'bg-ink-950 border-ink-700 text-ink-100' : 'bg-white border-ink-200 text-ink-900'
   }`;
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1227,10 +1228,10 @@ export default function QuotationModule({
           { label: 'Active', value: String(stats.activeCount), sub: 'within validity' },
           { label: 'Expired', value: String(stats.expiredCount), sub: 'past valid-until date' },
         ].map(s => (
-          <div key={s.label} className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl px-4 py-3">
-            <div className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider">{s.label}</div>
-            <div className="text-base font-black text-gray-900 dark:text-white font-mono mt-0.5">{s.value}</div>
-            <div className="text-[10px] text-gray-400 dark:text-slate-500 mt-0.5">{s.sub}</div>
+          <div key={s.label} className="bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 rounded-xl px-4 py-3">
+            <div className="text-2xs font-bold text-ink-500 dark:text-ink-400 uppercase tracking-wider">{s.label}</div>
+            <div className="text-base font-black text-ink-900 dark:text-white font-mono mt-0.5">{s.value}</div>
+            <div className="text-2xs text-ink-500 dark:text-ink-400 mt-0.5">{s.sub}</div>
           </div>
         ))}
       </div>
@@ -1239,20 +1240,20 @@ export default function QuotationModule({
       <div className="space-y-2">
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-500" />
             <input
               type="text"
               placeholder="Search ID, customer…"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className={`pl-9 pr-3 py-2 text-xs rounded-lg border w-full focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
+              className={`pl-9 pr-3 py-2 text-xs rounded-lg border w-full focus:outline-none focus:ring-1 focus:ring-brand-500 ${
+                isDarkMode ? 'bg-ink-900 border-ink-700 text-ink-100' : 'bg-white border-ink-200 text-ink-900'
               }`}
             />
           </div>
           <button
             onClick={() => openModal()}
-            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3.5 py-2 rounded-lg transition-colors cursor-pointer shadow-sm shrink-0"
+            className="flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs px-3.5 py-2 rounded-lg transition-colors cursor-pointer shadow-sm shrink-0"
           >
             <Plus className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">New Quotation</span>
@@ -1262,8 +1263,8 @@ export default function QuotationModule({
         <select
           value={filterOutlet}
           onChange={e => setFilterOutlet(e.target.value as typeof filterOutlet)}
-          className={`w-full px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-            isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
+          className={`w-full px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-brand-500 ${
+            isDarkMode ? 'bg-ink-900 border-ink-700 text-ink-100' : 'bg-white border-ink-200 text-ink-900'
           }`}
         >
           <option value="All">All Outlets</option>
@@ -1272,11 +1273,11 @@ export default function QuotationModule({
       </div>
 
       {/* Quotation table */}
-      <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl overflow-hidden">
+      <div className="bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 rounded-xl overflow-hidden">
         {filtered.length === 0 ? (
           <div className="py-16 text-center">
-            <FileText className="w-8 h-8 text-gray-200 dark:text-slate-700 mx-auto mb-3" />
-            <p className="text-xs font-bold text-gray-500 dark:text-slate-400">
+            <FileText className="w-8 h-8 text-ink-200 dark:text-ink-400 mx-auto mb-3" />
+            <p className="text-xs font-bold text-ink-500 dark:text-ink-400">
               {db.quotations.length === 0 ? 'No quotations yet — create your first one.' : 'No quotations match these filters.'}
             </p>
           </div>
@@ -1284,8 +1285,8 @@ export default function QuotationModule({
           <>
           <div className="hidden md:block overflow-x-auto">
             <table className="min-w-full text-left text-xs">
-              <thead className={`border-b text-[10px] font-bold uppercase tracking-wider ${
-                isDarkMode ? 'bg-slate-950/40 border-slate-800 text-slate-400' : 'bg-gray-50 border-gray-200 text-gray-500'
+              <thead className={`border-b text-2xs font-bold uppercase tracking-wider ${
+                isDarkMode ? 'bg-ink-950/40 border-ink-800 text-ink-500' : 'bg-ink-50 border-ink-200 text-ink-500'
               }`}>
                 <tr>
                   <th className="px-5 py-3">Quotation ID</th>
@@ -1298,25 +1299,25 @@ export default function QuotationModule({
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className={`divide-y ${isDarkMode ? 'divide-slate-800' : 'divide-gray-100'}`}>
+              <tbody className={`divide-y ${isDarkMode ? 'divide-ink-800' : 'divide-ink-100'}`}>
                 {filtered.map(q => {
                   const p = profiles.find(pr => pr.id === q.Company);
                   const curr = p?.currency_symbol || 'RM';
                   const expired = isExpired(q.Valid_Until);
                   return (
-                    <tr key={q.Quotation_ID} className="hover:bg-gray-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                      <td className="px-5 py-3.5 font-mono font-bold text-gray-900 dark:text-white whitespace-nowrap">{q.Quotation_ID}</td>
-                      <td className="px-4 py-3.5 text-gray-500 dark:text-slate-400 whitespace-nowrap">{q.Date}</td>
+                    <tr key={q.Quotation_ID} className="hover:bg-ink-50/50 dark:hover:bg-ink-800/30 transition-colors">
+                      <td className="px-5 py-3.5 font-mono font-bold text-ink-900 dark:text-white whitespace-nowrap">{q.Quotation_ID}</td>
+                      <td className="px-4 py-3.5 text-ink-500 dark:text-ink-400 whitespace-nowrap">{q.Date}</td>
                       <td className="px-4 py-3.5 whitespace-nowrap">
                         {q.Valid_Until ? (
-                          <span className={`text-[10px] font-bold ${expired ? 'text-rose-500' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                          <span className={`text-2xs font-bold ${expired ? 'text-rose-500' : 'text-emerald-600 dark:text-emerald-400'}`}>
                             {expired ? 'Expired' : q.Valid_Until}
                           </span>
-                        ) : <span className="text-gray-400 text-[10px]">—</span>}
+                        ) : <span className="text-ink-500 text-2xs">—</span>}
                       </td>
                       <td className="px-4 py-3.5">
                         <span
-                          className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase whitespace-nowrap"
+                          className="px-2 py-0.5 rounded-full text-2xs font-bold uppercase whitespace-nowrap"
                           style={{
                             color: outletColor(p, profiles.findIndex(pr => pr.id === q.Company)),
                             backgroundColor: outletColor(p, profiles.findIndex(pr => pr.id === q.Company)) + '1f',
@@ -1325,33 +1326,33 @@ export default function QuotationModule({
                           {p ? outletLabel(p) : q.Company}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 font-medium text-gray-700 dark:text-slate-300 max-w-[160px] truncate">{q.Customer_Name}</td>
+                      <td className="px-4 py-3.5 font-medium text-ink-700 dark:text-ink-300 max-w-[160px] truncate">{q.Customer_Name}</td>
                       <td className="px-4 py-3.5">
-                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 whitespace-nowrap">
+                        <span className="px-2 py-0.5 rounded-full text-2xs font-bold uppercase bg-brand-50 dark:bg-brand-950/30 text-brand-700 dark:text-brand-400 whitespace-nowrap">
                           {q.Pricing_Mode === 'package' ? `Package · ${q.Package_Sub_Mode === 'flat_total' ? 'Flat' : 'Per-Day'}` : 'Itemized'}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 text-right font-black font-mono text-gray-900 dark:text-white whitespace-nowrap">
+                      <td className="px-4 py-3.5 text-right font-black font-mono text-ink-900 dark:text-white whitespace-nowrap">
                         {curr} {Number(q.Total_Amount).toFixed(2)}
                       </td>
                       <td className="px-4 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-2 whitespace-nowrap">
                           {q.Converted_Invoice_ID ? (
-                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400" title={`Converted to ${q.Converted_Invoice_ID}`}>
+                            <span className="px-2 py-0.5 rounded-full text-2xs font-bold uppercase bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400" title={`Converted to ${q.Converted_Invoice_ID}`}>
                               Converted → {q.Converted_Invoice_ID}
                             </span>
                           ) : (
-                            <button onClick={() => handleConvertToInvoice(q)} className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300 cursor-pointer transition-colors" title="Convert to Invoice">
+                            <button onClick={() => handleConvertToInvoice(q)} className="flex items-center gap-1 text-2xs font-bold text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300 cursor-pointer transition-colors" title="Convert to Invoice">
                               <ArrowRightCircle className="w-3.5 h-3.5" /> Convert
                             </button>
                           )}
-                          <button onClick={() => openModal(q)} className="p-1 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded cursor-pointer transition-colors" title="Edit quotation">
+                          <button onClick={() => openModal(q)} className="p-1 text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-950/30 rounded cursor-pointer transition-colors" title="Edit quotation">
                             <Edit className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => openKitchenSheet(q)} className="flex items-center gap-1 text-[10px] font-bold text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300 cursor-pointer transition-colors" title="Kitchen prep sheet (no prices)">
+                          <button onClick={() => openKitchenSheet(q)} className="flex items-center gap-1 text-2xs font-bold text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300 cursor-pointer transition-colors" title="Kitchen prep sheet (no prices)">
                             <ChefHat className="w-3.5 h-3.5" /> Kitchen Sheet
                           </button>
-                          <button onClick={() => openPreview(q)} className="flex items-center gap-1 text-[10px] font-bold text-indigo-500 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 cursor-pointer transition-colors">
+                          <button onClick={() => openPreview(q)} className="flex items-center gap-1 text-2xs font-bold text-brand-500 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 cursor-pointer transition-colors">
                             <Eye className="w-3.5 h-3.5" /> Preview
                           </button>
                           <button onClick={() => handleDelete(q.Quotation_ID)} disabled={isSyncing} className="p-1 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded cursor-pointer transition-colors" title="Delete quotation">
@@ -1367,50 +1368,50 @@ export default function QuotationModule({
           </div>
 
           {/* Mobile card list */}
-          <div className="md:hidden divide-y divide-gray-100 dark:divide-slate-800">
+          <div className="md:hidden divide-y divide-ink-100 dark:divide-ink-800">
             {filtered.map(q => {
               const expired = isExpired(q.Valid_Until);
               return (
-                <div key={q.Quotation_ID} className={`p-4 space-y-3 ${isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-gray-50/60'}`}>
+                <div key={q.Quotation_ID} className={`p-4 space-y-3 ${isDarkMode ? 'hover:bg-ink-800/40' : 'hover:bg-ink-50/60'}`}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className={`text-xs font-black font-mono break-all ${isDarkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>{q.Quotation_ID}</span>
+                        <span className={`text-xs font-black font-mono break-all ${isDarkMode ? 'text-brand-400' : 'text-brand-700'}`}>{q.Quotation_ID}</span>
                         {q.Valid_Until && (
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                          <span className={`text-2xs font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
                             expired ? 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400'
                           }`}>{expired ? 'Expired' : 'Active'}</span>
                         )}
                       </div>
-                      <p className={`text-xs font-semibold truncate ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{q.Customer_Name}</p>
-                      <p className={`text-[10px] mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{q.Date}</p>
+                      <p className={`text-xs font-semibold truncate ${isDarkMode ? 'text-ink-200' : 'text-ink-800'}`}>{q.Customer_Name}</p>
+                      <p className={`text-2xs mt-0.5 ${isDarkMode ? 'text-ink-500' : 'text-ink-500'}`}>{q.Date}</p>
                     </div>
-                    <p className={`text-sm font-black font-mono shrink-0 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{currency} {Number(q.Total_Amount).toFixed(2)}</p>
+                    <p className={`text-sm font-black font-mono shrink-0 ${isDarkMode ? 'text-white' : 'text-ink-900'}`}>{currency} {Number(q.Total_Amount).toFixed(2)}</p>
                   </div>
 
                   {q.Converted_Invoice_ID && (
-                    <div className="px-2.5 py-1.5 text-[10px] font-bold rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-center">
+                    <div className="px-2.5 py-1.5 text-2xs font-bold rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-center">
                       Converted → {q.Converted_Invoice_ID}
                     </div>
                   )}
 
                   {/* Actions — own row, evenly spaced, so they don't crowd the ID/customer text */}
                   <div className="grid grid-cols-2 gap-1.5">
-                    <button onClick={() => openModal(q)} className={`flex items-center justify-center gap-1.5 px-2 py-1.5 text-[10px] font-bold rounded-lg cursor-pointer transition-colors ${isDarkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                    <button onClick={() => openModal(q)} className={`flex items-center justify-center gap-1.5 px-2 py-1.5 text-2xs font-bold rounded-lg cursor-pointer transition-colors ${isDarkMode ? 'bg-ink-800 text-ink-300 hover:bg-ink-700' : 'bg-ink-100 text-ink-700 hover:bg-ink-200'}`}>
                       <Edit className="w-3 h-3" /> Edit
                     </button>
-                    <button onClick={() => openPreview(q)} className={`flex items-center justify-center gap-1.5 px-2 py-1.5 text-[10px] font-bold rounded-lg cursor-pointer transition-colors ${isDarkMode ? 'bg-indigo-950/40 text-indigo-400 hover:bg-indigo-900/50' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'}`}>
+                    <button onClick={() => openPreview(q)} className={`flex items-center justify-center gap-1.5 px-2 py-1.5 text-2xs font-bold rounded-lg cursor-pointer transition-colors ${isDarkMode ? 'bg-brand-950/40 text-brand-400 hover:bg-brand-900/50' : 'bg-brand-50 text-brand-700 hover:bg-brand-100'}`}>
                       <Eye className="w-3 h-3" /> Preview
                     </button>
-                    <button onClick={() => openKitchenSheet(q)} className={`flex items-center justify-center gap-1.5 px-2 py-1.5 text-[10px] font-bold rounded-lg cursor-pointer transition-colors ${isDarkMode ? 'bg-amber-950/30 text-amber-400 hover:bg-amber-900/40' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'}`}>
+                    <button onClick={() => openKitchenSheet(q)} className={`flex items-center justify-center gap-1.5 px-2 py-1.5 text-2xs font-bold rounded-lg cursor-pointer transition-colors ${isDarkMode ? 'bg-amber-950/30 text-amber-400 hover:bg-amber-900/40' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'}`}>
                       <ChefHat className="w-3 h-3" /> Kitchen Sheet
                     </button>
                     {!q.Converted_Invoice_ID && (
-                      <button onClick={() => handleConvertToInvoice(q)} className={`flex items-center justify-center gap-1.5 px-2 py-1.5 text-[10px] font-bold rounded-lg cursor-pointer transition-colors ${isDarkMode ? 'bg-emerald-950/30 text-emerald-400 hover:bg-emerald-900/40' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}>
+                      <button onClick={() => handleConvertToInvoice(q)} className={`flex items-center justify-center gap-1.5 px-2 py-1.5 text-2xs font-bold rounded-lg cursor-pointer transition-colors ${isDarkMode ? 'bg-emerald-950/30 text-emerald-400 hover:bg-emerald-900/40' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}>
                         <ArrowRightCircle className="w-3 h-3" /> Convert
                       </button>
                     )}
-                    <button onClick={() => handleDelete(q.Quotation_ID)} disabled={isSyncing} className={`flex items-center justify-center gap-1.5 px-2 py-1.5 text-[10px] font-bold rounded-lg cursor-pointer transition-colors ${isDarkMode ? 'bg-rose-950/30 text-rose-400 hover:bg-rose-900/40' : 'bg-rose-50 text-rose-700 hover:bg-rose-100'}`}>
+                    <button onClick={() => handleDelete(q.Quotation_ID)} disabled={isSyncing} className={`flex items-center justify-center gap-1.5 px-2 py-1.5 text-2xs font-bold rounded-lg cursor-pointer transition-colors ${isDarkMode ? 'bg-rose-950/30 text-rose-400 hover:bg-rose-900/40' : 'bg-rose-50 text-rose-700 hover:bg-rose-100'}`}>
                       <Trash2 className="w-3 h-3" /> Delete
                     </button>
                   </div>
@@ -1424,29 +1425,20 @@ export default function QuotationModule({
 
       {/* ── Create / Edit Quotation Modal ─────────────────────────────────── */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className={`w-full max-w-6xl rounded-2xl shadow-2xl flex flex-col max-h-[92vh] ${
-            isDarkMode ? 'bg-slate-900 border border-slate-800' : 'bg-white border border-gray-200'
-          }`}>
-            <div className={`flex items-center justify-between px-6 py-4 border-b flex-shrink-0 ${isDarkMode ? 'border-slate-800' : 'border-gray-100'}`}>
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-indigo-500" />
-                <h2 className="text-sm font-bold text-gray-900 dark:text-white">
-                  {editingQuotation ? `Edit Quotation — ${editingQuotation.Quotation_ID}` : 'New Quotation'}
-                </h2>
-              </div>
-              <button onClick={() => setIsModalOpen(false)} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-slate-200 cursor-pointer">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
+        <Sheet
+          title={editingQuotation ? `Edit Quotation — ${editingQuotation.Quotation_ID}` : 'New Quotation'}
+          icon={<FileText className="w-4 h-4" />}
+          onClose={() => setIsModalOpen(false)}
+          maxWidth="6xl"
+          dismissOnBackdrop={false}
+        >
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-6">
 
                 {/* Left: metadata */}
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">Outlet *</label>
+                    <label className="block text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1.5">Outlet *</label>
                     <div className="flex gap-2">
                       {profiles.map(outletProfile => (
                         <button
@@ -1455,8 +1447,8 @@ export default function QuotationModule({
                           onClick={() => setModalOutlet(outletProfile.id)}
                           className={`flex-1 py-2 text-xs font-bold rounded-lg border transition-colors cursor-pointer ${
                             modalOutlet === outletProfile.id
-                              ? 'bg-indigo-600 border-indigo-600 text-white'
-                              : isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-300 hover:border-slate-500' : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
+                              ? 'bg-brand-600 border-brand-600 text-white'
+                              : isDarkMode ? 'bg-ink-950 border-ink-700 text-ink-300 hover:border-ink-500' : 'bg-white border-ink-200 text-ink-700 hover:border-ink-300'
                           }`}
                         >
                           {outletLabel(outletProfile)}
@@ -1467,17 +1459,17 @@ export default function QuotationModule({
 
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">Issue Date *</label>
+                      <label className="block text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1.5">Issue Date *</label>
                       <input type="date" value={modalDate} onChange={e => setModalDate(e.target.value)} className={`${inputClass} ${isDarkMode ? '[color-scheme:dark]' : '[color-scheme:light]'}`} required />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">Valid Until</label>
+                      <label className="block text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1.5">Valid Until</label>
                       <input type="date" value={modalValidUntil} onChange={e => setModalValidUntil(e.target.value)} className={`${inputClass} ${isDarkMode ? '[color-scheme:dark]' : '[color-scheme:light]'}`} />
                     </div>
                   </div>
 
                   <div className="relative">
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">Customer Name *</label>
+                    <label className="block text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1.5">Customer Name *</label>
                     <input
                       type="text"
                       value={modalCustomer}
@@ -1490,12 +1482,12 @@ export default function QuotationModule({
                       autoComplete="off"
                     />
                     {showSuggestions && (
-                      <div className={`absolute z-10 w-full mt-1 rounded-xl border shadow-lg max-h-36 overflow-y-auto ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}>
+                      <div className={`absolute z-10 w-full mt-1 rounded-xl border shadow-lg max-h-36 overflow-y-auto ${isDarkMode ? 'bg-ink-900 border-ink-700' : 'bg-white border-ink-200'}`}>
                         {customerSuggestions.map(c => (
                           <button key={c.Customer_Name} type="button" onMouseDown={() => selectCustomer(c)}
-                            className={`w-full text-left px-3 py-2 text-xs font-semibold flex justify-between items-center cursor-pointer ${isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-gray-50 text-gray-800'}`}>
+                            className={`w-full text-left px-3 py-2 text-xs font-semibold flex justify-between items-center cursor-pointer ${isDarkMode ? 'hover:bg-ink-800 text-ink-200' : 'hover:bg-ink-50 text-ink-800'}`}>
                             <span>{c.Customer_Name}</span>
-                            <span className="text-[10px] text-gray-400 dark:text-slate-500 font-mono">{c.Contact || 'No contact'}</span>
+                            <span className="text-2xs text-ink-500 dark:text-ink-400 font-mono">{c.Contact || 'No contact'}</span>
                           </button>
                         ))}
                       </div>
@@ -1503,28 +1495,28 @@ export default function QuotationModule({
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">Contact / Email</label>
+                    <label className="block text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1.5">Contact / Email</label>
                     <input type="text" value={modalContact} onChange={e => setModalContact(e.target.value)} placeholder="Phone, email, or billing reference…" className={inputClass} />
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">Address</label>
+                    <label className="block text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1.5">Address</label>
                     <input type="text" value={modalAddress} onChange={e => setModalAddress(e.target.value)} placeholder="Delivery / billing address…" className={inputClass} />
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">Notes</label>
+                    <label className="block text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1.5">Notes</label>
                     <textarea value={modalNotes} onChange={e => setModalNotes(e.target.value)} placeholder="Optional remarks…" rows={2} className={`${inputClass} resize-none`} />
                   </div>
 
                   {/* Pricing mode */}
                   <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">Pricing Mode</label>
+                    <label className="block text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1.5">Pricing Mode</label>
                     <div className="flex gap-2 mb-2">
                       {([['itemized', 'Itemized Pricing'], ['package', 'Package / Set Menu']] as const).map(([val, label]) => (
                         <button key={val} type="button" onClick={() => setPricingMode(val)}
                           className={`flex-1 py-2 text-xs font-bold rounded-lg border transition-colors cursor-pointer ${
-                            pricingMode === val ? 'bg-indigo-600 border-indigo-600 text-white' : isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-300' : 'bg-white border-gray-200 text-gray-700'
+                            pricingMode === val ? 'bg-brand-600 border-brand-600 text-white' : isDarkMode ? 'bg-ink-950 border-ink-700 text-ink-300' : 'bg-white border-ink-200 text-ink-700'
                           }`}>
                           {label}
                         </button>
@@ -1534,8 +1526,8 @@ export default function QuotationModule({
                       <div className="flex gap-2">
                         {([['per_day', 'Per-Day Rate'], ['flat_total', 'Flat Total Rate']] as const).map(([val, label]) => (
                           <button key={val} type="button" onClick={() => setPackageSubMode(val)}
-                            className={`flex-1 py-1.5 text-[11px] font-bold rounded-lg border transition-colors cursor-pointer ${
-                              packageSubMode === val ? 'bg-amber-500 border-amber-500 text-white' : isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-300' : 'bg-white border-gray-200 text-gray-700'
+                            className={`flex-1 py-1.5 text-2xs font-bold rounded-lg border transition-colors cursor-pointer ${
+                              packageSubMode === val ? 'bg-amber-500 border-amber-500 text-white' : isDarkMode ? 'bg-ink-950 border-ink-700 text-ink-300' : 'bg-white border-ink-200 text-ink-700'
                             }`}>
                             {label}
                           </button>
@@ -1544,7 +1536,7 @@ export default function QuotationModule({
                     )}
                     {pricingMode === 'package' && packageSubMode === 'flat_total' && (
                       <div className="mt-2">
-                        <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">Flat Package Total ({currency})</label>
+                        <label className="block text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1.5">Flat Package Total ({currency})</label>
                         <input type="number" min="0" step="any" value={flatPackageTotal || ''} onChange={e => setFlatPackageTotal(Number(e.target.value))} className={`${inputClass} font-mono`} />
                       </div>
                     )}
@@ -1552,7 +1544,7 @@ export default function QuotationModule({
 
                   {/* Discount */}
                   <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">Discount (Optional)</label>
+                    <label className="block text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1.5">Discount (Optional)</label>
                     <div className="flex gap-2">
                       <select value={discountType} onChange={e => setDiscountType(e.target.value as 'none' | 'percentage' | 'fixed')} className={smallInputClass}>
                         <option value="none">No Discount</option>
@@ -1569,10 +1561,10 @@ export default function QuotationModule({
                   {/* Extra charges */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400">Other Catering Charges</label>
+                      <label className="text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400">Other Catering Charges</label>
                       <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input type="checkbox" checked={includeExtraCharge} onChange={e => setIncludeExtraCharge(e.target.checked)} className="accent-indigo-600 cursor-pointer" />
-                        <span className="text-[10px] font-semibold text-gray-500 dark:text-slate-400">Include in quotation</span>
+                        <input type="checkbox" checked={includeExtraCharge} onChange={e => setIncludeExtraCharge(e.target.checked)} className="accent-brand-600 cursor-pointer" />
+                        <span className="text-2xs font-semibold text-ink-500 dark:text-ink-400">Include in quotation</span>
                       </label>
                     </div>
                     {includeExtraCharge && (
@@ -1600,7 +1592,7 @@ export default function QuotationModule({
                             <input type="number" min="0" step="any" value={charge.amount}
                               onChange={e => setExtraCharges(prev => prev.map((c, i) => i === idx ? { ...c, amount: Number(e.target.value) } : c))}
                               placeholder="0" className={`w-20 font-mono ${smallInputClass}`} />
-                            <span className={`text-[10px] font-bold ${charge.amount === 0 ? 'text-emerald-600' : 'text-gray-400 dark:text-slate-500'}`}>
+                            <span className={`text-2xs font-bold ${charge.amount === 0 ? 'text-emerald-600' : 'text-ink-500 dark:text-ink-400'}`}>
                               {charge.amount === 0 ? 'FREE' : `${currency} ${charge.amount.toFixed(2)}`}
                             </span>
                             {extraCharges.length > 1 && (
@@ -1612,7 +1604,7 @@ export default function QuotationModule({
                           </div>
                         ))}
                         <button type="button" onClick={() => setExtraCharges(prev => [...prev, { label: 'Delivery', amount: 0 }])}
-                          className={`flex items-center gap-1 text-[10px] font-bold cursor-pointer hover:underline ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>
+                          className={`flex items-center gap-1 text-2xs font-bold cursor-pointer hover:underline ${isDarkMode ? 'text-brand-400' : 'text-brand-600'}`}>
                           <Plus className="w-3 h-3" /> Add another charge
                         </button>
                       </div>
@@ -1620,11 +1612,11 @@ export default function QuotationModule({
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">Catering Terms & Conditions</label>
+                    <label className="block text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1.5">Catering Terms & Conditions</label>
                     <textarea value={cateringTerms} onChange={e => setCateringTerms(e.target.value)} rows={3} className={`${inputClass} resize-none`} />
                   </div>
 
-                  <p className="text-[10px] text-gray-400 dark:text-slate-500">
+                  <p className="text-2xs text-ink-500 dark:text-ink-400">
                     This customer is saved automatically for faster future quotations & invoices.
                   </p>
                 </div>
@@ -1632,25 +1624,25 @@ export default function QuotationModule({
                 {/* Right: day containers */}
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400">Event Dates *</label>
+                    <label className="text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400">Event Dates *</label>
                     <button type="button" onClick={addDay}
-                      className="flex items-center gap-1 text-[10px] font-bold cursor-pointer hover:underline text-indigo-500 dark:text-indigo-400">
+                      className="flex items-center gap-1 text-2xs font-bold cursor-pointer hover:underline text-brand-500 dark:text-brand-400">
                       <CalendarPlus className="w-3.5 h-3.5" /> Add Event Date
                     </button>
                   </div>
 
                   <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
                     {days.length === 0 && (
-                      <p className={`text-[11px] text-center py-6 rounded-xl border ${isDarkMode ? 'border-slate-700 text-slate-500' : 'border-gray-200 text-gray-400'}`}>
+                      <p className={`text-2xs text-center py-6 rounded-xl border ${isDarkMode ? 'border-ink-700 text-ink-500' : 'border-ink-200 text-ink-500'}`}>
                         No event dates yet — click "Add Event Date" to start building the schedule.
                       </p>
                     )}
                     {days.map((day, dIdx) => {
                       const dayTotal = day.sessions.reduce((s, sess) => s + sess.items.reduce((s2, it) => s2 + it.Quantity * it.Price, 0), 0);
                       return (
-                        <div key={day.Day_ID} className={`rounded-xl border p-3 space-y-2.5 ${isDarkMode ? 'border-slate-700 bg-slate-950' : 'border-gray-200 bg-gray-50'}`}>
+                        <div key={day.Day_ID} className={`rounded-xl border p-3 space-y-2.5 ${isDarkMode ? 'border-ink-700 bg-ink-950' : 'border-ink-200 bg-ink-50'}`}>
                           <div className="flex items-center justify-between">
-                            <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>Day {dIdx + 1}</span>
+                            <span className={`text-2xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-brand-400' : 'text-brand-600'}`}>Day {dIdx + 1}</span>
                             <button type="button" onClick={() => removeDay(day.Day_ID)} className="text-rose-400 hover:text-rose-600 cursor-pointer p-0.5 rounded hover:bg-rose-50 dark:hover:bg-rose-950/30">
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -1675,15 +1667,15 @@ export default function QuotationModule({
                           {/* Sessions — a day can have Breakfast, Lunch, Dinner etc. each with its own menu */}
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                              <p className={`text-[9px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-500' : 'text-gray-400'}`}>Sessions / Sittings</p>
+                              <p className={`text-2xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-ink-500' : 'text-ink-500'}`}>Sessions / Sittings</p>
                               <button type="button" onClick={() => addSession(day.Day_ID)}
-                                className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer hover:underline ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>
+                                className={`flex items-center gap-1 text-2xs font-bold cursor-pointer hover:underline ${isDarkMode ? 'text-brand-400' : 'text-brand-600'}`}>
                                 <Plus className="w-3 h-3" /> Add Session
                               </button>
                             </div>
 
                             {day.sessions.length === 0 && (
-                              <p className={`text-[10px] text-center py-3 rounded-lg border ${isDarkMode ? 'border-slate-800 text-slate-600' : 'border-gray-100 text-gray-400'}`}>
+                              <p className={`text-2xs text-center py-3 rounded-lg border ${isDarkMode ? 'border-ink-800 text-ink-600' : 'border-ink-100 text-ink-500'}`}>
                                 No sessions yet — e.g. add "Breakfast", "Lunch", "Dinner" as separate sittings with their own menu.
                               </p>
                             )}
@@ -1692,7 +1684,7 @@ export default function QuotationModule({
                               const draft = getDraft(session.Session_ID);
                               const sessionTotal = session.items.reduce((s, it) => s + it.Quantity * it.Price, 0);
                               return (
-                                <div key={session.Session_ID} className={`rounded-lg border p-2 space-y-1.5 ${isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-gray-100 bg-white'}`}>
+                                <div key={session.Session_ID} className={`rounded-lg border p-2 space-y-1.5 ${isDarkMode ? 'border-ink-800 bg-ink-900' : 'border-ink-100 bg-white'}`}>
                                   {(() => {
                                     const presetMatch = SESSION_PRESETS.find(p => p.label.toLowerCase() === (session.Session_Label || '').trim().toLowerCase());
                                     const isCustom = !!customLabelSessions[session.Session_ID] || (!!session.Session_Label && !presetMatch);
@@ -1757,7 +1749,7 @@ export default function QuotationModule({
                                           className={`w-20 text-right font-mono ${smallInputClass}`} />
                                       )}
                                       {pricingMode === 'itemized' && (
-                                        <span className={`w-20 text-right text-[11px] font-mono font-bold shrink-0 ${isDarkMode ? 'text-slate-200' : 'text-gray-800'}`}>
+                                        <span className={`w-20 text-right text-2xs font-mono font-bold shrink-0 ${isDarkMode ? 'text-ink-200' : 'text-ink-800'}`}>
                                           {(item.Quantity * item.Price).toFixed(2)}
                                         </span>
                                       )}
@@ -1780,13 +1772,13 @@ export default function QuotationModule({
                                         const matches = (qq ? itemPresets.filter(p => p.name.toLowerCase().includes(qq)) : itemPresets).slice(0, 8);
                                         if (!matches.length) return null;
                                         return (
-                                          <div className={`absolute z-30 left-0 right-0 mt-1 max-h-52 overflow-y-auto rounded-lg border shadow-lg ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}>
+                                          <div className={`absolute z-30 left-0 right-0 mt-1 max-h-52 overflow-y-auto rounded-lg border shadow-lg ${isDarkMode ? 'bg-ink-900 border-ink-700' : 'bg-white border-ink-200'}`}>
                                             {matches.map((p, pi) => (
                                               <button key={pi} type="button"
                                                 onMouseDown={() => { setDraft(session.Session_ID, { name: p.name, price: p.price }); setOpenPresetSession(null); }}
-                                                className={`w-full flex items-center justify-between gap-3 px-2.5 py-1.5 text-left text-[11px] cursor-pointer transition-colors ${isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-indigo-50 text-gray-800'}`}>
+                                                className={`w-full flex items-center justify-between gap-3 px-2.5 py-1.5 text-left text-2xs cursor-pointer transition-colors ${isDarkMode ? 'hover:bg-ink-800 text-ink-200' : 'hover:bg-brand-50 text-ink-800'}`}>
                                                 <span className="truncate">{p.name}</span>
-                                                <span className={`shrink-0 font-mono font-bold ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>{p.price > 0 ? `${currency} ${p.price.toFixed(2)}` : '—'}</span>
+                                                <span className={`shrink-0 font-mono font-bold ${isDarkMode ? 'text-ink-500' : 'text-ink-500'}`}>{p.price > 0 ? `${currency} ${p.price.toFixed(2)}` : '—'}</span>
                                               </button>
                                             ))}
                                           </div>
@@ -1803,12 +1795,12 @@ export default function QuotationModule({
                                         className={`w-20 text-right font-mono ${smallInputClass}`} />
                                     )}
                                     <button type="button" onClick={() => addItemToSession(day.Day_ID, session.Session_ID)}
-                                      className="shrink-0 w-7 h-7 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center cursor-pointer">
+                                      className="shrink-0 w-7 h-7 rounded-lg bg-brand-600 hover:bg-brand-700 text-white flex items-center justify-center cursor-pointer">
                                       <Plus className="w-3.5 h-3.5" />
                                     </button>
                                   </div>
                                   {pricingMode === 'itemized' && session.items.length > 0 && (
-                                    <p className="text-right text-[9px] font-bold text-gray-500 dark:text-slate-400">Session Subtotal: {currency} {sessionTotal.toFixed(2)}</p>
+                                    <p className="text-right text-2xs font-bold text-ink-500 dark:text-ink-400">Session Subtotal: {currency} {sessionTotal.toFixed(2)}</p>
                                   )}
                                 </div>
                               );
@@ -1816,7 +1808,7 @@ export default function QuotationModule({
                           </div>
 
                           {pricingMode === 'itemized' && dayTotal > 0 && (
-                            <p className="text-right text-[10px] font-bold text-gray-500 dark:text-slate-400">Day Subtotal: {currency} {dayTotal.toFixed(2)}</p>
+                            <p className="text-right text-2xs font-bold text-ink-500 dark:text-ink-400">Day Subtotal: {currency} {dayTotal.toFixed(2)}</p>
                           )}
                         </div>
                       );
@@ -1824,27 +1816,27 @@ export default function QuotationModule({
                   </div>
 
                   {/* Grand total */}
-                  <div className={`flex flex-col gap-1 p-3 rounded-xl mt-auto ${isDarkMode ? 'bg-slate-950 border border-slate-800' : 'bg-gray-50 border border-gray-200'}`}>
+                  <div className={`flex flex-col gap-1 p-3 rounded-xl mt-auto ${isDarkMode ? 'bg-ink-950 border border-ink-800' : 'bg-ink-50 border border-ink-200'}`}>
                     {liveTotals.chargesTotal > 0 && (
-                      <div className="flex items-center justify-between text-[10px] text-gray-500 dark:text-slate-400">
+                      <div className="flex items-center justify-between text-2xs text-ink-500 dark:text-ink-400">
                         <span>Extra Charges</span><span className="font-mono">{currency} {liveTotals.chargesTotal.toFixed(2)}</span>
                       </div>
                     )}
                     {liveTotals.discountAmt > 0 && (
-                      <div className="flex items-center justify-between text-[10px] text-amber-600 dark:text-amber-400">
+                      <div className="flex items-center justify-between text-2xs text-amber-600 dark:text-amber-400">
                         <span>Discount</span><span className="font-mono">-{currency} {liveTotals.discountAmt.toFixed(2)}</span>
                       </div>
                     )}
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Grand Total</span>
-                      <span className="text-xl font-black text-gray-900 dark:text-white font-mono">{currency} {liveTotals.total.toFixed(2)}</span>
+                      <span className="text-xs font-bold text-ink-500 dark:text-ink-400 uppercase tracking-wider">Grand Total</span>
+                      <span className="text-xl font-black text-ink-900 dark:text-white font-mono">{currency} {liveTotals.total.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Footer */}
-              <div className={`flex items-center justify-between gap-2 pt-4 mt-4 border-t ${isDarkMode ? 'border-slate-800' : 'border-gray-100'}`}>
+              <div className={`flex items-center justify-between gap-2 pt-4 mt-4 border-t ${isDarkMode ? 'border-ink-800' : 'border-ink-100'}`}>
                 <div className="flex items-center gap-2">
                   {editingQuotation && (
                     <button type="button" onClick={() => handleDelete(editingQuotation.Quotation_ID)}
@@ -1873,19 +1865,18 @@ export default function QuotationModule({
                 </div>
                 <div className="flex items-center gap-2">
                   <button type="button" onClick={() => setIsModalOpen(false)}
-                    className={`px-4 py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors ${isDarkMode ? 'bg-transparent border-slate-700 text-slate-300 hover:bg-slate-800' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
+                    className={`px-4 py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors ${isDarkMode ? 'bg-transparent border-ink-700 text-ink-300 hover:bg-ink-800' : 'bg-white border-ink-200 text-ink-700 hover:bg-ink-50'}`}>
                     Cancel
                   </button>
                   <button type="submit" disabled={isSyncing}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer shadow-sm">
+                    className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer shadow-sm">
                     {isSyncing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
                     {isSyncing ? 'Saving…' : (editingQuotation ? 'Update Quotation' : 'Generate & Save')}
                   </button>
                 </div>
               </div>
             </form>
-          </div>
-        </div>
+        </Sheet>
       )}
 
       {/* ── Preview modal ──────────────────────────────────────────────────── */}

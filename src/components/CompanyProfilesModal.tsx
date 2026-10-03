@@ -8,6 +8,7 @@
  */
 import React, { useRef, useState } from 'react';
 import { Building2, X, Upload, RefreshCw, Plus, Trash2, AlertTriangle } from 'lucide-react';
+import { Sheet, sheetBtn } from './ui/Sheet';
 import { CompanyProfile, TemplateCustomization, DatabaseState } from '../types';
 import { outletLabel, outletColor, newOutletId, outletUsage } from '../utils/outlets';
 
@@ -179,30 +180,31 @@ export function CompanyProfilesModal({
     }
   };
 
-  const inputCls = `w-full px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-    isDark ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-gray-50 border-gray-200 text-gray-900'
+  const inputCls = `w-full px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-brand-500 ${
+    isDark ? 'bg-ink-950 border-ink-700 text-ink-100' : 'bg-ink-50 border-ink-200 text-ink-900'
   }`;
   const tmpl = current.template || DEFAULT_TEMPLATE;
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className={`w-full max-w-lg rounded-2xl shadow-2xl flex flex-col max-h-[90vh] ${isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white border border-gray-200'}`}>
-
-        <div className={`flex items-center justify-between px-5 py-4 border-b flex-shrink-0 ${isDark ? 'border-slate-800' : 'border-gray-100'}`}>
-          <div className="flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-indigo-500" />
-            <h2 className="text-sm font-bold text-gray-900 dark:text-white">Branches &amp; Documents</h2>
-            <span className="text-[10px] font-semibold text-gray-400 dark:text-slate-500">
-              {outlets.length} {outlets.length === 1 ? 'branch' : 'branches'}
-            </span>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-slate-200 cursor-pointer">
-            <X className="w-4 h-4" />
+    <Sheet
+      title="Branches & Documents"
+      subtitle={`${outlets.length} ${outlets.length === 1 ? 'branch' : 'branches'}`}
+      icon={<Building2 className="w-4 h-4" />}
+      onClose={onClose}
+      maxWidth="lg"
+      footer={
+        <div className="flex items-center justify-end gap-2">
+          <button type="button" onClick={onClose} className={sheetBtn.ghost}>Cancel</button>
+          <button type="submit" form="branches-form" disabled={saving} className={sheetBtn.primary}>
+            {saving && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+            {saving ? 'Saving…' : 'Save to Google Sheets'}
           </button>
         </div>
-
+      }
+    >
+      <div className="-mx-4 sm:-mx-5 -mt-4">
         {/* Outlet tabs + add */}
-        <div className={`flex items-stretch border-b flex-shrink-0 overflow-x-auto ${isDark ? 'border-slate-800' : 'border-gray-100'}`}>
+        <div className={`flex items-stretch border-b overflow-x-auto sticky top-0 z-10 ${isDark ? 'border-ink-800 bg-ink-900' : 'border-ink-200 bg-ink-50'}`}>
           {outlets.map((o, idx) => (
             <button
               key={o.id}
@@ -210,8 +212,8 @@ export function CompanyProfilesModal({
               onClick={() => { setActiveIdx(idx); setError(''); }}
               className={`px-3 py-2.5 text-xs font-bold whitespace-nowrap transition-colors cursor-pointer flex items-center gap-1.5 ${
                 activeIdx === idx
-                  ? 'border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-300'
-                  : 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200'
+                  ? 'border-b-2 border-brand-500 text-brand-600 dark:text-brand-300'
+                  : 'text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200'
               }`}
             >
               <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: outletColor(o, idx) }} />
@@ -222,14 +224,14 @@ export function CompanyProfilesModal({
             type="button"
             onClick={addOutlet}
             title="Add a branch"
-            className="px-3 py-2.5 text-xs font-bold text-gray-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer flex items-center gap-1 whitespace-nowrap"
+            className="px-3 py-2.5 text-xs font-bold text-ink-500 dark:text-ink-400 hover:text-brand-600 dark:hover:text-brand-400 cursor-pointer flex items-center gap-1 whitespace-nowrap"
           >
             <Plus className="w-3.5 h-3.5" />
             Add
           </button>
         </div>
 
-        <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-5 space-y-3">
+        <form id="branches-form" onSubmit={handleSave} className="p-4 sm:p-5 space-y-3">
           {error && (
             <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg text-xs text-red-700 dark:text-red-400">
               <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
@@ -239,7 +241,7 @@ export function CompanyProfilesModal({
 
           {FIELDS.map(({ key, label, placeholder, hint, multiline }) => (
             <div key={key}>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1">
+              <label className="block text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1">
                 {label}
               </label>
               {multiline ? (
@@ -259,21 +261,21 @@ export function CompanyProfilesModal({
                   className={inputCls}
                 />
               )}
-              {hint && <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-0.5">{hint}</p>}
+              {hint && <p className="text-2xs text-ink-500 dark:text-ink-400 mt-0.5">{hint}</p>}
             </div>
           ))}
 
           {/* Logo upload */}
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">
+            <label className="block text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1.5">
               Branch Logo
             </label>
             <div className="flex items-center gap-3">
-              <div className={`w-14 h-14 rounded-xl border flex items-center justify-center flex-shrink-0 overflow-hidden ${isDark ? 'border-slate-700 bg-slate-950' : 'border-gray-200 bg-gray-50'}`}>
+              <div className={`w-14 h-14 rounded-xl border flex items-center justify-center flex-shrink-0 overflow-hidden ${isDark ? 'border-ink-700 bg-ink-950' : 'border-ink-200 bg-ink-50'}`}>
                 {current.logo_url ? (
                   <img src={current.logo_url} alt="Logo" className="w-full h-full object-contain p-1" />
                 ) : (
-                  <Building2 className="w-6 h-6 text-gray-300 dark:text-slate-600" />
+                  <Building2 className="w-6 h-6 text-ink-300 dark:text-ink-400" />
                 )}
               </div>
               <div className="flex flex-col gap-1.5 flex-1">
@@ -281,7 +283,7 @@ export function CompanyProfilesModal({
                 <button
                   type="button"
                   onClick={() => logoInputRef.current?.click()}
-                  className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-colors ${isDark ? 'border-slate-700 text-slate-300 hover:bg-slate-800' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+                  className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-colors ${isDark ? 'border-ink-700 text-ink-300 hover:bg-ink-800' : 'border-ink-200 text-ink-700 hover:bg-ink-50'}`}
                 >
                   <Upload className="w-3 h-3" />
                   {current.logo_url ? 'Change Logo' : 'Upload Logo'}
@@ -290,7 +292,7 @@ export function CompanyProfilesModal({
                   <button
                     type="button"
                     onClick={() => update('logo_url', '')}
-                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer text-red-500 border-red-200 dark:border-red-900/40 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    className="flex items-center justify-center gap-1.5 px-3 py-2 min-h-[36px] rounded-lg border text-xs font-semibold cursor-pointer text-rose-600 dark:text-rose-300 border-rose-200 dark:border-rose-900/40 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
                   >
                     <X className="w-3 h-3" />
                     Remove
@@ -298,31 +300,31 @@ export function CompanyProfilesModal({
                 )}
               </div>
             </div>
-            <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-1">Auto-resized on upload. Saved with this branch.</p>
+            <p className="text-2xs text-ink-500 dark:text-ink-400 mt-1">Auto-resized on upload. Saved with this branch.</p>
           </div>
 
           {/* Design — applies to both Invoice and Quotation previews for this outlet */}
-          <div className={`pt-3 border-t space-y-3 ${isDark ? 'border-slate-800' : 'border-gray-100'}`}>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400">
+          <div className={`pt-3 border-t space-y-3 ${isDark ? 'border-ink-800' : 'border-ink-100'}`}>
+            <p className="text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400">
               Document Design — {outletLabel(current)}
             </p>
 
             <div className="space-y-1.5">
-              <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wide">Brand Primary Accent</label>
+              <label className="block text-2xs font-bold text-ink-500 dark:text-ink-400 uppercase tracking-wide">Brand Primary Accent</label>
               <div className="flex flex-wrap gap-2 items-center">
                 {ACCENT_SWATCHES.map(c => (
                   <button key={c.value} type="button" onClick={() => updateTemplate('primary_color', c.value)}
-                    className={`w-6 h-6 rounded-full border cursor-pointer hover:scale-110 active:scale-95 transition-transform ${tmpl.primary_color === c.value ? 'ring-2 ring-offset-2 ring-indigo-500' : 'border-gray-300 dark:border-slate-600'}`}
+                    className={`w-6 h-6 rounded-full border cursor-pointer hover:scale-110 active:scale-95 transition-transform ${tmpl.primary_color === c.value ? 'ring-2 ring-offset-2 ring-brand-500' : 'border-ink-300 dark:border-ink-600'}`}
                     style={{ backgroundColor: c.value }} title={c.name} />
                 ))}
                 <input type="text" value={tmpl.primary_color}
                   onChange={e => updateTemplate('primary_color', e.target.value)}
-                  className={`w-24 px-2 py-1 text-xs font-mono font-bold rounded border ${isDark ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'}`} />
+                  className={`w-24 px-2 py-1 text-xs font-mono font-bold rounded border ${isDark ? 'bg-ink-950 border-ink-700 text-ink-100' : 'bg-white border-ink-200 text-ink-900'}`} />
               </div>
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1">Typography Font Face</label>
+              <label className="block text-2xs font-bold text-ink-500 dark:text-ink-400 uppercase tracking-wide mb-1">Typography Font Face</label>
               <select value={tmpl.font_family} onChange={e => updateTemplate('font_family', e.target.value)} className={inputCls}>
                 <option value="Inter">Inter (Clean Swiss Sans)</option>
                 <option value="Space Grotesk">Space Grotesk (Tech Modernist)</option>
@@ -333,7 +335,7 @@ export function CompanyProfilesModal({
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1">Logo &amp; Brand Alignment</label>
+              <label className="block text-2xs font-bold text-ink-500 dark:text-ink-400 uppercase tracking-wide mb-1">Logo &amp; Brand Alignment</label>
               <div className="grid grid-cols-2 gap-1.5">
                 {[
                   { label: 'Standard Left', value: 'logo-left' },
@@ -342,10 +344,10 @@ export function CompanyProfilesModal({
                   { label: 'Modern Split', value: 'logo-split' },
                 ].map(opt => (
                   <button key={opt.value} type="button" onClick={() => updateTemplate('layout_order', opt.value)}
-                    className={`p-2 border rounded-lg font-bold text-[10px] tracking-tight transition-all cursor-pointer ${
+                    className={`p-2 border rounded-lg font-bold text-2xs tracking-tight transition-all cursor-pointer ${
                       tmpl.layout_order === opt.value
-                        ? 'bg-indigo-600 border-indigo-600 text-white'
-                        : isDark ? 'bg-slate-950 border-slate-700 text-slate-300 hover:bg-slate-800' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-100'
+                        ? 'bg-brand-600 border-brand-600 text-white'
+                        : isDark ? 'bg-ink-950 border-ink-700 text-ink-300 hover:bg-ink-800' : 'bg-white border-ink-200 text-ink-600 hover:bg-ink-100'
                     }`}>
                     {opt.label}
                   </button>
@@ -355,7 +357,7 @@ export function CompanyProfilesModal({
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1">Title Size</label>
+                <label className="block text-2xs font-bold text-ink-500 dark:text-ink-400 uppercase tracking-wide mb-1">Title Size</label>
                 <select value={tmpl.title_size} onChange={e => updateTemplate('title_size', e.target.value)} className={inputCls}>
                   <option value="text-lg">Compact (LG)</option>
                   <option value="text-xl">Standard (XL)</option>
@@ -364,9 +366,9 @@ export function CompanyProfilesModal({
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1">Body Size</label>
+                <label className="block text-2xs font-bold text-ink-500 dark:text-ink-400 uppercase tracking-wide mb-1">Body Size</label>
                 <select value={tmpl.body_size} onChange={e => updateTemplate('body_size', e.target.value)} className={inputCls}>
-                  <option value="text-[10px]">Tiny (10px)</option>
+                  <option value="text-2xs">Tiny (10px)</option>
                   <option value="text-xs">Standard (12px)</option>
                   <option value="text-sm">Comfort (14px)</option>
                 </select>
@@ -374,14 +376,14 @@ export function CompanyProfilesModal({
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1">Sheet Outer Margins</label>
+              <label className="block text-2xs font-bold text-ink-500 dark:text-ink-400 uppercase tracking-wide mb-1">Sheet Outer Margins</label>
               <div className="grid grid-cols-3 gap-1.5">
                 {[{ label: 'Compact', value: 'p-4' }, { label: 'Cozy', value: 'p-8' }, { label: 'Generous', value: 'p-12' }].map(opt => (
                   <button key={opt.value} type="button" onClick={() => updateTemplate('padding', opt.value)}
-                    className={`py-1.5 border rounded-lg text-[10px] font-bold cursor-pointer transition-all ${
+                    className={`py-1.5 border rounded-lg text-2xs font-bold cursor-pointer transition-all ${
                       tmpl.padding === opt.value
-                        ? 'bg-indigo-600 border-indigo-600 text-white'
-                        : isDark ? 'bg-slate-950 border-slate-700 text-slate-400 hover:bg-slate-800' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-100'
+                        ? 'bg-brand-600 border-brand-600 text-white'
+                        : isDark ? 'bg-ink-950 border-ink-700 text-ink-500 hover:bg-ink-800' : 'bg-white border-ink-200 text-ink-500 hover:bg-ink-100'
                     }`}>
                     {opt.label}
                   </button>
@@ -390,7 +392,7 @@ export function CompanyProfilesModal({
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1">Invoice Footer / Custom Terms</label>
+              <label className="block text-2xs font-bold text-ink-500 dark:text-ink-400 uppercase tracking-wide mb-1">Invoice Footer / Custom Terms</label>
               <textarea rows={2} value={tmpl.terms_footer}
                 onChange={e => updateTemplate('terms_footer', e.target.value)}
                 placeholder="Thank you for your business!"
@@ -400,7 +402,7 @@ export function CompanyProfilesModal({
 
           {/* Remove this branch */}
           {outlets.length > 1 && (
-            <div className={`pt-3 border-t ${isDark ? 'border-slate-800' : 'border-gray-100'}`}>
+            <div className={`pt-3 border-t ${isDark ? 'border-ink-800' : 'border-ink-100'}`}>
               <button
                 type="button"
                 onClick={() => removeOutlet(activeIdx)}
@@ -409,33 +411,14 @@ export function CompanyProfilesModal({
                 <Trash2 className="w-3.5 h-3.5" />
                 Remove “{outletLabel(current)}”
               </button>
-              <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-1">
+              <p className="text-2xs text-ink-500 dark:text-ink-400 mt-1">
                 Only possible while no invoice, quotation or employee is attached to it.
               </p>
             </div>
           )}
 
-          <div className={`flex items-center justify-end gap-2 pt-3 border-t ${isDark ? 'border-slate-800' : 'border-gray-100'}`}>
-            <button
-              type="button"
-              onClick={onClose}
-              className={`px-4 py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors ${
-                isDark ? 'bg-transparent border-slate-700 text-slate-300 hover:bg-slate-800' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer shadow-sm"
-            >
-              {saving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : null}
-              {saving ? 'Saving…' : 'Save to Google Sheets'}
-            </button>
-          </div>
         </form>
       </div>
-    </div>
+    </Sheet>
   );
 }

@@ -15,27 +15,27 @@ import {
 } from '../auth';
 
 const CARD =
-  'bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm';
+  'bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 rounded-2xl p-6 shadow-sm';
 const INPUT =
-  'w-full px-3 py-2.5 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500';
+  'w-full px-3 py-2.5 text-sm rounded-lg border border-ink-200 dark:border-ink-700 bg-ink-50 dark:bg-ink-950 text-ink-900 dark:text-white placeholder-ink-400 dark:placeholder-ink-600 focus:outline-none focus:ring-1 focus:ring-brand-500';
 const LABEL =
-  'block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5';
+  'block text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1.5';
 const BUTTON =
-  'w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold text-sm py-2.5 px-4 rounded-xl transition-colors cursor-pointer shadow-sm';
+  'w-full flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-semibold text-sm py-2.5 px-4 rounded-xl transition-colors cursor-pointer shadow-sm';
 
 function Shell({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-ink-50 dark:bg-ink-950 flex items-center justify-center p-6">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 bg-indigo-600 rounded-xl mb-4 shadow-sm">
+          <div className="inline-flex items-center justify-center w-12 h-12 bg-brand-600 rounded-xl mb-4 shadow-sm">
             <Building2 className="w-6 h-6 text-white" />
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white">{title}</h1>
-          <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">{subtitle}</p>
+          <h1 className="text-2xl font-black tracking-tight text-ink-900 dark:text-white">{title}</h1>
+          <p className="text-sm text-ink-500 dark:text-ink-400 mt-1">{subtitle}</p>
         </div>
         {children}
-        <p className="text-center text-[10px] text-gray-400 dark:text-slate-600 mt-4">
+        <p className="text-center text-2xs text-ink-500 dark:text-ink-400 mt-4">
           Invoicing · Quotations · Payroll · Malaysian Statutory 2026
         </p>
       </div>
@@ -70,13 +70,13 @@ function PasswordField({
           onChange={e => onChange(e.target.value)}
           autoComplete={autoComplete}
           placeholder={placeholder}
-          className={`${INPUT} pr-10`}
+          className={`${INPUT} pr-12`}
         />
         <button
           type="button"
           onClick={() => setShown(s => !s)}
           aria-label={shown ? 'Hide password' : 'Show password'}
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-gray-400 dark:text-slate-500 hover:text-gray-700 dark:hover:text-slate-200 cursor-pointer"
+          className="absolute right-1 top-1/2 -translate-y-1/2 tap flex items-center justify-center rounded-lg text-ink-500 dark:text-ink-400 hover:text-ink-900 dark:hover:text-ink-50 hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors cursor-pointer"
         >
           {shown ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
         </button>
@@ -96,7 +96,7 @@ function AdvancedEndpoint() {
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1 mx-auto text-[10px] font-semibold text-gray-400 dark:text-slate-600 hover:text-gray-600 dark:hover:text-slate-400 cursor-pointer"
+        className="flex items-center gap-1 mx-auto min-h-11 px-3 text-2xs font-semibold text-ink-500 dark:text-ink-400 hover:text-ink-800 dark:hover:text-ink-200 cursor-pointer"
       >
         <ChevronDown className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} />
         Advanced
@@ -115,7 +115,7 @@ function AdvancedEndpoint() {
           <button
             type="button"
             onClick={() => { setApiUrl(url); setSaved(true); }}
-            className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer"
+            className="inline-flex items-center min-h-11 px-1 text-2xs font-bold text-brand-700 dark:text-brand-300 hover:underline cursor-pointer"
           >
             {saved ? 'Saved — reload to apply' : 'Save endpoint'}
           </button>
@@ -171,14 +171,14 @@ export function LoginScreen({
             id="login-password" label="Password" value={password}
             onChange={setPassword} autoComplete="current-password"
           />
-          <label className="flex items-center gap-2 cursor-pointer select-none">
+          <label className="flex items-center gap-2.5 min-h-11 -my-1 cursor-pointer select-none">
             <input
               type="checkbox"
               checked={remember}
               onChange={e => setRemember(e.target.checked)}
-              className="w-3.5 h-3.5 rounded border-gray-300 dark:border-slate-600 text-indigo-600 cursor-pointer"
+              className="w-5 h-5 rounded border-ink-300 dark:border-ink-600 accent-brand-600 cursor-pointer"
             />
-            <span className="text-xs text-gray-600 dark:text-slate-400">Keep me signed in on this device</span>
+            <span className="text-xs text-ink-600 dark:text-ink-400">Keep me signed in on this device</span>
           </label>
           <button type="submit" disabled={busy} className={BUTTON}>
             {busy && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -186,14 +186,14 @@ export function LoginScreen({
           </button>
         </form>
 
-        <div className="mt-5 pt-4 border-t border-gray-100 dark:border-slate-800 text-center">
-          <p className="text-xs text-gray-500 dark:text-slate-400">
+        <div className="mt-5 pt-4 border-t border-ink-100 dark:border-ink-800 text-center">
+          <p className="text-xs text-ink-500 dark:text-ink-400">
             New here?{' '}
-            <button onClick={onRegister} className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">
+            <button onClick={onRegister} className="inline-flex items-center min-h-11 px-1 font-bold text-brand-700 dark:text-brand-300 hover:underline cursor-pointer">
               Register a new company
             </button>
           </p>
-          <p className="text-[10px] text-gray-400 dark:text-slate-600 mt-2">
+          <p className="text-2xs text-ink-500 dark:text-ink-400 mt-2">
             Staff accounts are created by your company administrator.
           </p>
         </div>
@@ -264,7 +264,7 @@ export function RegisterScreen({
 
   const idHint = {
     idle: null,
-    checking: <span className="text-gray-400 dark:text-slate-500">Checking availability…</span>,
+    checking: <span className="text-ink-500 dark:text-ink-400">Checking availability…</span>,
     free: <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400"><Check className="w-3 h-3" />Available</span>,
     taken: <span className="flex items-center gap-1 text-red-600 dark:text-red-400"><X className="w-3 h-3" />{idState.reason || 'Already taken'}</span>,
   }[idState.status];
@@ -278,7 +278,7 @@ export function RegisterScreen({
             <label htmlFor="reg-company" className={LABEL}>Company Name *</label>
             <input id="reg-company" type="text" value={companyName} onChange={e => setCompanyName(e.target.value)}
               placeholder="Culinary Holdings Sdn Bhd" className={INPUT} />
-            <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-1">
+            <p className="text-2xs text-ink-500 dark:text-ink-400 mt-1">
               A fresh Google Sheet is created for your company's data.
             </p>
           </div>
@@ -292,8 +292,8 @@ export function RegisterScreen({
             <input id="reg-user" type="text" value={userId} onChange={e => setUserId(e.target.value)}
               autoComplete="username" autoCapitalize="none" spellCheck={false}
               placeholder="kaashif.admin" className={INPUT} />
-            <p className="text-[10px] mt-1 min-h-[14px]">
-              {idHint || <span className="text-gray-400 dark:text-slate-500">3–32 characters · letters, numbers, dot, dash, underscore</span>}
+            <p className="text-2xs mt-1 min-h-[14px]">
+              {idHint || <span className="text-ink-500 dark:text-ink-400">3–32 characters · letters, numbers, dot, dash, underscore</span>}
             </p>
           </div>
           <div>
@@ -320,8 +320,8 @@ export function RegisterScreen({
           </button>
         </form>
 
-        <div className="mt-5 pt-4 border-t border-gray-100 dark:border-slate-800 text-center">
-          <button onClick={onBack} className="inline-flex items-center gap-1 text-xs font-bold text-gray-500 dark:text-slate-400 hover:text-gray-800 dark:hover:text-slate-200 cursor-pointer">
+        <div className="mt-5 pt-4 border-t border-ink-100 dark:border-ink-800 text-center">
+          <button onClick={onBack} className="inline-flex items-center gap-1 min-h-11 px-2 text-xs font-bold text-ink-600 dark:text-ink-300 hover:text-ink-900 dark:hover:text-ink-50 cursor-pointer">
             <ArrowLeft className="w-3 h-3" />
             Back to sign in
           </button>

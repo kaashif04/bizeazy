@@ -373,6 +373,7 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 
   return (
     <div
+      data-document
       className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-start justify-center overflow-y-auto py-8 px-4"
       onClick={onClose}
     >
@@ -430,16 +431,16 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
               )}
               <div>
                 {outletCfg.company_name && (
-                  <p className="text-[9px] font-bold uppercase tracking-widest mb-0.5" style={{ color: accent }}>
+                  <p className="text-2xs font-bold uppercase tracking-widest mb-0.5" style={{ color: accent }}>
                     {outletCfg.company_name}
                   </p>
                 )}
-                <h2 className="text-2xl font-black text-slate-900 leading-tight">{outletCfg.store_name}</h2>
-                <p className="text-[10px] text-slate-500 leading-snug mt-0.5 max-w-xs">
+                <h2 className="text-2xl font-black text-ink-900 leading-tight">{outletCfg.store_name}</h2>
+                <p className="text-2xs text-ink-500 leading-snug mt-0.5 max-w-xs">
                   {[outletCfg.subtitle, outletCfg.address].filter(Boolean).join(' | ')}
                 </p>
                 {(outletCfg.phone || outletCfg.email) && (
-                  <p className="text-[10px] text-slate-500 mt-0.5">
+                  <p className="text-2xs text-ink-500 mt-0.5">
                     Contact: {[outletCfg.phone, outletCfg.email].filter(Boolean).join('  |  ')}
                   </p>
                 )}
@@ -448,37 +449,37 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 
             <div className="text-right flex-shrink-0">
               <p className="text-3xl font-black" style={{ color: accent }}>INVOICE</p>
-              <p className="text-sm font-bold text-slate-800 mt-0.5">{invoice.Invoice_ID}</p>
+              <p className="text-sm font-bold text-ink-800 mt-0.5">{invoice.Invoice_ID}</p>
             </div>
           </div>
 
           {/* Divider */}
-          <hr className="border-slate-200 mb-5" />
+          <hr className="border-ink-200 mb-5" />
 
           {/* 3-column meta */}
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Date of Issue</p>
-              <p className="text-sm font-bold text-slate-800">{invoice.Date?.split('T')[0] || '-'}</p>
+              <p className="text-2xs font-bold text-ink-500 uppercase tracking-widest mb-1">Date of Issue</p>
+              <p className="text-sm font-bold text-ink-800">{invoice.Date?.split('T')[0] || '-'}</p>
             </div>
             <div>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Outlet / Origin</p>
-              <p className="text-sm font-bold text-slate-800">{outletCfg.store_name}</p>
+              <p className="text-2xs font-bold text-ink-500 uppercase tracking-widest mb-1">Outlet / Origin</p>
+              <p className="text-sm font-bold text-ink-800">{outletCfg.store_name}</p>
             </div>
             <div>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Bill To (Patron)</p>
-              <p className="text-sm font-bold text-slate-800">{invoice.Customer_Name}</p>
-              {contactVal && <p className="text-xs text-slate-500">Contact: {contactVal}</p>}
+              <p className="text-2xs font-bold text-ink-500 uppercase tracking-widest mb-1">Bill To (Patron)</p>
+              <p className="text-sm font-bold text-ink-800">{invoice.Customer_Name}</p>
+              {contactVal && <p className="text-xs text-ink-500">Contact: {contactVal}</p>}
               {invoice.Customer_Address && invoice.Customer_Address !== '-' && (
-                <p className="text-xs text-slate-500 mt-0.5">{invoice.Customer_Address}</p>
+                <p className="text-xs text-ink-500 mt-0.5">{invoice.Customer_Address}</p>
               )}
             </div>
           </div>
 
           {/* Items table */}
-          <div className="rounded-xl overflow-hidden border border-slate-200 mb-6">
+          <div className="rounded-xl overflow-hidden border border-ink-200 mb-6">
             <div
-              className="grid text-[9px] font-black text-white uppercase tracking-wide px-4 py-3"
+              className="grid text-2xs font-black text-white uppercase tracking-wide px-4 py-3"
               style={{ backgroundColor: accent, gridTemplateColumns: '32px 1fr 44px 80px 80px' }}
             >
               <span>ID</span>
@@ -491,28 +492,28 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
             {items.length > 0 ? items.map((item, idx) => (
               <div
                 key={item.Item_ID || idx}
-                className="grid px-4 py-2.5 text-[11px] border-t border-slate-100"
+                className="grid px-4 py-2.5 text-2xs border-t border-ink-100"
                 style={{
                   gridTemplateColumns: '32px 1fr 44px 80px 80px',
                   backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f9fafb',
                 }}
               >
-                <span className="text-slate-500 font-bold">{idx + 1}</span>
-                <span className="text-slate-800">{item.Item_Name}</span>
-                <span className="text-center text-slate-700 font-mono">{item.Quantity}</span>
-                <span className="text-right text-slate-700 font-mono">{(Number(item.Price) || 0).toFixed(2)}</span>
-                <span className="text-right text-slate-900 font-mono font-bold">{(Number(item.Subtotal) || 0).toFixed(2)}</span>
+                <span className="text-ink-500 font-bold">{idx + 1}</span>
+                <span className="text-ink-800">{item.Item_Name}</span>
+                <span className="text-center text-ink-700 font-mono">{item.Quantity}</span>
+                <span className="text-right text-ink-700 font-mono">{(Number(item.Price) || 0).toFixed(2)}</span>
+                <span className="text-right text-ink-900 font-mono font-bold">{(Number(item.Subtotal) || 0).toFixed(2)}</span>
               </div>
             )) : (
               <div
-                className="grid px-4 py-3 text-[11px] border-t border-slate-100 bg-white"
+                className="grid px-4 py-3 text-2xs border-t border-ink-100 bg-white"
                 style={{ gridTemplateColumns: '32px 1fr 44px 80px 80px' }}
               >
-                <span className="text-slate-400">—</span>
-                <span className="text-slate-400 italic">No itemised line records</span>
+                <span className="text-ink-500">—</span>
+                <span className="text-ink-500 italic">No itemised line records</span>
                 <span />
                 <span />
-                <span className="text-right font-mono font-bold text-slate-800">
+                <span className="text-right font-mono font-bold text-ink-800">
                   {fmt(invoice.Total_Amount)}
                 </span>
               </div>
@@ -524,26 +525,26 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
             <div className="flex-1 space-y-3">
               {outletCfg.payment_info && (
                 <div>
-                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1">Remittance Instructions</p>
-                  <p className="text-sm font-bold text-slate-800">{outletCfg.payment_info}</p>
+                  <p className="text-[8px] font-bold text-ink-500 uppercase tracking-widest mb-1">Remittance Instructions</p>
+                  <p className="text-sm font-bold text-ink-800">{outletCfg.payment_info}</p>
                 </div>
               )}
               {invoice.Notes?.trim() && (
                 <div>
-                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1">Remarks</p>
-                  <p className="text-xs text-slate-600 leading-relaxed">{invoice.Notes}</p>
+                  <p className="text-[8px] font-bold text-ink-500 uppercase tracking-widest mb-1">Remarks</p>
+                  <p className="text-xs text-ink-600 leading-relaxed">{invoice.Notes}</p>
                 </div>
               )}
             </div>
 
-            <div className="w-56 border border-slate-200 rounded-xl p-4 bg-gray-50 self-start space-y-2 flex-shrink-0">
+            <div className="w-56 border border-ink-200 rounded-xl p-4 bg-ink-50 self-start space-y-2 flex-shrink-0">
               <div className="flex justify-between text-xs">
-                <span className="text-slate-500">Subtotal Amount:</span>
-                <span className="font-mono font-bold text-slate-700">{fmt(subtotal)}</span>
+                <span className="text-ink-500">Subtotal Amount:</span>
+                <span className="font-mono font-bold text-ink-700">{fmt(subtotal)}</span>
               </div>
               {(invoice.Discount_Value ?? 0) > 0 && (
                 <div className="flex justify-between text-xs">
-                  <span className="text-slate-500">Discount:</span>
+                  <span className="text-ink-500">Discount:</span>
                   <span className="font-mono font-bold text-red-500">
                     {invoice.Discount_Type === 'percentage'
                       ? `-${invoice.Discount_Value}%`
@@ -551,8 +552,8 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                   </span>
                 </div>
               )}
-              <div className="flex justify-between items-center pt-1.5 border-t border-slate-200">
-                <span className="text-sm font-black text-slate-900">Grand Total:</span>
+              <div className="flex justify-between items-center pt-1.5 border-t border-ink-200">
+                <span className="text-sm font-black text-ink-900">Grand Total:</span>
                 <span className="text-sm font-black font-mono" style={{ color: accent }}>
                   {outletCfg.currency}{' '}
                   {(Number(invoice.Total_Amount) || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
@@ -563,9 +564,9 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
         </div>
 
         {/* Footer band */}
-        <div className="border-t border-slate-200 px-10 py-3 bg-gray-50 text-center space-y-0.5">
-          <p className="text-[10px] italic text-slate-500">{outletCfg.footer_text}</p>
-          <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">
+        <div className="border-t border-ink-200 px-10 py-3 bg-ink-50 text-center space-y-0.5">
+          <p className="text-2xs italic text-ink-500">{outletCfg.footer_text}</p>
+          <p className="text-[8px] font-bold text-ink-500 uppercase tracking-widest">
             Generated Securely by BizEazyInvoicing
           </p>
         </div>

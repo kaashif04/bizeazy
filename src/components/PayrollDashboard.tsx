@@ -717,15 +717,15 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 
-            className="text-xl font-bold tracking-tight text-slate-900 dark:text-gray-100 flex items-center gap-2"
+            className="text-xl font-bold tracking-tight text-ink-900 dark:text-ink-100 flex items-center gap-2"
           >
             <Users 
-              className="w-5 h-5 text-indigo-500" 
+              className="w-5 h-5 text-brand-500" 
             />
             Payroll & Employee Management
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-            Outlet Specific: <span className="text-slate-900 dark:text-white font-black">{activeBranchLocation}</span> | Total Registered Staff: {activeBranchEmployees.length}
+          <p className="text-xs text-ink-500 dark:text-ink-400 font-medium">
+            Outlet Specific: <span className="text-ink-900 dark:text-white font-black">{activeBranchLocation}</span> | Total Registered Staff: {activeBranchEmployees.length}
           </p>
         </div>
 
@@ -735,7 +735,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
             <button
               id="add-employee-btn"
               onClick={() => handleOpenEmployeeModal()}
-              className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold tracking-tight text-xs px-3.5 py-1.5 rounded-lg cursor-pointer transition-colors border border-transparent shadow-sm"
+              className="flex items-center gap-1 bg-brand-600 hover:bg-brand-700 text-white font-extrabold tracking-tight text-xs px-3.5 py-2.5 rounded-lg cursor-pointer transition-colors border border-transparent shadow-sm"
             >
               <UserPlus className="w-3.5 h-3.5" />
               <span>Add Employee</span>
@@ -747,7 +747,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
             <button
               id="generate-slips-btn"
               onClick={handleOpenGenerator}
-              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold tracking-tight text-xs px-3.5 py-1.5 rounded-lg cursor-pointer transition-colors shadow-sm border border-transparent"
+              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold tracking-tight text-xs px-3.5 py-2.5 rounded-lg cursor-pointer transition-colors shadow-sm border border-transparent"
               title="Open the Malaysian Payslip compilation workspace."
             >
               <Coins className="w-3.5 h-3.5" />
@@ -759,7 +759,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
 
       {/* Roster Search bar */}
       <div className="relative max-w-md">
-        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-ink-500">
           <Search className="w-4 h-4" />
         </span>
         <input 
@@ -767,10 +767,10 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
           placeholder="Search employees by name, passport or position..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className={`w-full pl-9 pr-4 py-2 text-xs rounded-lg border focus:ring-1 focus:ring-indigo-500 transition-colors ${
+          className={`w-full pl-9 pr-4 py-2 text-xs rounded-lg border focus:ring-1 focus:ring-brand-500 transition-colors ${
             isDarkMode 
-              ? 'bg-slate-900 border-slate-700 text-slate-100 focus:border-indigo-500' 
-              : 'bg-white border-gray-300 text-gray-950 focus:border-indigo-500 font-semibold'
+              ? 'bg-ink-900 border-ink-700 text-ink-100 focus:border-brand-500' 
+              : 'bg-white border-ink-300 text-ink-950 focus:border-brand-500 font-semibold'
           }`}
         />
       </div>
@@ -782,7 +782,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
         return (
           <div className={`rounded-2xl border p-4 mb-4 space-y-2 ${
             isDarkMode
-              ? 'bg-slate-900/50 border-slate-800'
+              ? 'bg-ink-900/50 border-ink-800'
               : 'bg-amber-50/60 border-amber-200'
           }`}>
             <div className="flex items-center gap-2 mb-3">
@@ -811,34 +811,34 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       ? 'bg-amber-950/30 border-amber-800'
                       : 'bg-amber-50 border-amber-200')
                   : (isDarkMode
-                      ? 'bg-slate-800 border-slate-700'
-                      : 'bg-white border-gray-200')
+                      ? 'bg-ink-800 border-ink-700'
+                      : 'bg-white border-ink-200')
               }`}>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className={`text-xs font-black ${
-                      isDarkMode ? 'text-white' : 'text-gray-900'
+                      isDarkMode ? 'text-white' : 'text-ink-900'
                     }`}>{r.employee.Employee_Name}</p>
-                    <span className={`text-[9px] font-bold px-2 py-0.5
+                    <span className={`text-2xs font-bold px-2 py-0.5
                       rounded-full ${
                       isDarkMode
-                        ? 'bg-slate-700 text-slate-300'
-                        : 'bg-gray-100 text-gray-600'
+                        ? 'bg-ink-700 text-ink-300'
+                        : 'bg-ink-100 text-ink-600'
                     }`}>{r.monthLabel}</span>
                     {r.paymentDone && (
-                      <span className="text-[9px] font-bold px-2 py-0.5
+                      <span className="text-2xs font-bold px-2 py-0.5
                         rounded-full bg-emerald-100 text-emerald-700
                         dark:bg-emerald-900/40 dark:text-emerald-400">
                         ✓ Payment Confirmed
                       </span>
                     )}
                   </div>
-                  <p className={`text-[10px] mt-0.5 ${
+                  <p className={`text-2xs mt-0.5 ${
                     r.isOverdue
                       ? 'text-rose-500 font-bold'
                       : r.daysUntilDeadline <= 2
                       ? 'text-amber-600 dark:text-amber-400 font-bold'
-                      : (isDarkMode ? 'text-slate-400' : 'text-gray-500')
+                      : (isDarkMode ? 'text-ink-500' : 'text-ink-500')
                   }`}>
                     {r.paymentDone
                       ? 'Wages transferred — payslip archived.'
@@ -851,9 +851,9 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                   {!r.payslipSaved && (
                     <button
                       onClick={() => handleOpenGenerator(r.monthLabel)}
-                      className="px-3 py-1.5 text-[10px] font-bold rounded-lg
-                        cursor-pointer bg-indigo-600 hover:bg-indigo-700
-                        text-white transition-colors"
+                      className="px-3.5 py-2.5 text-2xs font-bold rounded-lg
+                        cursor-pointer bg-brand-600 hover:bg-brand-700
+                        active:bg-brand-800 text-white transition-colors"
                     >
                       Generate Payslip
                     </button>
@@ -882,7 +882,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                           setTransferDateInput(new Date().toISOString().slice(0, 10));
                         }
                       }}
-                      className="px-3 py-1.5 text-[10px] font-bold rounded-lg
+                      className="px-3 py-1.5 text-2xs font-bold rounded-lg
                         cursor-pointer bg-emerald-600 hover:bg-emerald-700
                         text-white transition-colors"
                     >
@@ -898,17 +898,87 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
 
       {/* Roster Grid and Table */}
       {filteredEmployees.length === 0 ? (
-        <div className={`p-10 text-center rounded-2xl border border-dashed ${isDarkMode ? 'border-slate-800 bg-slate-900/30' : 'border-slate-350 bg-white shadow-sm'}`}>
-          <Users className="w-8 h-8 text-slate-900 dark:text-white mx-auto mb-3" />
-          <h3 className="text-xs font-bold text-slate-900 dark:text-white">No Employees Found</h3>
-          <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-1 max-w-sm mx-auto">
+        <div className={`p-10 text-center rounded-2xl border border-dashed ${isDarkMode ? 'border-ink-800 bg-ink-900/30' : 'border-ink-300 bg-white shadow-sm'}`}>
+          <Users className="w-8 h-8 text-ink-900 dark:text-white mx-auto mb-3" />
+          <h3 className="text-xs font-bold text-ink-900 dark:text-white">No Employees Found</h3>
+          <p className="text-2xs text-ink-600 dark:text-ink-400 mt-1 max-w-sm mx-auto">
             {searchTerm.trim() ? "Matches were not found. Try clearing your search parameters." : "Click the 'Add Employee' button to register staff on this branch."}
           </p>
         </div>
       ) : (
-        <div className={`overflow-x-auto rounded-xl border ${isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-gray-200 bg-white shadow-sm'}`}>
+        <div className={`rounded-xl border ${isDarkMode ? 'border-ink-800 bg-ink-900' : 'border-ink-200 bg-white shadow-sm'}`}>
+          {/* Phone: one card per employee. Six columns of horizontal scroll is
+              not a roster anyone can check during service. */}
+          <ul className="md:hidden divide-y divide-ink-100 dark:divide-ink-800">
+            {filteredEmployees.map((employee) => (
+              <li key={employee.Employee_ID} className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-brand-50 dark:bg-brand-950/50 flex items-center justify-center text-sm font-black text-brand-700 dark:text-brand-300 flex-shrink-0 uppercase">
+                    {employee.Employee_Name.charAt(0)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-ink-900 dark:text-white truncate">{employee.Employee_Name}</p>
+                    <p className="text-2xs text-ink-500 dark:text-ink-400 font-mono mt-0.5 truncate">
+                      {employee.Employee_ID} · {employee.IC_Passport}
+                    </p>
+                    <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-2xs font-bold bg-ink-100 dark:bg-ink-800 text-ink-700 dark:text-ink-200">
+                        <Briefcase className="w-3 h-3" />
+                        {employee.Position}
+                      </span>
+                      <span className={`px-1.5 py-0.5 rounded-full text-2xs font-bold ${employee.Citizenship === 'Foreigner' ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300' : 'bg-ink-100 dark:bg-ink-800 text-ink-600 dark:text-ink-300'}`}>
+                        {employee.Citizenship || 'Malaysian/PR'}
+                      </span>
+                      {employee.Employer_Bears_Statutory && (
+                        <span className="px-1.5 py-0.5 rounded-full text-2xs font-bold bg-brand-100 dark:bg-brand-900/50 text-brand-700 dark:text-brand-300">
+                          Statutory borne
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-sm font-black font-mono text-ink-900 dark:text-white tabular flex-shrink-0">
+                    RM {employee.Basic_Salary.toFixed(2)}
+                  </p>
+                </div>
+                {employee.Bank_Details && (
+                  <p className="text-2xs text-ink-500 dark:text-ink-400 font-mono mt-2 truncate" title={employee.Bank_Details}>
+                    {employee.Bank_Details}
+                  </p>
+                )}
+                <div className={`grid gap-2 mt-3 ${isStaff ? 'grid-cols-1' : 'grid-cols-3'}`}>
+                  <button
+                    onClick={() => processCalculateSelectedPayslip(employee)}
+                    className="tap flex items-center justify-center gap-1.5 rounded-lg text-2xs font-bold cursor-pointer transition-colors bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-950/70"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    Payslip
+                  </button>
+                  {!isStaff && (
+                    <button
+                      onClick={() => handleOpenEmployeeModal(employee)}
+                      className="tap flex items-center justify-center gap-1.5 rounded-lg text-2xs font-bold cursor-pointer transition-colors bg-ink-100 dark:bg-ink-800 text-ink-700 dark:text-ink-200 hover:bg-ink-200 dark:hover:bg-ink-700"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                      Edit
+                    </button>
+                  )}
+                  {!isStaff && (
+                    <button
+                      onClick={() => handleDeleteEmployee(employee.Employee_ID)}
+                      className="tap flex items-center justify-center gap-1.5 rounded-lg text-2xs font-bold cursor-pointer transition-colors bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-950/70"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full text-left text-xs">
-            <thead className={`border-b text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'bg-slate-950/40 border-slate-800 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+            <thead className={`border-b text-2xs font-bold uppercase tracking-wider ${isDarkMode ? 'bg-ink-950/40 border-ink-800 text-ink-500' : 'bg-ink-50 border-ink-200 text-ink-700'}`}>
               <tr>
                 <th className="px-5 py-3">Employee Name</th>
                 <th className="px-5 py-3">IC / Passport</th>
@@ -918,28 +988,28 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                 <th className="px-5 py-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
               {filteredEmployees.map((employee) => {
                 const payslipIdPart = `${employee.Employee_ID}-${selectedMonthYear.replace(' ', '-')}`;
                 const savedSlipInMonth = activeBranchPayslips.find(p => p.Employee_ID === employee.Employee_ID && p.Month_Year === selectedMonthYear);
 
                 return (
-                  <tr key={employee.Employee_ID} className="hover:bg-slate-50/50 dark:hover:bg-slate-850/40 transition-colors">
-                    <td className="px-5 py-4 font-semibold text-slate-900 dark:text-gray-100 flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 flex items-center justify-center text-xs text-indigo-650 dark:text-indigo-450 font-black uppercase">
+                  <tr key={employee.Employee_ID} className="hover:bg-ink-50/50 dark:hover:bg-ink-800/40 transition-colors">
+                    <td className="px-5 py-4 font-semibold text-ink-900 dark:text-ink-100 flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-brand-50 dark:bg-brand-950/50 flex items-center justify-center text-xs text-brand-700 dark:text-brand-500 font-black uppercase">
                         {employee.Employee_Name.charAt(0)}
                       </div>
                       <div>
-                        <div className="font-bold text-slate-900 dark:text-white">{employee.Employee_Name}</div>
-                        <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5 font-medium">
+                        <div className="font-bold text-ink-900 dark:text-white">{employee.Employee_Name}</div>
+                        <div className="text-2xs text-ink-500 dark:text-ink-400 flex items-center gap-1.5 mt-0.5 font-medium">
                           <span>{employee.Employee_ID}</span>
                           <span>•</span>
-                          <span className={`px-1 rounded text-[9px] font-bold ${employee.Citizenship === 'Foreigner' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400' : 'bg-blue-100 dark:bg-blue-900/40 text-blue-750 dark:text-blue-450'}`}>
+                          <span className={`px-1 rounded text-2xs font-bold ${employee.Citizenship === 'Foreigner' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400' : 'bg-ink-100 dark:bg-ink-800 text-ink-600 dark:text-ink-300'}`}>
                             {employee.Citizenship || 'Malaysian/PR'}
                           </span>
                           {employee.Employer_Bears_Statutory && (
                             <span
-                              className="px-1 rounded text-[9px] font-bold bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400"
+                              className="px-1 rounded text-2xs font-bold bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-400"
                               title="Employer bears this employee's EPF/SOCSO/EIS share — net pay equals gross pay minus non-statutory deductions"
                             >
                               EPF/SOCSO Borne
@@ -948,17 +1018,17 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-4 text-slate-500 dark:text-slate-400 font-medium font-mono">{employee.IC_Passport}</td>
+                    <td className="px-5 py-4 text-ink-500 dark:text-ink-400 font-medium font-mono">{employee.IC_Passport}</td>
                     <td className="px-5 py-4">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-50 border border-slate-350 dark:border-slate-800 dark:bg-slate-800 text-slate-900 dark:text-slate-300">
-                        <Briefcase className="w-3 h-3 text-slate-500" />
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-bold bg-ink-50 border border-ink-300 dark:border-ink-800 dark:bg-ink-800 text-ink-900 dark:text-ink-300">
+                        <Briefcase className="w-3 h-3 text-ink-500" />
                         {employee.Position}
                       </span>
                     </td>
-                    <td className="px-5 py-4 font-black text-slate-900 dark:text-white">
+                    <td className="px-5 py-4 font-black text-ink-900 dark:text-white">
                       RM {employee.Basic_Salary.toFixed(2)}
                     </td>
-                    <td className="px-5 py-4 text-slate-550 dark:text-slate-400 font-medium max-w-xs truncate" title={employee.Bank_Details}>
+                    <td className="px-5 py-4 text-ink-500 dark:text-ink-400 font-medium max-w-xs truncate" title={employee.Bank_Details}>
                       {employee.Bank_Details || '-'}
                     </td>
                     <td className="px-5 py-4 text-right">
@@ -966,7 +1036,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                         {/* Calculate Preview Shortcut */}
                         <button
                           onClick={() => processCalculateSelectedPayslip(employee)}
-                          className="p-1 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 rounded-md cursor-pointer transition-colors text-[10px] font-bold flex items-center gap-1"
+                          className="p-1 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 rounded-md cursor-pointer transition-colors text-2xs font-bold flex items-center gap-1"
                           title="Calculate and View Payslip Document Details."
                         >
                           <FileText className="w-3.5 h-3.5" />
@@ -977,7 +1047,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                         {!isStaff && (
                           <button
                             onClick={() => handleOpenEmployeeModal(employee)}
-                            className="p-1 text-indigo-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 rounded-md cursor-pointer transition-colors"
+                            className="p-1 text-brand-500 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/20 rounded-md cursor-pointer transition-colors"
                             title="Edit Employee Information Details."
                           >
                             <Edit className="w-3.5 h-3.5" />
@@ -1001,27 +1071,28 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
       {/* Registry of History Month Payslips */}
-      <div className={`p-5 rounded-2xl border ${isDarkMode ? 'bg-slate-900/30 border-slate-800' : 'bg-gray-50/50 border-gray-200'}`}>
+      <div className={`p-5 rounded-2xl border ${isDarkMode ? 'bg-ink-900/30 border-ink-800' : 'bg-ink-50/50 border-ink-200'}`}>
         <div className="flex items-start justify-between mb-4 gap-3 flex-wrap">
           <div>
-            <h3 className="text-xs font-bold text-slate-900 dark:text-slate-200 uppercase tracking-wider">
+            <h3 className="text-xs font-bold text-ink-900 dark:text-ink-200 uppercase tracking-wider">
               Past Payslip Archive
             </h3>
-            <p className="text-[10px] text-gray-500 dark:text-slate-400 mt-1 font-medium">
+            <p className="text-2xs text-ink-500 dark:text-ink-400 mt-1 font-medium">
               View and re-print previously saved payslips.
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Filter Month:</label>
+            <label className="text-2xs font-bold text-ink-500 uppercase tracking-wider">Filter Month:</label>
             <select
               value={archiveFilterMonth}
               onChange={e => setArchiveFilterMonth(e.target.value)}
-              className={`text-xs font-semibold rounded-lg border px-2.5 py-1.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-gray-200 text-gray-800'
+              className={`text-xs font-semibold rounded-lg border px-2.5 py-1.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-brand-500 ${
+                isDarkMode ? 'bg-ink-800 border-ink-700 text-ink-200' : 'bg-white border-ink-200 text-ink-800'
               }`}
             >
               <option value="__all__">All Months</option>
@@ -1063,7 +1134,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
           if (filtered.length === 0) {
             return (
               <div className="text-center py-6">
-                <p className="text-[11px] text-slate-400 font-medium">
+                <p className="text-2xs text-ink-500 font-medium">
                   No saved payslips found{archiveFilterMonth !== '__all__' ? ` for ${archiveFilterMonth}` : ''} in this branch.
                 </p>
               </div>
@@ -1074,12 +1145,12 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               {filtered.map(slip => {
                 const matchedEmp = db.employees.find(e => e.Employee_ID === slip.Employee_ID);
                 return (
-                  <div key={slip.Payslip_ID} className={`p-3 rounded-lg border flex items-center justify-between gap-4 transition-all duration-150 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                  <div key={slip.Payslip_ID} className={`p-3 rounded-lg border flex items-center justify-between gap-4 transition-all duration-150 ${isDarkMode ? 'bg-ink-900 border-ink-800' : 'bg-white border-ink-200 shadow-sm'}`}>
                     <div className="min-w-0">
-                      <h4 className="text-[11px] font-bold text-gray-900 dark:text-gray-100 truncate max-w-[150px]">
+                      <h4 className="text-2xs font-bold text-ink-900 dark:text-ink-100 truncate max-w-[150px]">
                         {matchedEmp?.Employee_Name || "Unregistered Employee"}
                       </h4>
-                      <p className="text-[9px] font-semibold text-slate-400 mt-0.5">{(() => {
+                      <p className="text-2xs font-semibold text-ink-500 mt-0.5">{(() => {
                         const raw = slip.Month_Year || slip.Issue_Date || '';
                         if (raw.includes('T') || /^\d{4}-\d{2}/.test(raw)) {
                           const d = new Date(raw);
@@ -1089,14 +1160,14 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                         }
                         return raw || '-';
                       })()}</p>
-                      <div className="text-[11px] font-bold text-indigo-500 mt-0.5">RM {slip.Final_Net_Pay.toFixed(2)}</div>
+                      <div className="text-2xs font-bold text-brand-500 mt-0.5">RM {slip.Final_Net_Pay.toFixed(2)}</div>
                       {slip.Payment_Transferred ? (
-                        <span className="text-[9px] font-bold text-emerald-600
+                        <span className="text-2xs font-bold text-emerald-600
                           dark:text-emerald-400 flex items-center gap-1">
                           ✓ Wages Transferred {slip.Transfer_Date ? `· ${slip.Transfer_Date}` : ''}
                         </span>
                       ) : (
-                        <span className="text-[9px] font-bold text-amber-500
+                        <span className="text-2xs font-bold text-amber-500
                           dark:text-amber-400">
                           ⏳ Payment Pending
                         </span>
@@ -1112,7 +1183,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                             triggerToast("Cannot find related roster registration.", "error");
                           }
                         }}
-                        className="flex p-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400 rounded-md text-[10px] font-bold items-center gap-1 transition-colors cursor-pointer"
+                        className="flex p-1 bg-brand-50 hover:bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-400 rounded-md text-2xs font-bold items-center gap-1 transition-colors cursor-pointer"
                       >
                         <FileText className="w-3.5 h-3.5" />
                         <span>View</span>
@@ -1123,7 +1194,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                             setMarkPaymentPayslip(slip);
                             setTransferDateInput(new Date().toISOString().slice(0, 10));
                           }}
-                          className="flex p-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 rounded-md text-[10px] font-bold items-center gap-1 transition-colors cursor-pointer"
+                          className="flex p-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 rounded-md text-2xs font-bold items-center gap-1 transition-colors cursor-pointer"
                         >
                           <span>✓ Mark Paid</span>
                         </button>
@@ -1140,14 +1211,14 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       {/* --- MODAL 1: ADD / EDIT EMPLOYEE --- */}
       {isEmployeeModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
-          <div className={`w-full max-w-md p-6 rounded-2xl shadow-xl transition-all ${isDarkMode ? 'bg-slate-900 border border-slate-800 text-slate-100' : 'bg-white border border-slate-200 text-slate-900'}`}>
-            <div className="flex items-center justify-between mb-4 border-b pb-3 dark:border-slate-800 border-slate-100">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-indigo-500">
+          <div className={`w-full max-w-md p-6 rounded-2xl shadow-xl transition-all ${isDarkMode ? 'bg-ink-900 border border-ink-800 text-ink-100' : 'bg-white border border-ink-200 text-ink-900'}`}>
+            <div className="flex items-center justify-between mb-4 border-b pb-3 dark:border-ink-800 border-ink-100">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-brand-500">
                 {editingEmployee ? "Edit Employee Details" : "Register New Employee"}
               </h3>
               <button 
                 onClick={() => setIsEmployeeModalOpen(false)}
-                className="p-1.5 hover:bg-slate-105 dark:hover:bg-slate-800 rounded-lg cursor-pointer text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
+                className="p-1.5 hover:bg-ink-100 dark:hover:bg-ink-800 rounded-lg cursor-pointer text-ink-500 hover:text-ink-700 dark:text-ink-400 dark:hover:text-ink-300"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1155,7 +1226,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
 
             <form onSubmit={handleSaveEmployee} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-bold uppercase text-slate-705 dark:text-slate-300 mb-1">Employee Full Name *</label>
+                <label className="block text-2xs font-bold uppercase text-ink-700 dark:text-ink-300 mb-1">Employee Full Name *</label>
                 <input 
                   type="text"
                   required
@@ -1163,14 +1234,14 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                   value={empName}
                   onChange={(e) => setEmpName(e.target.value)}
                   className={`w-full p-2.5 text-xs rounded-lg border ${
-                    isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-100 focus:border-indigo-500' : 'bg-white border-slate-300 text-slate-900 font-semibold focus:border-indigo-500'
+                    isDarkMode ? 'bg-ink-950 border-ink-800 text-ink-100 focus:border-brand-500' : 'bg-white border-ink-300 text-ink-900 font-semibold focus:border-brand-500'
                   }`}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] font-bold uppercase text-slate-705 dark:text-slate-300 mb-1">IC / Passport Number *</label>
+                  <label className="block text-2xs font-bold uppercase text-ink-700 dark:text-ink-300 mb-1">IC / Passport Number *</label>
                   <input 
                     type="text"
                     required
@@ -1178,12 +1249,12 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                     value={empIC}
                     onChange={(e) => setEmpIC(e.target.value)}
                     className={`w-full p-2.5 text-xs rounded-lg border ${
-                      isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-100 focus:border-indigo-500' : 'bg-white border-slate-300 text-slate-900 font-semibold focus:border-indigo-500'
+                      isDarkMode ? 'bg-ink-950 border-ink-800 text-ink-100 focus:border-brand-500' : 'bg-white border-ink-300 text-ink-900 font-semibold focus:border-brand-500'
                     }`}
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold uppercase text-slate-705 dark:text-slate-300 mb-1">Position *</label>
+                  <label className="block text-2xs font-bold uppercase text-ink-700 dark:text-ink-300 mb-1">Position *</label>
                   <input 
                     type="text"
                     required
@@ -1191,34 +1262,34 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                     value={empPosition}
                     onChange={(e) => setEmpPosition(e.target.value)}
                     className={`w-full p-2.5 text-xs rounded-lg border ${
-                      isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-100 focus:border-indigo-500' : 'bg-white border-slate-300 text-slate-900 font-semibold focus:border-indigo-500'
+                      isDarkMode ? 'bg-ink-950 border-ink-800 text-ink-100 focus:border-brand-500' : 'bg-white border-ink-300 text-ink-900 font-semibold focus:border-brand-500'
                     }`}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold uppercase text-slate-705 dark:text-slate-300 mb-2">Citizenship Status *</label>
+                <label className="block text-2xs font-bold uppercase text-ink-700 dark:text-ink-300 mb-2">Citizenship Status *</label>
                 <div className="flex gap-4">
-                  <label className="flex items-center gap-2 text-xs text-slate-900 dark:text-white font-medium cursor-pointer">
+                  <label className="flex items-center gap-2 text-xs text-ink-900 dark:text-white font-medium cursor-pointer">
                     <input 
                       type="radio" 
                       name="citizenship" 
                       value="Malaysian/PR"
                       checked={empCitizenship === 'Malaysian/PR'}
                       onChange={() => setEmpCitizenship('Malaysian/PR')}
-                      className="cursor-pointer accent-indigo-600 font-black"
+                      className="cursor-pointer accent-brand-600 font-black"
                     />
                     <span>Malaysian / PR</span>
                   </label>
-                  <label className="flex items-center gap-2 text-xs text-slate-900 dark:text-white font-medium cursor-pointer">
+                  <label className="flex items-center gap-2 text-xs text-ink-900 dark:text-white font-medium cursor-pointer">
                     <input 
                       type="radio" 
                       name="citizenship" 
                       value="Foreigner"
                       checked={empCitizenship === 'Foreigner'}
                       onChange={() => setEmpCitizenship('Foreigner')}
-                      className="cursor-pointer accent-indigo-600 font-black"
+                      className="cursor-pointer accent-brand-600 font-black"
                     />
                     <span>Foreigner</span>
                   </label>
@@ -1226,26 +1297,26 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               </div>
 
               <div className={`p-3 rounded-xl border ${
-                isDarkMode ? 'bg-slate-950/50 border-slate-800' : 'bg-indigo-50/50 border-indigo-200'
+                isDarkMode ? 'bg-ink-950/50 border-ink-800' : 'bg-brand-50/50 border-brand-200'
               }`}>
                 <label className="flex items-start gap-2.5 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={empBearsStatutory}
                     onChange={(e) => setEmpBearsStatutory(e.target.checked)}
-                    className="mt-0.5 cursor-pointer accent-indigo-600 w-3.5 h-3.5 shrink-0"
+                    className="mt-0.5 cursor-pointer accent-brand-600 w-3.5 h-3.5 shrink-0"
                   />
-                  <span className="text-xs font-bold text-slate-900 dark:text-white leading-snug">
+                  <span className="text-xs font-bold text-ink-900 dark:text-white leading-snug">
                     Employer bears this employee's EPF, SOCSO &amp; EIS share
                   </span>
                 </label>
-                <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
+                <p className="text-2xs text-ink-500 dark:text-ink-400 mt-1.5 leading-relaxed">
                   Statutory deductions are still calculated &amp; remitted normally. The payslip adds an offsetting earnings line so the employee receives their full stated salary. Confirm with your payroll agent before use.
                 </p>
               </div>
 
               <div>
-                <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Age (for statutory rates)</label>
+                <label className="block text-2xs font-bold text-ink-500 uppercase mb-1">Age (for statutory rates)</label>
                 <input
                   type="number"
                   min={18}
@@ -1255,19 +1326,19 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                   placeholder="e.g. 35"
                   className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none ${
                     isDarkMode
-                      ? 'bg-slate-950 border-slate-800 text-slate-100'
-                      : 'bg-gray-50 border-gray-200 text-gray-900'
+                      ? 'bg-ink-950 border-ink-800 text-ink-100'
+                      : 'bg-ink-50 border-ink-200 text-ink-900'
                   }`}
                 />
-                <p className="text-[9px] text-slate-400 mt-0.5">
+                <p className="text-2xs text-ink-500 mt-0.5">
                   Affects EPF bracket (60+), SOCSO category, and EIS eligibility (18–60 locals only)
                 </p>
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold uppercase text-slate-705 dark:text-slate-300 mb-1">Basic Monthly Salary (RM) *</label>
+                <label className="block text-2xs font-bold uppercase text-ink-700 dark:text-ink-300 mb-1">Basic Monthly Salary (RM) *</label>
                 <div className="relative">
-                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 text-xs font-bold font-mono">RM</span>
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-ink-500 text-xs font-bold font-mono">RM</span>
                   <input 
                     type="number"
                     required
@@ -1277,15 +1348,15 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                     value={empSalary}
                     onChange={(e) => setEmpSalary(Number(e.target.value))}
                     className={`w-full pl-9 pr-3 py-2.5 text-xs rounded-lg border ${
-                      isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-100 focus:border-indigo-500 font-mono' : 'bg-white border-slate-300 text-slate-900 font-semibold focus:border-indigo-500 font-mono'
+                      isDarkMode ? 'bg-ink-950 border-ink-800 text-ink-100 focus:border-brand-500 font-mono' : 'bg-white border-ink-300 text-ink-900 font-semibold focus:border-brand-500 font-mono'
                     }`}
                   />
                 </div>
-                <p className="text-[9px] text-slate-500 dark:text-slate-400 font-semibold mt-1">Malaysian national minimum wage requirement is RM 1,700.</p>
+                <p className="text-2xs text-ink-500 dark:text-ink-400 font-semibold mt-1">Malaysian national minimum wage requirement is RM 1,700.</p>
               </div>
 
               <div>
-                <label className="block text-[9px] font-bold text-gray-400
+                <label className="block text-2xs font-bold text-ink-500
                   uppercase mb-1">Joining Date *</label>
                 <input
                   type="date"
@@ -1293,40 +1364,40 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                   onChange={e => setEmpJoiningDate(e.target.value)}
                   max={new Date().toISOString().split('T')[0]}
                   className={`w-full px-2.5 py-2 text-xs rounded-lg border
-                    focus:outline-none focus:ring-1 focus:ring-indigo-500
+                    focus:outline-none focus:ring-1 focus:ring-brand-500
                     ${isDarkMode
-                      ? 'bg-slate-900 border-slate-700 text-slate-100 [color-scheme:dark]'
-                      : 'bg-white border-gray-200 text-gray-800 [color-scheme:light]'}`}
+                      ? 'bg-ink-900 border-ink-700 text-ink-100 [color-scheme:dark]'
+                      : 'bg-white border-ink-200 text-ink-800 [color-scheme:light]'}`}
                 />
-                <p className="text-[9px] text-slate-400 mt-0.5">
+                <p className="text-2xs text-ink-500 mt-0.5">
                   Used to calculate first payslip eligibility
                 </p>
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold uppercase text-slate-750 dark:text-slate-300 mb-1">Bank Name & Details *</label>
+                <label className="block text-2xs font-bold uppercase text-ink-700 dark:text-ink-300 mb-1">Bank Name & Details *</label>
                 <textarea 
                   placeholder="e.g. Maybank SAVINGS: 1640-1234-5678"
                   value={empBank}
                   onChange={(e) => setEmpBank(e.target.value)}
                   className={`w-full p-2.5 text-xs rounded-lg border h-16 ${
-                    isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-100 focus:border-indigo-500' : 'bg-white border-slate-300 text-slate-900 font-semibold focus:border-indigo-500'
+                    isDarkMode ? 'bg-ink-950 border-ink-800 text-ink-100 focus:border-brand-500' : 'bg-white border-ink-300 text-ink-900 font-semibold focus:border-brand-500'
                   }`}
                 />
               </div>
 
-              <div className="pt-3 border-t dark:border-slate-800 border-slate-100 flex justify-end gap-2">
+              <div className="pt-3 border-t dark:border-ink-800 border-ink-100 flex justify-end gap-2">
                 <button 
                   type="button"
                   onClick={() => setIsEmployeeModalOpen(false)}
-                  className="px-4 py-2 text-xs font-black rounded-lg bg-white text-slate-700 hover:bg-slate-100 dark:bg-transparent dark:text-white dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-650 cursor-pointer shadow-xs transition-colors"
+                  className="px-4 py-2 text-xs font-black rounded-lg bg-white text-ink-700 hover:bg-ink-100 dark:bg-transparent dark:text-white dark:hover:bg-ink-800 border border-ink-300 dark:border-ink-600 cursor-pointer shadow-xs transition-colors"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit"
                   disabled={isSyncing}
-                  className="px-4 py-2 text-xs font-bold text-white rounded-lg bg-indigo-600 hover:bg-indigo-700 cursor-pointer flex items-center gap-1.5 shadow-sm transition-colors"
+                  className="px-4 py-2 text-xs font-bold text-white rounded-lg bg-brand-600 hover:bg-brand-700 cursor-pointer flex items-center gap-1.5 shadow-sm transition-colors"
                 >
                   {isSyncing ? "Saving..." : (editingEmployee ? "Update Employee" : "Register Employee")}
                 </button>
@@ -1339,8 +1410,8 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       {/* --- MODAL 2: GENERATE MONTHLY PAYSLIPS (Admin Workspace) --- */}
       {isGeneratorOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
-          <div className={`w-full max-w-4xl p-6 rounded-2xl shadow-xl transition-all ${isDarkMode ? 'bg-slate-900 border border-slate-800 text-slate-100' : 'bg-white border border-slate-200 text-slate-900'}`}>
-            <div className="flex items-center justify-between mb-4 border-b pb-3 dark:border-slate-800 border-slate-100">
+          <div className={`w-full max-w-4xl p-6 rounded-2xl shadow-xl transition-all ${isDarkMode ? 'bg-ink-900 border border-ink-800 text-ink-100' : 'bg-white border border-ink-200 text-ink-900'}`}>
+            <div className="flex items-center justify-between mb-4 border-b pb-3 dark:border-ink-800 border-ink-100">
               <div className="flex items-center gap-2">
                 <Coins className="w-5 h-5 text-emerald-500" />
                 <h3 className="text-sm font-bold uppercase tracking-wider text-emerald-500">
@@ -1349,7 +1420,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               </div>
               <button 
                 onClick={() => setIsGeneratorOpen(false)}
-                className="p-1.5 hover:bg-slate-105 dark:hover:bg-slate-800 rounded-lg cursor-pointer text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
+                className="p-1.5 hover:bg-ink-100 dark:hover:bg-ink-800 rounded-lg cursor-pointer text-ink-500 hover:text-ink-700 dark:text-ink-400 dark:hover:text-ink-300"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1357,13 +1428,13 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
 
             <div className="space-y-4">
               {/* Select Current Month Option */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/20">
-                <div className="text-xs text-slate-800 dark:text-slate-350 font-semibold">Select target register month:</div>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-dashed border-ink-300 dark:border-ink-800 bg-ink-50 dark:bg-ink-950/20">
+                <div className="text-xs text-ink-800 dark:text-ink-400 font-semibold">Select target register month:</div>
                 <select
                   value={selectedMonthYear}
                   onChange={(e) => setSelectedMonthYear(e.target.value)}
-                  className={`p-2 rounded-lg border text-xs font-bold focus:ring-1 focus:ring-emerald-500 text-slate-900 dark:text-white ${
-                    isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-300'
+                  className={`p-2 rounded-lg border text-xs font-bold focus:ring-1 focus:ring-emerald-500 text-ink-900 dark:text-white ${
+                    isDarkMode ? 'bg-ink-950 border-ink-800' : 'bg-white border-ink-300'
                   }`}
                 >
                   {(() => {
@@ -1389,9 +1460,9 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               </div>
 
               {/* Grid Inputs Table for RM values */}
-              <div className="overflow-x-auto max-h-[350px] border border-slate-100 dark:border-slate-800 rounded-xl">
+              <div className="overflow-x-auto max-h-[350px] border border-ink-100 dark:border-ink-800 rounded-xl">
                 <table className="min-w-full text-left text-xs">
-                  <thead className={`border-b text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'bg-slate-950/40 border-slate-800 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-700'}`}>
+                  <thead className={`border-b text-2xs font-bold uppercase tracking-wider ${isDarkMode ? 'bg-ink-950/40 border-ink-800 text-ink-500' : 'bg-ink-100 border-ink-200 text-ink-700'}`}>
                     <tr>
                       <th className="px-4 py-2">Employee</th>
                       <th className="px-4 py-2">Basic Salary (A)</th>
@@ -1401,7 +1472,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       <th className="px-4 py-2 text-right">Generate Detail</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
                     {(() => {
                       const _mths = ["January","February","March","April","May","June","July","August","September","October","November","December"];
                       const [_ms, _ys] = selectedMonthYear.split(' ');
@@ -1436,7 +1507,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       });
 
                       if (eligible.length === 0) return (
-                        <tr><td colSpan={6} className="px-4 py-8 text-center text-[11px] text-slate-400 font-medium">
+                        <tr><td colSpan={6} className="px-4 py-8 text-center text-2xs text-ink-500 font-medium">
                           No employees are due for payment this month — all payslips are saved, or no employees have completed their first month yet.
                         </td></tr>
                       );
@@ -1462,22 +1533,22 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       const netPay = Math.max(0, grossPayBase - totalStatDeduc - customDeductionSum + rowStatutoryOffset);
 
                       return (
-                        <tr key={emp.Employee_ID} className={isDarkMode ? 'hover:bg-slate-800/30' : 'hover:bg-slate-50'}>
-                          <td className="px-4 py-3 font-semibold text-slate-900 dark:text-white">
-                            <div className="text-slate-900 dark:text-white font-bold">{emp.Employee_Name}</div>
-                            <div className="text-[10px] text-slate-505 dark:text-slate-400 font-medium flex items-center gap-1 mt-0.5">
+                        <tr key={emp.Employee_ID} className={isDarkMode ? 'hover:bg-ink-800/30' : 'hover:bg-ink-50'}>
+                          <td className="px-4 py-3 font-semibold text-ink-900 dark:text-white">
+                            <div className="text-ink-900 dark:text-white font-bold">{emp.Employee_Name}</div>
+                            <div className="text-2xs text-ink-500 dark:text-ink-400 font-medium flex items-center gap-1 mt-0.5">
                               <span>{emp.Position}</span>
                               <span>•</span>
-                              <span className="font-bold text-slate-505 dark:text-slate-400 text-[9px] uppercase">{citizenship === 'Foreigner' ? 'Foreigner' : 'Malaysian'}</span>
+                              <span className="font-bold text-ink-500 dark:text-ink-400 text-2xs uppercase">{citizenship === 'Foreigner' ? 'Foreigner' : 'Malaysian'}</span>
                               {emp.Employer_Bears_Statutory && (
-                                <span className="font-bold text-indigo-600 dark:text-indigo-400 text-[9px] uppercase" title="Employer bears this employee's EPF/SOCSO/EIS share">
+                                <span className="font-bold text-brand-600 dark:text-brand-400 text-2xs uppercase" title="Employer bears this employee's EPF/SOCSO/EIS share">
                                   • Statutory Borne by Employer
                                 </span>
                               )}
                             </div>
                             {_daysLeft !== null && (
-                              <div className={`text-[9px] font-bold mt-1 ${
-                                _overdue ? 'text-rose-500' : _daysLeft <= 2 ? 'text-amber-500' : 'text-slate-400 dark:text-slate-500'
+                              <div className={`text-2xs font-bold mt-1 ${
+                                _overdue ? 'text-rose-500' : _daysLeft <= 2 ? 'text-amber-500' : 'text-ink-500 dark:text-ink-400'
                               }`}>
                                 {_overdue
                                   ? `⚠ Payment overdue by ${Math.abs(_daysLeft)} day${Math.abs(_daysLeft) !== 1 ? 's' : ''}`
@@ -1485,7 +1556,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                               </div>
                             )}
                           </td>
-                          <td className="px-4 py-3 font-mono text-slate-900 dark:text-white font-bold">RM {emp.Basic_Salary.toFixed(2)}</td>
+                          <td className="px-4 py-3 font-mono text-ink-900 dark:text-white font-bold">RM {emp.Basic_Salary.toFixed(2)}</td>
                           <td className="px-4 py-3 min-w-[280px]">
                             <div className="space-y-1.5 max-h-[160px] overflow-y-auto">
                               {allowancesList.map((item, idx) => (
@@ -1495,20 +1566,20 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                                     placeholder="e.g. Overtime"
                                     value={item.description}
                                     onChange={(e) => updateAllowanceDescription(emp.Employee_ID, idx, e.target.value)}
-                                    className={`w-28 p-1 text-[11px] rounded border ${
-                                      isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900 font-bold'
+                                    className={`w-28 p-1 text-2xs rounded border ${
+                                      isDarkMode ? 'bg-ink-950 border-ink-800 text-ink-100' : 'bg-white border-ink-300 text-ink-900 font-bold'
                                     }`}
                                   />
                                   <div className="relative">
-                                    <span className="absolute inset-y-0 left-1 flex items-center text-[10px] text-gray-500 dark:text-gray-450 font-bold">RM</span>
+                                    <span className="absolute inset-y-0 left-1 flex items-center text-2xs text-ink-500 dark:text-ink-400 font-bold">RM</span>
                                     <input
                                       type="number"
                                       min="0"
                                       placeholder="0"
                                       value={item.amount || ''}
                                       onChange={(e) => updateAllowanceAmount(emp.Employee_ID, idx, Number(e.target.value))}
-                                      className={`w-20 pl-6 pr-1 py-1 text-[11px] font-mono rounded border ${
-                                        isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900 font-bold'
+                                      className={`w-20 pl-6 pr-1 py-1 text-2xs font-mono rounded border ${
+                                        isDarkMode ? 'bg-ink-950 border-ink-800 text-ink-100' : 'bg-white border-ink-300 text-ink-900 font-bold'
                                       }`}
                                     />
                                   </div>
@@ -1518,7 +1589,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                             <button 
                               type="button"
                               onClick={() => addAllowanceItem(emp.Employee_ID)}
-                              className="mt-1 flex items-center gap-0.5 text-[10px] text-indigo-550 font-bold hover:underline cursor-pointer"
+                              className="mt-1 flex items-center gap-0.5 text-2xs text-brand-600 font-bold hover:underline cursor-pointer"
                             >
                               <Plus className="w-3 h-3" />
                               <span>Add Allowance</span>
@@ -1533,20 +1604,20 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                                     placeholder="e.g. Advance"
                                     value={item.description}
                                     onChange={(e) => updateDeductionDescription(emp.Employee_ID, idx, e.target.value)}
-                                    className={`w-28 p-1 text-[11px] rounded border ${
-                                      isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900 font-bold'
+                                    className={`w-28 p-1 text-2xs rounded border ${
+                                      isDarkMode ? 'bg-ink-950 border-ink-800 text-ink-100' : 'bg-white border-ink-300 text-ink-900 font-bold'
                                     }`}
                                   />
                                   <div className="relative">
-                                    <span className="absolute inset-y-0 left-1 flex items-center text-[10px] text-gray-500 dark:text-gray-450 font-bold">RM</span>
+                                    <span className="absolute inset-y-0 left-1 flex items-center text-2xs text-ink-500 dark:text-ink-400 font-bold">RM</span>
                                     <input 
                                       type="number"
                                       min="0"
                                       placeholder="0"
                                       value={item.amount || ''}
                                       onChange={(e) => updateDeductionAmount(emp.Employee_ID, idx, Number(e.target.value))}
-                                      className={`w-20 pl-6 pr-1 py-1 text-[11px] font-mono rounded border ${
-                                        isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900 font-bold'
+                                      className={`w-20 pl-6 pr-1 py-1 text-2xs font-mono rounded border ${
+                                        isDarkMode ? 'bg-ink-950 border-ink-800 text-ink-100' : 'bg-white border-ink-300 text-ink-900 font-bold'
                                       }`}
                                     />
                                   </div>
@@ -1563,7 +1634,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                             <button 
                               type="button"
                               onClick={() => addDeductionItem(emp.Employee_ID)}
-                              className="mt-1 flex items-center gap-0.5 text-[10px] text-indigo-550 font-bold hover:underline cursor-pointer"
+                              className="mt-1 flex items-center gap-0.5 text-2xs text-brand-600 font-bold hover:underline cursor-pointer"
                             >
                               <Plus className="w-3 h-3" />
                               <span>Add Deduction</span>
@@ -1578,7 +1649,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                                 processCalculateSelectedPayslip(emp);
                                 setIsGeneratorOpen(false);
                               }}
-                              className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 dark:bg-transparent dark:text-emerald-400 dark:border-emerald-700 dark:hover:bg-slate-800 font-black rounded-lg cursor-pointer transition-colors shadow-xs"
+                              className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 dark:bg-transparent dark:text-emerald-400 dark:border-emerald-700 dark:hover:bg-ink-800 font-black rounded-lg cursor-pointer transition-colors shadow-xs"
                             >
                               Open Preview
                             </button>
@@ -1591,10 +1662,10 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                 </table>
               </div>
 
-              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
+              <div className="pt-3 border-t border-ink-100 dark:border-ink-800 flex justify-end gap-2">
                 <button 
                   onClick={() => setIsGeneratorOpen(false)}
-                  className="px-4 py-2 text-xs font-black rounded-lg bg-white text-slate-700 border border-slate-300 hover:bg-slate-100 dark:bg-transparent dark:text-white dark:border-slate-600 dark:hover:bg-slate-800 cursor-pointer transition-colors shadow-xs"
+                  className="px-4 py-2 text-xs font-black rounded-lg bg-white text-ink-700 border border-ink-300 hover:bg-ink-100 dark:bg-transparent dark:text-white dark:border-ink-600 dark:hover:bg-ink-800 cursor-pointer transition-colors shadow-xs"
                 >
                   Close
                 </button>
@@ -1606,7 +1677,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
 
       {/* --- MODAL 3: PAYSLIP PREVIEW TEMPLATE --- */}
       {previewPayslip && previewEmployee && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm overflow-y-auto flex items-start justify-center py-4 px-2 sm:py-8 sm:px-6">
+        <div data-document className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm overflow-y-auto flex items-start justify-center py-4 px-2 sm:py-8 sm:px-6">
           <style dangerouslySetInnerHTML={{__html: `
             #printable-payslip {
               transform-origin: top left;
@@ -1669,8 +1740,8 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                 display: grid !important;
                 grid-template-columns: 1fr 1fr 1fr !important;
               }
-              #printable-payslip .bg-gray-900,
-              #printable-payslip [class*="bg-slate-9"] {
+              #printable-payslip .bg-ink-9,
+              #printable-payslip [class*="bg-ink-9"] {
                 background: #f0fdf4 !important;
               }
               #printable-payslip [class*="text-white"] { color: #111827 !important; }
@@ -1683,10 +1754,10 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
             }
           `}} />
           <div className="w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden">
-              <div className={`flex items-center justify-between px-6 py-4 no-print ${isDarkMode ? 'bg-slate-900 border-b border-slate-800' : 'bg-white border-b border-slate-100'}`}>
+              <div className={`flex items-center justify-between px-6 py-4 no-print ${isDarkMode ? 'bg-ink-900 border-b border-ink-800' : 'bg-white border-b border-ink-100'}`}>
               <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-indigo-500" />
-                <h3 className="text-sm font-bold uppercase tracking-wider text-indigo-500">
+                <FileText className="w-5 h-5 text-brand-500" />
+                <h3 className="text-sm font-bold uppercase tracking-wider text-brand-500">
                   Payslip Preview: {(() => {
                     const raw = previewPayslip.Month_Year || '';
                     if (raw.includes('T') || /^\d{4}-\d{2}/.test(raw)) {
@@ -1702,36 +1773,36 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                   setPreviewPayslip(null);
                   setPreviewEmployee(null);
                 }}
-                className="p-1.5 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer text-gray-400"
+                className="p-1.5 hover:bg-ink-100 dark:hover:bg-ink-800 rounded-lg cursor-pointer text-ink-500"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Document Printable Frame */}
-            <div id="printable-payslip" className={`p-8 space-y-6 w-full ${isDarkMode ? 'bg-slate-950' : 'bg-white'}`}>
+            <div id="printable-payslip" className={`p-8 space-y-6 w-full ${isDarkMode ? 'bg-ink-950' : 'bg-white'}`}>
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h1 className="text-lg font-black tracking-tight text-gray-900 dark:text-white uppercase">
+                  <h1 className="text-lg font-black tracking-tight text-ink-900 dark:text-white uppercase">
                     {activeOutletProfile.company_name || activeOutletProfile.name}
                   </h1>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase">{activeOutletProfile.store_name || activeOutletProfile.name}</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-400 max-w-sm mt-1 leading-relaxed">
+                  <p className="text-2xs text-ink-500 font-bold uppercase">{activeOutletProfile.store_name || activeOutletProfile.name}</p>
+                  <p className="text-xs text-ink-500 dark:text-ink-400 max-w-sm mt-1 leading-relaxed">
                     {activeOutletProfile.address}
                   </p>
-                  <p className="text-xs text-gray-400 dark:text-gray-400 mt-1">
+                  <p className="text-xs text-ink-500 dark:text-ink-400 mt-1">
                     Phone: {activeOutletProfile.phone} | Email: {activeOutletProfile.email}
                   </p>
                 </div>
 
                 <div className="text-right">
-                  <span className="payslip-badge inline-block px-3 py-1 bg-indigo-600 font-black tracking-widest text-[10px] rounded-md border border-indigo-600" style={{ color: 'white' }}>
+                  <span className="payslip-badge inline-block px-3 py-1 bg-brand-600 font-black tracking-widest text-2xs rounded-md border border-brand-600" style={{ color: 'white' }}>
                     PAYSLIP RECORD
                   </span>
-                  <div className="text-xs font-bold text-gray-900 dark:text-slate-100 mt-2">
+                  <div className="text-xs font-bold text-ink-900 dark:text-ink-100 mt-2">
                     ID: <span className="font-mono">{previewPayslip.Payslip_ID}</span>
                   </div>
-                  <div className="text-xs text-gray-500 mt-0.5">
+                  <div className="text-xs text-ink-500 mt-0.5">
                     Issue Date: {(() => {
                       const raw = previewPayslip.Issue_Date || '';
                       if (raw.includes('T') || /^\d{4}-\d{2}/.test(raw)) {
@@ -1744,43 +1815,43 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                 </div>
               </div>
 
-              <div className="border-b dark:border-slate-800" />
+              <div className="border-b dark:border-ink-800" />
 
               {/* Detail Blocks */}
 <div className="grid grid-cols-2 gap-4">
   <div>
-    <h4 className="text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1.5 font-mono">
+    <h4 className="text-2xs font-bold text-ink-500 dark:text-ink-400 uppercase tracking-widest mb-1.5 font-mono">
       Employee Details
     </h4>
-    <p className="text-sm font-black text-gray-950 dark:text-white">
+    <p className="text-sm font-black text-ink-950 dark:text-white">
       {previewEmployee.Employee_Name}
     </p>
-    <p className="text-xs text-gray-700 dark:text-slate-400 font-medium">
+    <p className="text-xs text-ink-700 dark:text-ink-400 font-medium">
       IC Number/Passport:{" "}
-      <span className="font-mono text-gray-950 dark:text-white font-bold">
+      <span className="font-mono text-ink-950 dark:text-white font-bold">
         {previewEmployee.IC_Passport}
       </span>
     </p>
-    <p className="text-xs text-gray-700 dark:text-slate-400 font-medium">
+    <p className="text-xs text-ink-700 dark:text-ink-400 font-medium">
       Position:{" "}
-      <span className="font-bold text-gray-950 dark:text-white">
+      <span className="font-bold text-ink-950 dark:text-white">
         {previewEmployee.Position}
       </span>
     </p>
-    <p className="text-xs text-gray-700 dark:text-slate-400 font-medium">
+    <p className="text-xs text-ink-700 dark:text-ink-400 font-medium">
       Outlet:{" "}
-      <span className="font-bold text-gray-950 dark:text-white">
+      <span className="font-bold text-ink-950 dark:text-white">
         {previewEmployee.Branch_Location || previewEmployee.Assigned_Outlet}
       </span>
     </p>
   </div>
   <div>
-    <h4 className="text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1.5 font-mono">
+    <h4 className="text-2xs font-bold text-ink-500 dark:text-ink-400 uppercase tracking-widest mb-1.5 font-mono">
       Payment details
     </h4>
-    <p className="text-xs text-gray-700 dark:text-slate-400 font-medium">
+    <p className="text-xs text-ink-700 dark:text-ink-400 font-medium">
       Month / Year:{" "}
-      <strong className="text-gray-950 dark:text-white font-black">
+      <strong className="text-ink-950 dark:text-white font-black">
         {(() => {
           const raw = previewPayslip.Month_Year || '';
           if (raw.includes('T') || /^\d{4}-\d{2}/.test(raw)) {
@@ -1791,14 +1862,14 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
         })()}
       </strong>
     </p>
-    <p className="text-xs text-gray-700 dark:text-slate-400 font-medium">
+    <p className="text-xs text-ink-700 dark:text-ink-400 font-medium">
       Bank Account Details:{" "}
-      <span className="font-bold text-gray-950 dark:text-white">
+      <span className="font-bold text-ink-950 dark:text-white">
         {previewEmployee.Bank_Details || "Maybank Account"}
       </span>
     </p>
     {previewPayslip.Transfer_Date && (
-      <p className="text-xs text-gray-700 dark:text-slate-400 font-medium">
+      <p className="text-xs text-ink-700 dark:text-ink-400 font-medium">
         Wage Transfer Date:{' '}
         <strong className="text-emerald-700 dark:text-emerald-400 font-black">
           {previewPayslip.Transfer_Date}
@@ -1806,7 +1877,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       </p>
     )}
     {!previewPayslip.Transfer_Date && (
-      <p className="text-xs text-gray-700 dark:text-slate-300 font-bold mt-1">
+      <p className="text-xs text-ink-700 dark:text-ink-300 font-bold mt-1">
         Transfer Date: _______________________
       </p>
     )}
@@ -1816,14 +1887,14 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               {/* Two balanced columns: Earnings vs Deductions */}
               <div className="grid grid-cols-2 gap-6 pt-2">
                 <div className="space-y-3">
-                  <div className="text-xs font-black text-emerald-800 dark:text-emerald-400 border-b pb-1 dark:border-slate-800 flex justify-between">
+                  <div className="text-xs font-black text-emerald-800 dark:text-emerald-400 border-b pb-1 dark:border-ink-800 flex justify-between">
                     <span>EARNINGS ITEMIZED</span>
                     <span>AMOUNT</span>
                   </div>
                   <div className="space-y-1.5 text-xs font-semibold">
-                    <div className="flex justify-between text-gray-900 dark:text-gray-300">
+                    <div className="flex justify-between text-ink-900 dark:text-ink-300">
                       <span>Basic Pay</span>
-                      <span className="font-black text-gray-950 dark:text-white">RM {previewPayslip.Basic_Pay.toFixed(2)}</span>
+                      <span className="font-black text-ink-950 dark:text-white">RM {previewPayslip.Basic_Pay.toFixed(2)}</span>
                     </div>
                     {(() => {
                       let list: any[] = [];
@@ -1833,17 +1904,17 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       list = list.filter((item: any) => !('_bm_paid' in item) && (item.description?.trim() || item.amount > 0));
                       if (list.length > 0) {
                         return list.map((item: any, idx: number) => (
-                          <div key={idx} className="flex justify-between text-gray-900 dark:text-gray-200">
+                          <div key={idx} className="flex justify-between text-ink-900 dark:text-ink-200">
                             <span>{item.description || 'Custom Allowance'}</span>
-                            <span className="font-bold text-gray-950 dark:text-white">RM {item.amount.toFixed(2)}</span>
+                            <span className="font-bold text-ink-950 dark:text-white">RM {item.amount.toFixed(2)}</span>
                           </div>
                         ));
                       }
                       if (previewPayslip.Custom_Allowances > 0) {
                         return (
-                          <div className="flex justify-between text-gray-900 dark:text-gray-300">
+                          <div className="flex justify-between text-ink-900 dark:text-ink-300">
                             <span>Custom Allowances</span>
-                            <span className="font-bold text-gray-950 dark:text-white">
+                            <span className="font-bold text-ink-950 dark:text-white">
                               RM {previewPayslip.Custom_Allowances.toFixed(2)}
                             </span>
                           </div>
@@ -1859,32 +1930,32 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                 </div>
 
                 <div className="space-y-3">
-                  <div className="text-xs font-black text-rose-700 dark:text-rose-400 border-b pb-1 dark:border-slate-800 flex justify-between">
+                  <div className="text-xs font-black text-rose-700 dark:text-rose-400 border-b pb-1 dark:border-ink-800 flex justify-between">
                     <span>DEDUCTIONS ITEMIZED</span>
                     <span>AMOUNT</span>
                   </div>
                   <div className="space-y-1.5 text-xs font-semibold">
-                    <div className="flex justify-between text-gray-900 dark:text-gray-300">
+                    <div className="flex justify-between text-ink-900 dark:text-ink-300">
                       <span>Employee EPF ({
                         (previewEmployee.Citizenship || 'Malaysian/PR') === 'Foreigner'
                           ? '2%'
                           : (Number(previewEmployee.Age) || 30) >= 60 ? '0% (age 60+)' : '11%'
                       })</span>
-                      <span className="font-extrabold text-gray-950 dark:text-white">RM {previewPayslip.Employee_EPF.toFixed(2)}</span>
+                      <span className="font-extrabold text-ink-950 dark:text-white">RM {previewPayslip.Employee_EPF.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-gray-900 dark:text-gray-300">
+                    <div className="flex justify-between text-ink-900 dark:text-ink-300">
                       <span>Employee SOCSO (0.5%)</span>
-                      <span className="font-extrabold text-gray-950 dark:text-white">RM {previewPayslip.Employee_SOCSO.toFixed(2)}</span>
+                      <span className="font-extrabold text-ink-950 dark:text-white">RM {previewPayslip.Employee_SOCSO.toFixed(2)}</span>
                     </div>
                     {(previewPayslip.Employee_SKBBK ?? 0) > 0 && (
-                      <div className="flex justify-between text-gray-900 dark:text-gray-300">
+                      <div className="flex justify-between text-ink-900 dark:text-ink-300">
                         <span>SKBBK / Lindung 24 Jam (0.75%)</span>
-                        <span className="font-extrabold text-gray-950 dark:text-white">RM {previewPayslip.Employee_SKBBK.toFixed(2)}</span>
+                        <span className="font-extrabold text-ink-950 dark:text-white">RM {previewPayslip.Employee_SKBBK.toFixed(2)}</span>
                       </div>
                     )}
-                    <div className="flex justify-between text-gray-900 dark:text-gray-300">
+                    <div className="flex justify-between text-ink-900 dark:text-ink-300">
                       <span>Employee EIS / SIP (0.2%)</span>
-                      <span className="font-extrabold text-gray-950 dark:text-white">RM {previewPayslip.Employee_EIS.toFixed(2)}</span>
+                      <span className="font-extrabold text-ink-950 dark:text-white">RM {previewPayslip.Employee_EIS.toFixed(2)}</span>
                     </div>
                     {(() => {
                       let list: any[] = [];
@@ -1894,17 +1965,17 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       list = list.filter((item: any) => !('_bm_paid' in item) && (item.description?.trim() || item.amount > 0));
                       if (list.length > 0) {
                         return list.map((item: any, idx: number) => (
-                          <div key={idx} className="flex justify-between text-gray-900 dark:text-gray-200">
+                          <div key={idx} className="flex justify-between text-ink-900 dark:text-ink-200">
                             <span>{item.description || 'Custom Deduction'}</span>
-                            <span className="font-bold text-gray-950 dark:text-white">RM {item.amount.toFixed(2)}</span>
+                            <span className="font-bold text-ink-950 dark:text-white">RM {item.amount.toFixed(2)}</span>
                           </div>
                         ));
                       }
                       if (previewPayslip.Custom_Deductions > 0) {
                         return (
-                          <div className="flex justify-between text-gray-900 dark:text-gray-350">
+                          <div className="flex justify-between text-ink-900 dark:text-ink-400">
                             <span>Custom Deductions</span>
-                            <span className="font-bold text-gray-950 dark:text-white font-mono">
+                            <span className="font-bold text-ink-950 dark:text-white font-mono">
                               RM {previewPayslip.Custom_Deductions.toFixed(2)}
                             </span>
                           </div>
@@ -1927,12 +1998,12 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                   bonus would itself be subject to EPF/SOCSO in the month paid, which
                   this specifically is not intended to be. */}
               {previewPayslip.Employer_Statutory_Offset > 0 && (
-                <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-300 dark:border-indigo-800">
-                  <div className="flex justify-between text-xs font-black text-indigo-700 dark:text-indigo-400">
+                <div className="p-3 rounded-xl bg-brand-500/10 border border-brand-300 dark:border-brand-800">
+                  <div className="flex justify-between text-xs font-black text-brand-700 dark:text-brand-400">
                     <span>Employer-Borne Statutory Contribution (EPF + SOCSO + EIS)</span>
                     <span>RM {previewPayslip.Employer_Statutory_Offset.toFixed(2)}</span>
                   </div>
-                  <p className="text-[9px] text-indigo-600/80 dark:text-indigo-400/70 mt-1">
+                  <p className="text-2xs text-brand-600/80 dark:text-brand-400/70 mt-1">
                     Employer pays this employee's own statutory share on their behalf, in addition
                     to the employer's own EPF/SOCSO/EIS contribution shown below. The deductions
                     above are still the real amounts contributed to this employee's EPF/SOCSO/EIS
@@ -1942,10 +2013,10 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               )}
 
               {/* Bold Outstanding Sum Net balance */}
-              <div className="p-4 rounded-xl bg-[#f0fdf4] border-2 border-emerald-500 text-gray-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="p-4 rounded-xl bg-[#f0fdf4] border-2 border-emerald-500 text-ink-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
-                  <h5 className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Employee Final Net Pay</h5>
-                  <p className="text-[9px] text-gray-600">
+                  <h5 className="text-2xs font-bold text-emerald-600 uppercase tracking-widest">Employee Final Net Pay</h5>
+                  <p className="text-2xs text-ink-600">
                     {previewPayslip.Employer_Statutory_Offset > 0
                       ? "Gross pay minus non-statutory deductions — EPF/SOCSO/EIS borne by employer. Transferred directly via Bank Accounts."
                       : "Total Net RM transferred directly via Bank Accounts."}
@@ -1959,30 +2030,30 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               {/* Employer Statutory Metrics */}
               <div className={`p-3.5 rounded-lg border border-dashed text-xs mt-3 ${
                 isDarkMode 
-                  ? 'border-slate-700 bg-slate-900/40 text-slate-400' 
-                  : 'border-gray-200 bg-gray-50/50 text-gray-500'
+                  ? 'border-ink-700 bg-ink-900/40 text-ink-500' 
+                  : 'border-ink-200 bg-ink-50/50 text-ink-500'
               }`}>
-                <div className={`font-bold uppercase tracking-wider text-[9px] mb-2 ${
-                  isDarkMode ? 'text-slate-300' : 'text-gray-700'
+                <div className={`font-bold uppercase tracking-wider text-2xs mb-2 ${
+                  isDarkMode ? 'text-ink-300' : 'text-ink-700'
                 }`}>
                   Employer Statutory Audits (Employer Contributions in RM)
                 </div>
-                <div className="grid grid-cols-3 gap-2 text-[11px]">
-                  <div>Employer EPF: <strong className={isDarkMode ? 'text-slate-200' : 'text-gray-700'}>RM {previewPayslip.Employer_EPF.toFixed(2)}</strong></div>
-                  <div>Employer SOCSO: <strong className={isDarkMode ? 'text-slate-200' : 'text-gray-700'}>RM {previewPayslip.Employer_SOCSO.toFixed(2)}</strong></div>
-                  <div>Employer EIS (SIP): <strong className={isDarkMode ? 'text-slate-200' : 'text-gray-700'}>RM {previewPayslip.Employer_EIS.toFixed(2)}</strong></div>
+                <div className="grid grid-cols-3 gap-2 text-2xs">
+                  <div>Employer EPF: <strong className={isDarkMode ? 'text-ink-200' : 'text-ink-700'}>RM {previewPayslip.Employer_EPF.toFixed(2)}</strong></div>
+                  <div>Employer SOCSO: <strong className={isDarkMode ? 'text-ink-200' : 'text-ink-700'}>RM {previewPayslip.Employer_SOCSO.toFixed(2)}</strong></div>
+                  <div>Employer EIS (SIP): <strong className={isDarkMode ? 'text-ink-200' : 'text-ink-700'}>RM {previewPayslip.Employer_EIS.toFixed(2)}</strong></div>
                 </div>
               </div>
 
               {/* Signature line */}
               <div className="flex justify-end mt-10">
                 <div className="text-center w-64">
-                  <div className={`border-t pt-3 ${isDarkMode ? 'border-slate-600' : 'border-gray-300'}`}>
-                    <p className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>
+                  <div className={`border-t pt-3 ${isDarkMode ? 'border-ink-600' : 'border-ink-300'}`}>
+                    <p className={`text-2xs font-bold ${isDarkMode ? 'text-ink-300' : 'text-ink-700'}`}>
                       Received By: Employee Signature
                     </p>
-                    <div className={`mt-4 border-b ${isDarkMode ? 'border-slate-500' : 'border-gray-400'}`} />
-                    <p className={`text-[9px] mt-2 ${isDarkMode ? 'text-slate-500' : 'text-gray-400'}`}>
+                    <div className={`mt-4 border-b ${isDarkMode ? 'border-ink-500' : 'border-ink-400'}`} />
+                    <p className={`text-2xs mt-2 ${isDarkMode ? 'text-ink-500' : 'text-ink-500'}`}>
                       Date
                     </p>
                   </div>
@@ -1991,7 +2062,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
             </div>
 
             {/* Action buttons footer */}
-            <div className={`px-6 py-4 border-t flex flex-wrap items-center justify-between gap-3 no-print ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
+            <div className={`px-6 py-4 border-t flex flex-wrap items-center justify-between gap-3 no-print ${isDarkMode ? 'bg-ink-900 border-ink-800' : 'bg-white border-ink-100'}`}>
               <div>
                 {/* Saved Indicator Badge */}
                 {db.payslips.some(p => p.Payslip_ID === previewPayslip.Payslip_ID && p.Is_Saved) ? (
@@ -1999,7 +2070,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                     <CheckCircle className="w-4 h-4" /> Locked & Finalized in Database
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-500">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-brand-500/10 text-brand-500">
                     Unsaved Draft State Preview
                   </span>
                 )}
@@ -2010,7 +2081,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                   <button
                     onClick={() => handleSavePayslip(previewPayslip)}
                     disabled={isSyncing}
-                    className="flex items-center gap-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-all duration-150 cursor-pointer shadow-sm"
+                    className="flex items-center gap-1 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl transition-all duration-150 cursor-pointer shadow-sm"
                     title="Write this payroll slip permanently to the database ledger."
                   >
                     <Save className="w-3.5 h-3.5" />
@@ -2021,7 +2092,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                 {/* Print button */}
                 <button
                   onClick={() => window.print()}
-                  className="flex items-center gap-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors"
+                  className="flex items-center gap-1 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors"
                   title="Print or save as A4 PDF."
                 >
                   <Printer className="w-3.5 h-3.5" />
@@ -2033,7 +2104,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                     setPreviewPayslip(null);
                     setPreviewEmployee(null);
                   }}
-                  className="px-4 py-2 text-xs font-bold rounded-xl bg-gray-150 border border-gray-300 hover:bg-gray-205 text-gray-905 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700 cursor-pointer"
+                  className="px-4 py-2 text-xs font-bold rounded-xl bg-ink-100 border border-ink-300 hover:bg-ink-200 text-ink-900 dark:bg-ink-800 dark:text-ink-100 dark:hover:bg-ink-700 cursor-pointer"
                 >
                   Close Preview
                 </button>
@@ -2049,14 +2120,14 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                         justify-center p-4">
           <div className={`w-full max-w-sm rounded-2xl shadow-xl p-6 ${
             isDarkMode
-              ? 'bg-slate-900 border border-slate-800 text-slate-100'
-              : 'bg-white border border-slate-200 text-slate-900'
+              ? 'bg-ink-900 border border-ink-800 text-ink-100'
+              : 'bg-white border border-ink-200 text-ink-900'
           }`}>
             <h3 className="text-sm font-bold text-emerald-600 mb-1">
               Confirm Wage Transfer
             </h3>
             <p className={`text-xs mb-4 ${
-              isDarkMode ? 'text-slate-400' : 'text-slate-500'
+              isDarkMode ? 'text-ink-500' : 'text-ink-500'
             }`}>
               Payslip ID: {markPaymentPayslip.Payslip_ID}<br/>
               This action records that wages have been physically transferred
@@ -2064,7 +2135,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
             </p>
 
             <div className="mb-4">
-              <label className="block text-[9px] font-bold text-gray-400
+              <label className="block text-2xs font-bold text-ink-500
                 uppercase mb-1.5">Date of Payment</label>
               <input
                 type="date"
@@ -2073,11 +2144,11 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                 className={`w-full px-3 py-2 text-sm rounded-lg border
                   focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
                   isDarkMode
-                    ? 'bg-slate-800 border-slate-700 text-slate-100 [color-scheme:dark]'
-                    : 'bg-gray-50 border-gray-200 text-gray-900 [color-scheme:light]'
+                    ? 'bg-ink-800 border-ink-700 text-ink-100 [color-scheme:dark]'
+                    : 'bg-ink-50 border-ink-200 text-ink-900 [color-scheme:light]'
                 }`}
               />
-              <p className="text-[9px] text-slate-400 mt-1">
+              <p className="text-2xs text-ink-500 mt-1">
                 This date will appear on the payslip as the wage transfer date.
               </p>
             </div>
@@ -2091,8 +2162,8 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                 className={`px-4 py-2 text-xs font-bold rounded-xl border
                   cursor-pointer ${
                   isDarkMode
-                    ? 'border-slate-700 text-slate-300 hover:bg-slate-800'
-                    : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                    ? 'border-ink-700 text-ink-300 hover:bg-ink-800'
+                    : 'border-ink-200 text-ink-600 hover:bg-ink-50'
                 }`}
               >Cancel</button>
               <button

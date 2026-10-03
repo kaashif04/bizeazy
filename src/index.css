@@ -1,4 +1,363 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
-body { font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; }
+/* ─────────────────────────────────────────────────────────────────────────────
+   BizEazy design tokens
+
+   The palette: warm ink neutrals, deep pine as the brand, saffron and clay for
+   warning and danger. Pine because this product is about money coming in and
+   wages going out, and because the previous indigo-on-slate was the stock
+   admin-panel look. Warm neutrals because the product lives in restaurants.
+
+   Two things to know before editing:
+
+   1. There was no single neutral ramp. `gray-*` and `slate-*` were both in use,
+      in the same components, so a light-mode border and a dark-mode surface
+      disagreed about their undertone. Both names now resolve to the one `ink`
+      ramp, as do the semantic aliases, so any class the rename missed still
+      lands on the right colour.
+   2. `ink-400` is a non-text tone. It passes contrast on dark grounds, not on
+      light ones — use `ink-500` for secondary text in light mode.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@theme {
+  /* ── Type ──
+     One family carries headings, labels, buttons and body: a product UI does
+     not need a display pairing. Mono is reserved for invoice IDs, money and
+     dates, which are measurement rather than costume. */
+  --font-sans: Archivo, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Raises the small-text floor. The old 9px and 10px labels are not readable
+     on a phone at arm's length, and this is a phone-first product. */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1.09rem;
+
+  /* ── Ink: the one neutral ramp ── */
+  --color-ink-50:  #FAF8F6;
+  --color-ink-100: #F3EFEA;
+  --color-ink-200: #E6E0D8;
+  --color-ink-300: #D1C8BC;
+  --color-ink-400: #A79C8E;
+  --color-ink-500: #6E655B;
+  --color-ink-600: #574F47;
+  --color-ink-700: #443D37;
+  --color-ink-800: #2E2925;
+  --color-ink-900: #1C1815;
+  --color-ink-950: #120F0D;
+
+  /* ── Brand: deep pine. Primary actions, current selection, state only. ── */
+  --color-brand-50:  #EDF5F1;
+  --color-brand-100: #D3E8DF;
+  --color-brand-200: #A8D0C0;
+  --color-brand-300: #74B29C;
+  --color-brand-400: #449079;
+  --color-brand-500: #257561;
+  --color-brand-600: #195C4B;
+  --color-brand-700: #13493B;
+  --color-brand-800: #0E382D;
+  --color-brand-900: #092A21;
+  --color-brand-950: #051A14;
+
+  /* ── Legacy names, same values ──
+     Kept so a missed class renders correctly rather than reverting to stock
+     Tailwind and breaking the palette mid-component. */
+  --color-gray-50:  #FAF8F6;
+  --color-gray-100: #F3EFEA;
+  --color-gray-200: #E6E0D8;
+  --color-gray-300: #D1C8BC;
+  --color-gray-400: #A79C8E;
+  --color-gray-500: #6E655B;
+  --color-gray-600: #574F47;
+  --color-gray-700: #443D37;
+  --color-gray-800: #2E2925;
+  --color-gray-900: #1C1815;
+  --color-gray-950: #120F0D;
+
+  --color-slate-50:  #FAF8F6;
+  --color-slate-100: #F3EFEA;
+  --color-slate-200: #E6E0D8;
+  --color-slate-300: #D1C8BC;
+  --color-slate-400: #A79C8E;
+  --color-slate-500: #6E655B;
+  --color-slate-600: #574F47;
+  --color-slate-700: #443D37;
+  --color-slate-800: #2E2925;
+  --color-slate-900: #1C1815;
+  --color-slate-950: #120F0D;
+
+  --color-indigo-50:  #EDF5F1;
+  --color-indigo-100: #D3E8DF;
+  --color-indigo-200: #A8D0C0;
+  --color-indigo-300: #74B29C;
+  --color-indigo-400: #449079;
+  --color-indigo-500: #257561;
+  --color-indigo-600: #195C4B;
+  --color-indigo-700: #13493B;
+  --color-indigo-800: #0E382D;
+  --color-indigo-900: #092A21;
+  --color-indigo-950: #051A14;
+
+  /* ── Success: a brighter sibling of the brand, so "paid" and "active nav"
+        read as related without being mistaken for each other. ── */
+  --color-emerald-50:  #E9F7EF;
+  --color-emerald-100: #CCEDDB;
+  --color-emerald-200: #9DDCBB;
+  --color-emerald-300: #64C494;
+  --color-emerald-400: #2EA771;
+  --color-emerald-500: #13885C;
+  --color-emerald-600: #0C7A52;
+  --color-emerald-700: #0A6243;
+  --color-emerald-800: #084E36;
+  --color-emerald-900: #063A28;
+  --color-emerald-950: #03241A;
+
+  /* ── Warning: saffron ── */
+  --color-amber-50:  #FDF6E7;
+  --color-amber-100: #F9E8C2;
+  --color-amber-200: #F2D28A;
+  --color-amber-300: #E6B54C;
+  --color-amber-400: #D29A1C;
+  --color-amber-500: #B9820B;
+  --color-amber-600: #976709;
+  --color-amber-700: #7A5308;
+  --color-amber-800: #5E4006;
+  --color-amber-900: #452F05;
+  --color-amber-950: #2A1D03;
+
+  /* ── Danger: clay, warmer and less shrill than stock red ── */
+  --color-rose-50:  #FDF1EF;
+  --color-rose-100: #FADFDA;
+  --color-rose-200: #F3BDB3;
+  --color-rose-300: #E79384;
+  --color-rose-400: #D86751;
+  --color-rose-500: #C44A33;
+  --color-rose-600: #A53A26;
+  --color-rose-700: #86301F;
+  --color-rose-800: #682518;
+  --color-rose-900: #4E1C12;
+  --color-rose-950: #2F110B;
+
+  --color-red-50:  #FDF1EF;
+  --color-red-100: #FADFDA;
+  --color-red-200: #F3BDB3;
+  --color-red-300: #E79384;
+  --color-red-400: #D86751;
+  --color-red-500: #C44A33;
+  --color-red-600: #A53A26;
+  --color-red-700: #86301F;
+  --color-red-800: #682518;
+  --color-red-900: #4E1C12;
+  --color-red-950: #2F110B;
+
+  /* Headcount and other neutral categories previously used purple; fold it
+     into the brand family rather than add a hue that means nothing. */
+  --color-purple-50:  #EDF5F1;
+  --color-purple-100: #D3E8DF;
+  --color-purple-200: #A8D0C0;
+  --color-purple-300: #74B29C;
+  --color-purple-400: #449079;
+  --color-purple-500: #257561;
+  --color-purple-600: #195C4B;
+  --color-purple-700: #13493B;
+  --color-purple-800: #0E382D;
+  --color-purple-900: #092A21;
+  --color-purple-950: #051A14;
+
+  /* ── Depth: every shadow carries an offset and a soft blur. ── */
+  --shadow-xs:    0 1px 2px -1px color-mix(in srgb, #120F0D 12%, transparent);
+  --shadow-sm:    0 1px 3px -1px color-mix(in srgb, #120F0D 10%, transparent),
+                  0 1px 2px -1px color-mix(in srgb, #120F0D 6%, transparent);
+  --shadow-md:    0 4px 12px -3px color-mix(in srgb, #120F0D 12%, transparent),
+                  0 2px 4px -2px color-mix(in srgb, #120F0D 8%, transparent);
+  --shadow-lg:    0 12px 28px -8px color-mix(in srgb, #120F0D 18%, transparent),
+                  0 4px 10px -4px color-mix(in srgb, #120F0D 10%, transparent);
+  --shadow-xl:    0 24px 56px -16px color-mix(in srgb, #120F0D 26%, transparent),
+                  0 8px 20px -8px color-mix(in srgb, #120F0D 14%, transparent);
+  /* Offset upward: a bottom sheet is lit from the content it covers. */
+  --shadow-sheet: 0 -10px 40px -12px color-mix(in srgb, #120F0D 30%, transparent);
+
+  --radius-sheet: 1.25rem;
+
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Base — including the surfaces we did not draw. Selection, caret, scrollbars,
+   focus rings and the numerals in money columns all ship with browser defaults
+   that belong to no design system.
+   ───────────────────────────────────────────────────────────────────────────── */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    /* Phone-first: the header is sticky, so anchor jumps need clearance. */
+    scroll-padding-top: 4rem;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-ink-50);
+    color: var(--color-ink-900);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Optical sizing and a touch of tracking: Archivo sets slightly wide by
+       default at UI sizes. */
+    letter-spacing: -0.006em;
+  }
+
+  .dark body {
+    background-color: var(--color-ink-950);
+    color: var(--color-ink-100);
+  }
+
+  ::selection {
+    background-color: color-mix(in srgb, var(--color-brand-500) 26%, transparent);
+    color: var(--color-ink-950);
+  }
+  .dark ::selection {
+    background-color: color-mix(in srgb, var(--color-brand-400) 32%, transparent);
+    color: var(--color-ink-50);
+  }
+
+  input, textarea, select { caret-color: var(--color-brand-600); }
+  .dark input, .dark textarea, .dark select { caret-color: var(--color-brand-300); }
+
+  /* Keyboard focus only — never a ring on a mouse click. One ring for the
+     whole product, offset so it reads on both light and dark grounds. */
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+    border-radius: 0.375rem;
+  }
+  .dark :focus-visible { outline-color: var(--color-brand-300); }
+  :focus:not(:focus-visible) { outline: none; }
+
+  /* Tinted to the palette rather than replaced: the mechanism stays native. */
+  * { scrollbar-width: thin; scrollbar-color: var(--color-ink-300) transparent; }
+  .dark * { scrollbar-color: var(--color-ink-700) transparent; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--color-ink-300);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover { background-color: var(--color-ink-400); }
+  .dark ::-webkit-scrollbar-thumb { background-color: var(--color-ink-700); }
+  .dark ::-webkit-scrollbar-thumb:hover { background-color: var(--color-ink-600); }
+
+  a { text-underline-offset: 0.2em; }
+
+  /* Money and IDs must not jitter column to column. */
+  table, .tabular, input[type="number"] { font-variant-numeric: tabular-nums; }
+
+  /* iOS zooms the page when a focused input is under 16px. Phone-first means
+     that must not happen, so inputs hold 16px until there is a pointer. */
+  @media (max-width: 767px) {
+    input:not([type="checkbox"]):not([type="radio"]), select, textarea { font-size: 16px; }
+  }
+}
+
+/* A comfortable floor for form controls on every device; the touch rule below
+   raises it again for fingers. 29px-tall buttons were cramped with a mouse too. */
+@layer base {
+  select,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]),
+  textarea {
+    min-height: 2.375rem;
+  }
+}
+
+/* Touch devices get a 44px floor on every control. This is a pointer query, not
+   a width query: a tablet with a mouse keeps compact density, and a phone in
+   landscape still gets thumb-sized targets. Inline buttons inside a sentence are
+   unaffected by min-height, so those carry their own padding. */
+@media (pointer: coarse) {
+  button, [role="button"], select,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), textarea {
+    min-height: 44px;
+  }
+  input[type="checkbox"], input[type="radio"] { min-width: 20px; min-height: 20px; }
+}
+
+@layer utilities {
+  /* Home-indicator clearance for the bottom tab bar and sheets. */
+  .pb-safe { padding-bottom: max(env(safe-area-inset-bottom), 0px); }
+  .pt-safe { padding-top: max(env(safe-area-inset-top), 0px); }
+  .h-safe-nav { height: calc(3.5rem + max(env(safe-area-inset-bottom), 0px)); }
+  /* Keeps content clear of the fixed mobile tab bar. */
+  .pb-nav { padding-bottom: calc(4rem + max(env(safe-area-inset-bottom), 0px)); }
+
+  .tap { min-height: 44px; min-width: 44px; }
+
+  @keyframes sheet-up {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+  }
+  @keyframes sheet-in {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+  .animate-sheet-up { animation: sheet-up 280ms var(--ease-out-quint) both; }
+  .animate-sheet-in { animation: sheet-in 180ms var(--ease-out-quint) both; }
+  .animate-fade-in  { animation: fade-in 160ms ease-out both; }
+
+  /* Skeletons, not spinners, for content that is loading. */
+  .skeleton {
+    background-image: linear-gradient(90deg,
+      var(--color-ink-200) 0%, var(--color-ink-100) 40%,
+      var(--color-ink-200) 80%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s linear infinite;
+  }
+  .dark .skeleton {
+    background-image: linear-gradient(90deg,
+      var(--color-ink-800) 0%, var(--color-ink-700) 40%,
+      var(--color-ink-800) 80%);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Dark-mode muted text.
+
+   124 elements carried `text-ink-500` or `text-ink-600` with no dark variant.
+   Those are ~2.5:1 on a near-black ground — secondary labels that simply
+   vanish. Rather than edit 124 class strings (and risk missing some), lift the
+   mid-ink text tones in dark mode for elements that do NOT set their own dark
+   text colour. The :not() carries the specificity, so nothing needs !important.
+
+   Document surfaces are marked `data-document`: an invoice or payslip is a
+   white sheet whatever the app theme is, and must keep its printed values.
+   ───────────────────────────────────────────────────────────────────────────── */
+.dark [class*="text-ink-500"]:not([class*="dark:text-"]),
+.dark [class*="text-ink-600"]:not([class*="dark:text-"]) {
+  color: var(--color-ink-400);
+}
+.dark [data-document] [class*="text-ink-500"]:not([class*="dark:text-"]) { color: var(--color-ink-500); }
+.dark [data-document] [class*="text-ink-600"]:not([class*="dark:text-"]) { color: var(--color-ink-600); }
+
+@media print {
+  [class*="text-ink-500"] { color: var(--color-ink-500); }
+  [class*="text-ink-600"] { color: var(--color-ink-600); }
+}
+
+/* Motion conveys state here, so honour the system setting completely. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* The printed invoice, quotation and payslip layouts are deliberately
+   untouched by this work; app chrome simply gets out of their way. */
+@media print {
+  .no-print, [data-chrome] { display: none !important; }
+  body { background: #fff !important; color: #000 !important; }
+}

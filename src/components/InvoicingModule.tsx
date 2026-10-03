@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { DatabaseState, Invoice, InvoiceItem, Customer, CompanyProfile, Payment } from '../types';
 import { getPaymentSummary, PAYMENT_METHODS, PAYMENT_STATUS_LABEL, newPaymentId, PaymentStatus } from '../utils/payments';
+import { Sheet } from './ui/Sheet';
 import {
   activeOutlet as resolveActiveOutlet, outletLabel, outletColor, hexToRgb,
 } from '../utils/outlets';
@@ -46,7 +47,7 @@ function PaymentsModal({
   const [reference, setReference] = useState<string>('');
 
   const inputCls = `w-full px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-    isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
+    isDarkMode ? 'bg-ink-950 border-ink-700 text-ink-100' : 'bg-white border-ink-200 text-ink-900'
   }`;
   const fmt = (n: number) => `${currency} ${n.toFixed(2)}`;
 
@@ -60,37 +61,37 @@ function PaymentsModal({
   return (
     <div className="fixed inset-0 z-[55] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className={`w-full max-w-lg rounded-2xl shadow-2xl flex flex-col max-h-[90vh] ${isDarkMode ? 'bg-slate-900 border border-slate-800' : 'bg-white border border-gray-200'}`}
+        className={`w-full max-w-lg rounded-2xl shadow-2xl flex flex-col max-h-[90vh] ${isDarkMode ? 'bg-ink-900 border border-ink-800' : 'bg-white border border-ink-200'}`}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className={`flex items-center justify-between px-5 py-4 border-b flex-shrink-0 ${isDarkMode ? 'border-slate-800' : 'border-gray-100'}`}>
+        <div className={`flex items-center justify-between px-5 py-4 border-b flex-shrink-0 ${isDarkMode ? 'border-ink-800' : 'border-ink-100'}`}>
           <div className="flex items-center gap-2 min-w-0">
             <Wallet className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-            <h2 className="text-sm font-bold text-gray-900 dark:text-white truncate">Payments — {invoice.Invoice_ID}</h2>
+            <h2 className="text-sm font-bold text-ink-900 dark:text-white truncate">Payments — {invoice.Invoice_ID}</h2>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-slate-200 cursor-pointer">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-ink-500 hover:text-ink-700 dark:hover:text-ink-200 cursor-pointer">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
           {/* Summary */}
-          <div className={`grid grid-cols-3 gap-2 rounded-xl p-3 ${isDarkMode ? 'bg-slate-950/50' : 'bg-gray-50'}`}>
+          <div className={`grid grid-cols-3 gap-2 rounded-xl p-3 ${isDarkMode ? 'bg-ink-950/50' : 'bg-ink-50'}`}>
             <div>
-              <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Total</p>
-              <p className="text-sm font-black font-mono text-gray-900 dark:text-white">{fmt(Number(invoice.Total_Amount) || 0)}</p>
+              <p className="text-2xs font-bold uppercase tracking-wider text-ink-500">Total</p>
+              <p className="text-sm font-black font-mono text-ink-900 dark:text-white">{fmt(Number(invoice.Total_Amount) || 0)}</p>
             </div>
             <div>
-              <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Paid</p>
+              <p className="text-2xs font-bold uppercase tracking-wider text-ink-500">Paid</p>
               <p className="text-sm font-black font-mono text-emerald-600 dark:text-emerald-400">{fmt(summary.paid)}</p>
             </div>
             <div>
-              <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Balance</p>
+              <p className="text-2xs font-bold uppercase tracking-wider text-ink-500">Balance</p>
               <p className="text-sm font-black font-mono text-rose-600 dark:text-rose-400">{fmt(summary.balance)}</p>
             </div>
             <div className="col-span-3">
-              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase inline-flex items-center gap-1 ${STATUS_BADGE[summary.status]}`}>
+              <span className={`px-2 py-0.5 rounded-full text-2xs font-bold uppercase inline-flex items-center gap-1 ${STATUS_BADGE[summary.status]}`}>
                 <span className={`w-1 h-1 rounded-full ${STATUS_DOT[summary.status]}`} />
                 {PAYMENT_STATUS_LABEL[summary.status]}
               </span>
@@ -99,16 +100,16 @@ function PaymentsModal({
 
           {/* Existing payments */}
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-2">Recorded Payments</p>
+            <p className="text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-2">Recorded Payments</p>
             {list.length === 0 ? (
-              <p className="text-xs text-gray-400 italic py-3 text-center">No payments recorded yet.</p>
+              <p className="text-xs text-ink-500 italic py-3 text-center">No payments recorded yet.</p>
             ) : (
               <div className="space-y-2">
                 {list.map(pmt => (
-                  <div key={pmt.Payment_ID} className={`flex items-center gap-3 rounded-lg px-3 py-2 ${isDarkMode ? 'bg-slate-950/50' : 'bg-gray-50'}`}>
+                  <div key={pmt.Payment_ID} className={`flex items-center gap-3 rounded-lg px-3 py-2 ${isDarkMode ? 'bg-ink-950/50' : 'bg-ink-50'}`}>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold font-mono text-gray-900 dark:text-white">{fmt(Number(pmt.Amount) || 0)}</p>
-                      <p className="text-[10px] text-gray-500 dark:text-slate-400 truncate">
+                      <p className="text-xs font-bold font-mono text-ink-900 dark:text-white">{fmt(Number(pmt.Amount) || 0)}</p>
+                      <p className="text-2xs text-ink-500 dark:text-ink-400 truncate">
                         {pmt.Date}{pmt.Method ? ` · ${pmt.Method}` : ''}{pmt.Reference ? ` · ${pmt.Reference}` : ''}
                       </p>
                     </div>
@@ -128,33 +129,33 @@ function PaymentsModal({
 
           {/* Add payment */}
           {summary.balance > 0 && (
-            <div className={`rounded-xl p-3 space-y-3 ${isDarkMode ? 'bg-slate-950/50' : 'bg-gray-50'}`}>
+            <div className={`rounded-xl p-3 space-y-3 ${isDarkMode ? 'bg-ink-950/50' : 'bg-ink-50'}`}>
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400">Add Payment</p>
+                <p className="text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400">Add Payment</p>
                 <button
                   type="button"
                   onClick={() => setAmount(String(summary.balance.toFixed(2)))}
-                  className="text-[10px] font-bold text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 cursor-pointer hover:underline"
+                  className="text-2xs font-bold text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 cursor-pointer hover:underline"
                 >Pay full balance ({fmt(summary.balance)})</button>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">Amount *</label>
+                  <label className="block text-2xs font-bold uppercase tracking-wider text-ink-500 mb-1">Amount *</label>
                   <input type="number" step="0.01" min="0" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" className={inputCls} />
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">Date</label>
+                  <label className="block text-2xs font-bold uppercase tracking-wider text-ink-500 mb-1">Date</label>
                   <input type="date" value={date} onChange={e => setDate(e.target.value)} className={inputCls} />
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">Method</label>
+                  <label className="block text-2xs font-bold uppercase tracking-wider text-ink-500 mb-1">Method</label>
                   <select value={method} onChange={e => setMethod(e.target.value)} className={inputCls}>
                     <option value="">— Optional —</option>
                     {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">Reference</label>
+                  <label className="block text-2xs font-bold uppercase tracking-wider text-ink-500 mb-1">Reference</label>
                   <input type="text" value={reference} onChange={e => setReference(e.target.value)} placeholder="Bank txn / note" className={inputCls} />
                 </div>
               </div>
@@ -468,22 +469,22 @@ function InvoicePreviewModal({
   return (
     <div className="fixed inset-0 z-[70] bg-black/75 backdrop-blur-sm flex flex-col items-center overflow-y-auto py-4 px-4">
       {/* Sticky action bar */}
-      <div className="w-full max-w-3xl sticky top-0 z-10 bg-gray-900 rounded-t-xl flex items-center justify-between px-5 py-3 shadow-xl flex-shrink-0">
+      <div className="w-full max-w-3xl sticky top-0 z-10 bg-ink-900 rounded-t-xl flex items-center justify-between px-5 py-3 shadow-xl flex-shrink-0">
         <div className="flex items-center gap-2 text-white min-w-0">
-          <FileText className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+          <FileText className="w-4 h-4 text-brand-400 flex-shrink-0" />
           <span className="text-sm font-bold truncate">Invoice Preview — {invoice.Invoice_ID}</span>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
             onClick={onDownload}
-            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-lg cursor-pointer transition-colors shadow-sm"
+            className="flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold px-4 py-2 rounded-lg cursor-pointer transition-colors shadow-sm"
           >
             <Download className="w-3.5 h-3.5" />
             Download PDF
           </button>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-white cursor-pointer rounded-lg hover:bg-gray-700 transition-colors"
+            className="p-2 text-ink-500 hover:text-white cursor-pointer rounded-lg hover:bg-ink-700 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -491,7 +492,7 @@ function InvoicePreviewModal({
       </div>
 
       {/* Invoice paper */}
-      <div className="w-full max-w-3xl bg-white shadow-2xl rounded-b-xl text-gray-900 flex-shrink-0" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+      <div className="w-full max-w-3xl bg-white shadow-2xl rounded-b-xl text-ink-900 flex-shrink-0" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
         <div className="p-10">
 
           {/* ── Header ─────────────────────────────────────────────────── */}
@@ -507,12 +508,12 @@ function InvoicePreviewModal({
               )}
               <div className="min-w-0">
                 {profile.company_name && (
-                  <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{profile.company_name}</p>
+                  <p className="text-2xs font-semibold text-ink-500 uppercase tracking-wider">{profile.company_name}</p>
                 )}
-                <h1 className="text-3xl font-black tracking-tight text-gray-900 leading-tight">{storeName}</h1>
+                <h1 className="text-3xl font-black tracking-tight text-ink-900 leading-tight">{storeName}</h1>
               </div>
             </div>
-            <div className="text-right text-sm text-gray-500 max-w-[250px] flex-shrink-0">
+            <div className="text-right text-sm text-ink-500 max-w-[250px] flex-shrink-0">
               {profile.address && <p className="leading-snug">{profile.address}</p>}
               {(profile.phone || profile.email) && (
                 <p className="mt-1 text-xs">Contact: {[profile.phone, profile.email].filter(Boolean).join(' | ')}</p>
@@ -520,18 +521,18 @@ function InvoicePreviewModal({
             </div>
           </div>
 
-          <hr className="border-gray-200 mb-6" />
+          <hr className="border-ink-200 mb-6" />
 
           {/* ── Invoice metadata ────────────────────────────────────────── */}
           <div className="flex justify-between items-start mb-6">
             <div>
-              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Invoice Code ID</p>
+              <p className="text-2xs font-bold text-ink-500 uppercase tracking-wider">Invoice Code ID</p>
               <p className="text-4xl font-black tracking-tight mt-0.5">{invoice.Invoice_ID}</p>
-              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mt-4">Issued Stamp</p>
+              <p className="text-2xs font-bold text-ink-500 uppercase tracking-wider mt-4">Issued Stamp</p>
               <p className="text-sm font-semibold mt-0.5">{invoice.Date}</p>
             </div>
             <div className="text-right">
-              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Status Summary</p>
+              <p className="text-2xs font-bold text-ink-500 uppercase tracking-wider">Status Summary</p>
               <span className={`inline-block mt-1.5 px-5 py-1.5 rounded text-xs font-black uppercase text-white ${
                 invoice.Status === 'Paid' ? 'bg-emerald-500' : 'bg-amber-500'
               }`}>
@@ -540,24 +541,24 @@ function InvoicePreviewModal({
             </div>
           </div>
 
-          <hr className="border-gray-200 mb-6" />
+          <hr className="border-ink-200 mb-6" />
 
           {/* ── Bill To ─────────────────────────────────────────────────── */}
           <div className="mb-6">
-            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-2">Bill To Registered Customer</p>
+            <p className="text-2xs font-bold text-ink-500 uppercase tracking-wider mb-2">Bill To Registered Customer</p>
             <p className="text-xl font-bold">{invoice.Customer_Name}</p>
             {invoice.Customer_Contact && invoice.Customer_Contact !== '-' && (
-              <p className="text-sm text-gray-600 mt-0.5">Mobile / Email: {invoice.Customer_Contact}</p>
+              <p className="text-sm text-ink-600 mt-0.5">Mobile / Email: {invoice.Customer_Contact}</p>
             )}
             {invoice.Customer_Address && invoice.Customer_Address !== '-' && (
               <>
-                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mt-3">Physical Location Address:</p>
-                <p className="text-sm text-gray-700 mt-0.5">{invoice.Customer_Address}</p>
+                <p className="text-2xs font-bold text-ink-500 uppercase tracking-wider mt-3">Physical Location Address:</p>
+                <p className="text-sm text-ink-700 mt-0.5">{invoice.Customer_Address}</p>
               </>
             )}
           </div>
 
-          <hr className="border-gray-200 mb-4" />
+          <hr className="border-ink-200 mb-4" />
 
           {/* ── Items table ─────────────────────────────────────────────── */}
           <table className="w-full mb-6 border-collapse">
@@ -572,8 +573,8 @@ function InvoicePreviewModal({
             </thead>
             <tbody>
               {items.length > 0 ? items.map((item, idx) => (
-                <tr key={idx} className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/70'}`}>
-                  <td className="py-3 px-3 text-sm text-center text-gray-400">{idx + 1}</td>
+                <tr key={idx} className={`border-b border-ink-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-ink-50/70'}`}>
+                  <td className="py-3 px-3 text-sm text-center text-ink-500">{idx + 1}</td>
                   <td className="py-3 px-3 text-sm">{item.Item_Name}</td>
                   <td className="py-3 px-3 text-sm text-right font-mono">{currency} {Number(item.Price).toFixed(2)}</td>
                   <td className="py-3 px-3 text-sm text-center">{item.Quantity}</td>
@@ -581,7 +582,7 @@ function InvoicePreviewModal({
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-sm text-gray-400 italic">
+                  <td colSpan={5} className="py-8 text-center text-sm text-ink-500 italic">
                     No line items loaded — click Refresh Data in the sidebar then re-open this preview.
                   </td>
                 </tr>
@@ -594,17 +595,17 @@ function InvoicePreviewModal({
             <div className="flex-1 min-w-0">
               {paymentInfo && (
                 <>
-                  <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Remittance Instructions</p>
-                  <p className="text-sm font-semibold whitespace-pre-line text-gray-800">{paymentInfo}</p>
+                  <p className="text-2xs font-bold text-ink-500 uppercase tracking-widest mb-1.5">Remittance Instructions</p>
+                  <p className="text-sm font-semibold whitespace-pre-line text-ink-800">{paymentInfo}</p>
                 </>
               )}
             </div>
-            <div className="border border-gray-200 rounded-lg p-4 min-w-[220px] flex-shrink-0">
-              <div className="flex justify-between text-sm text-gray-600 mb-2">
+            <div className="border border-ink-200 rounded-lg p-4 min-w-[220px] flex-shrink-0">
+              <div className="flex justify-between text-sm text-ink-600 mb-2">
                 <span>Subtotal Amount:</span>
                 <span className="font-mono">{currency} {subtotal.toFixed(2)}</span>
               </div>
-              <hr className="border-gray-200 mb-2" />
+              <hr className="border-ink-200 mb-2" />
               <div className="flex justify-between font-bold text-base" style={{ color: accent }}>
                 <span>Grand Total:</span>
                 <span className="font-mono">{currency} {Number(invoice.Total_Amount).toLocaleString('en-MY', { minimumFractionDigits: 2 })}</span>
@@ -613,11 +614,11 @@ function InvoicePreviewModal({
           </div>
 
           {/* ── Footer ──────────────────────────────────────────────────── */}
-          <div className="mt-10 pt-5 border-t border-gray-200 text-center">
+          <div className="mt-10 pt-5 border-t border-ink-200 text-center">
             {profile.footer_text && (
-              <p className="text-xs text-gray-500 italic mb-1.5">{profile.footer_text}</p>
+              <p className="text-xs text-ink-500 italic mb-1.5">{profile.footer_text}</p>
             )}
-            <p className="text-[9px] text-gray-300 uppercase tracking-widest">Generated Securely by BizEazyInvoicing</p>
+            <p className="text-2xs text-ink-300 uppercase tracking-widest">Generated Securely by BizEazyInvoicing</p>
           </div>
 
         </div>
@@ -1040,8 +1041,8 @@ export default function InvoicingModule({
     persistPayments(db.payments.filter(p => p.Payment_ID !== paymentId), 'Payment deleted.');
   }, [db.payments, isStaff, persistPayments, triggerToast]);
 
-  const inputClass = `w-full px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-    isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
+  const inputClass = `w-full px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-brand-500 ${
+    isDarkMode ? 'bg-ink-950 border-ink-700 text-ink-100' : 'bg-white border-ink-200 text-ink-900'
   }`;
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -1062,30 +1063,30 @@ export default function InvoicingModule({
           { label: 'Collected', value: `${currency} ${fmt(stats.paid)}`, sub: `${stats.count - stats.pendingCount} paid` },
           { label: 'Outstanding', value: `${currency} ${fmt(stats.pending)}`, sub: `${stats.pendingCount} pending` },
         ].map(s => (
-          <div key={s.label} className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl px-4 py-3">
-            <div className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider">{s.label}</div>
-            <div className="text-base font-black text-gray-900 dark:text-white font-mono mt-0.5">{s.value}</div>
-            <div className="text-[10px] text-gray-400 dark:text-slate-500 mt-0.5">{s.sub}</div>
+          <div key={s.label} className="bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 rounded-xl px-4 py-3">
+            <div className="text-2xs font-bold text-ink-500 dark:text-ink-400 uppercase tracking-wider">{s.label}</div>
+            <div className="text-base font-black text-ink-900 dark:text-white font-mono mt-0.5">{s.value}</div>
+            <div className="text-2xs text-ink-500 dark:text-ink-400 mt-0.5">{s.sub}</div>
           </div>
         ))}
         <div
           className={`rounded-xl px-4 py-3 cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md border ${
             isDarkMode
-              ? 'bg-slate-900 border-slate-800 hover:border-indigo-700'
-              : 'bg-white border-gray-200 hover:border-indigo-300 shadow-sm'
+              ? 'bg-ink-900 border-ink-800 hover:border-brand-700'
+              : 'bg-white border-ink-200 hover:border-brand-300 shadow-sm'
           }`}
           onClick={() => setIsCustomerDirOpen(true)}
         >
           <div className={`w-7 h-7 rounded-xl flex items-center justify-center mb-2 ${
-            isDarkMode ? 'bg-purple-500/10 text-purple-400' : 'bg-purple-50 text-purple-600'
+            isDarkMode ? 'bg-brand-500/10 text-brand-400' : 'bg-brand-50 text-brand-600'
           }`}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
             </svg>
           </div>
-          <div className="text-base font-black text-gray-900 dark:text-white font-mono mt-0.5">{db.customers?.length ?? 0}</div>
-          <div className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Saved Customers</div>
-          <div className={`text-[10px] font-medium mt-0.5 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>Click to manage →</div>
+          <div className="text-base font-black text-ink-900 dark:text-white font-mono mt-0.5">{db.customers?.length ?? 0}</div>
+          <div className={`text-2xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-ink-500' : 'text-ink-500'}`}>Saved Customers</div>
+          <div className={`text-2xs font-medium mt-0.5 ${isDarkMode ? 'text-brand-400' : 'text-brand-600'}`}>Click to manage →</div>
         </div>
       </div>
 
@@ -1094,21 +1095,21 @@ export default function InvoicingModule({
         {/* Row 1: search + New Invoice button */}
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-500" />
             <input
               type="text"
               placeholder="Search ID, customer…"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className={`pl-9 pr-3 py-2 text-xs rounded-lg border w-full focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
+              className={`pl-9 pr-3 py-2 text-xs rounded-lg border w-full focus:outline-none focus:ring-1 focus:ring-brand-500 ${
+                isDarkMode ? 'bg-ink-900 border-ink-700 text-ink-100' : 'bg-white border-ink-200 text-ink-900'
               }`}
             />
           </div>
           {!isStaff && (
             <button
               onClick={() => openModal()}
-              className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3.5 py-2 rounded-lg transition-colors cursor-pointer shadow-sm shrink-0"
+              className="flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs px-3.5 py-2 rounded-lg transition-colors cursor-pointer shadow-sm shrink-0"
             >
               <Plus className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">New Invoice</span>
@@ -1122,8 +1123,8 @@ export default function InvoicingModule({
           <select
             value={filterOutlet}
             onChange={e => setFilterOutlet(e.target.value as typeof filterOutlet)}
-            className={`min-w-0 w-full px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-              isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
+            className={`min-w-0 w-full px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-brand-500 ${
+              isDarkMode ? 'bg-ink-900 border-ink-700 text-ink-100' : 'bg-white border-ink-200 text-ink-900'
             }`}
           >
             <option value="All">All Outlets</option>
@@ -1132,8 +1133,8 @@ export default function InvoicingModule({
           <select
             value={filterStatus}
             onChange={e => setFilterStatus(e.target.value as typeof filterStatus)}
-            className={`min-w-0 w-full px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-              isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
+            className={`min-w-0 w-full px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-brand-500 ${
+              isDarkMode ? 'bg-ink-900 border-ink-700 text-ink-100' : 'bg-white border-ink-200 text-ink-900'
             }`}
           >
             <option value="All">All Statuses</option>
@@ -1144,8 +1145,8 @@ export default function InvoicingModule({
           <select
             value={sortBy}
             onChange={e => setSortBy(e.target.value as SortMode)}
-            className={`col-span-2 sm:col-span-1 min-w-0 w-full px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-              isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
+            className={`col-span-2 sm:col-span-1 min-w-0 w-full px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-brand-500 ${
+              isDarkMode ? 'bg-ink-900 border-ink-700 text-ink-100' : 'bg-white border-ink-200 text-ink-900'
             }`}
           >
             <option value="date-desc">Date (Newest First)</option>
@@ -1157,11 +1158,11 @@ export default function InvoicingModule({
       </div>
 
       {/* Invoice table */}
-      <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl overflow-hidden">
+      <div className="bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 rounded-xl overflow-hidden">
         {filtered.length === 0 ? (
           <div className="py-16 text-center">
-            <FileText className="w-8 h-8 text-gray-200 dark:text-slate-700 mx-auto mb-3" />
-            <p className="text-xs font-bold text-gray-500 dark:text-slate-400">
+            <FileText className="w-8 h-8 text-ink-200 dark:text-ink-400 mx-auto mb-3" />
+            <p className="text-xs font-bold text-ink-500 dark:text-ink-400">
               {db.invoices.length === 0 ? 'No invoices yet — create your first one.' : 'No invoices match these filters.'}
             </p>
           </div>
@@ -1169,8 +1170,8 @@ export default function InvoicingModule({
           <>
           <div className="hidden md:block overflow-x-auto">
             <table className="min-w-full text-left text-xs">
-              <thead className={`border-b text-[10px] font-bold uppercase tracking-wider ${
-                isDarkMode ? 'bg-slate-950/40 border-slate-800 text-slate-400' : 'bg-gray-50 border-gray-200 text-gray-500'
+              <thead className={`border-b text-2xs font-bold uppercase tracking-wider ${
+                isDarkMode ? 'bg-ink-950/40 border-ink-800 text-ink-500' : 'bg-ink-50 border-ink-200 text-ink-500'
               }`}>
                 <tr>
                   <th className="px-5 py-3">Invoice ID</th>
@@ -1182,18 +1183,18 @@ export default function InvoicingModule({
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className={`divide-y ${isDarkMode ? 'divide-slate-800' : 'divide-gray-100'}`}>
+              <tbody className={`divide-y ${isDarkMode ? 'divide-ink-800' : 'divide-ink-100'}`}>
                 {filtered.map(inv => {
                   const p = profiles.find(pr => pr.id === inv.Company);
                   const curr = p?.currency_symbol || 'RM';
                   const pay = getPaymentSummary(inv, db.payments);
                   return (
-                    <tr key={inv.Invoice_ID} className="hover:bg-gray-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                      <td className="px-5 py-3.5 font-mono font-bold text-gray-900 dark:text-white whitespace-nowrap">{inv.Invoice_ID}</td>
-                      <td className="px-4 py-3.5 text-gray-500 dark:text-slate-400 whitespace-nowrap">{inv.Date}</td>
+                    <tr key={inv.Invoice_ID} className="hover:bg-ink-50/50 dark:hover:bg-ink-800/30 transition-colors">
+                      <td className="px-5 py-3.5 font-mono font-bold text-ink-900 dark:text-white whitespace-nowrap">{inv.Invoice_ID}</td>
+                      <td className="px-4 py-3.5 text-ink-500 dark:text-ink-400 whitespace-nowrap">{inv.Date}</td>
                       <td className="px-4 py-3.5">
                         <span
-                          className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase whitespace-nowrap"
+                          className="px-2 py-0.5 rounded-full text-2xs font-bold uppercase whitespace-nowrap"
                           style={{
                             color: outletColor(p, profiles.findIndex(pr => pr.id === inv.Company)),
                             backgroundColor: outletColor(p, profiles.findIndex(pr => pr.id === inv.Company)) + '1f',
@@ -1202,17 +1203,17 @@ export default function InvoicingModule({
                           {p ? outletLabel(p) : inv.Company}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 font-medium text-gray-700 dark:text-slate-300 max-w-[160px] truncate">{inv.Customer_Name}</td>
-                      <td className="px-4 py-3.5 text-right font-black font-mono text-gray-900 dark:text-white whitespace-nowrap">
+                      <td className="px-4 py-3.5 font-medium text-ink-700 dark:text-ink-300 max-w-[160px] truncate">{inv.Customer_Name}</td>
+                      <td className="px-4 py-3.5 text-right font-black font-mono text-ink-900 dark:text-white whitespace-nowrap">
                         {curr} {Number(inv.Total_Amount).toFixed(2)}
                       </td>
                       <td className="px-4 py-3.5 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase inline-flex items-center gap-1 ${STATUS_BADGE[pay.status]}`}>
+                        <span className={`px-2 py-0.5 rounded-full text-2xs font-bold uppercase inline-flex items-center gap-1 ${STATUS_BADGE[pay.status]}`}>
                           <span className={`w-1 h-1 rounded-full flex-shrink-0 ${STATUS_DOT[pay.status]}`} />
                           {PAYMENT_STATUS_LABEL[pay.status]}
                         </span>
                         {pay.status === 'Partial' && (
-                          <div className="text-[9px] font-mono text-gray-400 dark:text-slate-500 mt-1 whitespace-nowrap">
+                          <div className="text-2xs font-mono text-ink-500 dark:text-ink-400 mt-1 whitespace-nowrap">
                             {curr} {pay.paid.toFixed(2)} / {Number(inv.Total_Amount).toFixed(2)}
                           </div>
                         )}
@@ -1223,14 +1224,14 @@ export default function InvoicingModule({
                             <>
                               <button
                                 onClick={() => openModal(inv)}
-                                className="p-1 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded cursor-pointer transition-colors"
+                                className="p-1 text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-950/30 rounded cursor-pointer transition-colors"
                                 title="Edit invoice"
                               >
                                 <Edit className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 onClick={() => setPaymentInvoice(inv)}
-                                className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300 cursor-pointer transition-colors"
+                                className="flex items-center gap-1 text-2xs font-bold text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300 cursor-pointer transition-colors"
                                 title="Record / view payments"
                               >
                                 <Wallet className="w-3.5 h-3.5" />
@@ -1240,7 +1241,7 @@ export default function InvoicingModule({
                           )}
                           <button
                             onClick={() => onPreviewInvoice?.(inv.Invoice_ID)}
-                            className="flex items-center gap-1 text-[10px] font-bold text-indigo-500 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 cursor-pointer transition-colors"
+                            className="flex items-center gap-1 text-2xs font-bold text-brand-500 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 cursor-pointer transition-colors"
                           >
                             <Eye className="w-3.5 h-3.5" />
                             Preview
@@ -1255,33 +1256,33 @@ export default function InvoicingModule({
           </div>
 
           {/* Mobile card list — visible only on small screens */}
-          <div className="md:hidden divide-y divide-gray-100 dark:divide-slate-800">
+          <div className="md:hidden divide-y divide-ink-100 dark:divide-ink-800">
             {filtered.map(inv => {
               const pay = getPaymentSummary(inv, db.payments);
               return (
-              <div key={inv.Invoice_ID} className={`p-4 ${isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-gray-50/60'}`}>
+              <div key={inv.Invoice_ID} className={`p-4 ${isDarkMode ? 'hover:bg-ink-800/40' : 'hover:bg-ink-50/60'}`}>
                 {/* Top: ID + status on the left, amount on the right */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`text-xs font-black font-mono whitespace-nowrap ${isDarkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>
+                      <span className={`text-xs font-black font-mono whitespace-nowrap ${isDarkMode ? 'text-brand-400' : 'text-brand-700'}`}>
                         {inv.Invoice_ID}
                       </span>
-                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${STATUS_BADGE[pay.status]}`}>{PAYMENT_STATUS_LABEL[pay.status]}</span>
+                      <span className={`text-2xs font-bold px-1.5 py-0.5 rounded-full ${STATUS_BADGE[pay.status]}`}>{PAYMENT_STATUS_LABEL[pay.status]}</span>
                     </div>
-                    <p className={`text-sm font-semibold truncate mt-1 ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                    <p className={`text-sm font-semibold truncate mt-1 ${isDarkMode ? 'text-ink-200' : 'text-ink-800'}`}>
                       {inv.Customer_Name}
                     </p>
-                    <p className={`text-[10px] mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                    <p className={`text-2xs mt-0.5 ${isDarkMode ? 'text-ink-500' : 'text-ink-500'}`}>
                       {inv.Date?.split('T')[0] || inv.Date}
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className={`text-base font-black font-mono ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                    <p className={`text-base font-black font-mono ${isDarkMode ? 'text-white' : 'text-ink-900'}`}>
                       RM {Number(inv.Total_Amount).toFixed(2)}
                     </p>
                     {pay.status === 'Partial' && (
-                      <p className="text-[10px] font-mono text-amber-600 dark:text-amber-400 mt-0.5">
+                      <p className="text-2xs font-mono text-amber-600 dark:text-amber-400 mt-0.5">
                         Bal RM {pay.balance.toFixed(2)}
                       </p>
                     )}
@@ -1291,22 +1292,22 @@ export default function InvoicingModule({
                 <div className="grid grid-cols-3 gap-2 mt-3">
                   <button
                     onClick={() => onPreviewInvoice?.(inv.Invoice_ID)}
-                    className={`py-2 text-[11px] font-bold rounded-lg cursor-pointer transition-colors ${
-                      isDarkMode ? 'bg-slate-800 text-indigo-400 hover:bg-slate-700' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                    className={`py-2 text-2xs font-bold rounded-lg cursor-pointer transition-colors ${
+                      isDarkMode ? 'bg-ink-800 text-brand-400 hover:bg-ink-700' : 'bg-brand-50 text-brand-700 hover:bg-brand-100'
                     }`}
                   >Preview</button>
                   {!isStaff && (
                     <button
                       onClick={() => openModal(inv)}
-                      className={`py-2 text-[11px] font-bold rounded-lg cursor-pointer transition-colors ${
-                        isDarkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      className={`py-2 text-2xs font-bold rounded-lg cursor-pointer transition-colors ${
+                        isDarkMode ? 'bg-ink-800 text-ink-300 hover:bg-ink-700' : 'bg-ink-100 text-ink-700 hover:bg-ink-200'
                       }`}
                     >Edit</button>
                   )}
                   {!isStaff && (
                     <button
                       onClick={() => setPaymentInvoice(inv)}
-                      className={`py-2 text-[11px] font-bold rounded-lg cursor-pointer transition-colors ${
+                      className={`py-2 text-2xs font-bold rounded-lg cursor-pointer transition-colors ${
                         isDarkMode
                           ? 'bg-emerald-900/40 text-emerald-400 hover:bg-emerald-900/60'
                           : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
@@ -1324,25 +1325,13 @@ export default function InvoicingModule({
 
       {/* ── Create / Edit Invoice Modal ────────────────────────────────────── */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className={`w-full max-w-5xl rounded-2xl shadow-2xl flex flex-col max-h-[92vh] ${
-            isDarkMode ? 'bg-slate-900 border border-slate-800' : 'bg-white border border-gray-200'
-          }`}>
-            {/* Header */}
-            <div className={`flex items-center justify-between px-6 py-4 border-b flex-shrink-0 ${
-              isDarkMode ? 'border-slate-800' : 'border-gray-100'
-            }`}>
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-indigo-500" />
-                <h2 className="text-sm font-bold text-gray-900 dark:text-white">
-                  {editingInvoice ? `Edit Invoice — ${editingInvoice.Invoice_ID}` : 'New Invoice'}
-                </h2>
-              </div>
-              <button onClick={() => setIsModalOpen(false)} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-slate-200 cursor-pointer">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
+        <Sheet
+          title={editingInvoice ? `Edit Invoice — ${editingInvoice.Invoice_ID}` : 'New Invoice'}
+          icon={<FileText className="w-4 h-4" />}
+          onClose={() => setIsModalOpen(false)}
+          maxWidth="5xl"
+          dismissOnBackdrop={false}
+        >
             {/* Body */}
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr] gap-6">
@@ -1351,7 +1340,7 @@ export default function InvoicingModule({
                 <div className="space-y-4">
                   {/* Outlet */}
                   <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">Outlet *</label>
+                    <label className="block text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1.5">Outlet *</label>
                     <div className="flex gap-2">
                       {profiles.map(outletProfile => (
                         <button
@@ -1360,10 +1349,10 @@ export default function InvoicingModule({
                           onClick={() => setModalOutlet(outletProfile.id)}
                           className={`flex-1 py-2 text-xs font-bold rounded-lg border transition-colors cursor-pointer ${
                             modalOutlet === outletProfile.id
-                              ? 'bg-indigo-600 border-indigo-600 text-white'
+                              ? 'bg-brand-600 border-brand-600 text-white'
                               : isDarkMode
-                                ? 'bg-slate-950 border-slate-700 text-slate-300 hover:border-slate-500'
-                                : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
+                                ? 'bg-ink-950 border-ink-700 text-ink-300 hover:border-ink-500'
+                                : 'bg-white border-ink-200 text-ink-700 hover:border-ink-300'
                           }`}
                         >
                           {outletLabel(outletProfile)}
@@ -1374,13 +1363,13 @@ export default function InvoicingModule({
 
                   {/* Date */}
                   <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">Invoice Date *</label>
+                    <label className="block text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1.5">Invoice Date *</label>
                     <input type="date" value={modalDate} onChange={e => setModalDate(e.target.value)} className={`${inputClass} ${isDarkMode ? '[color-scheme:dark]' : '[color-scheme:light]'}`} required />
                   </div>
 
                   {/* Customer with autocomplete */}
                   <div className="relative">
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">Customer Name *</label>
+                    <label className="block text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1.5">Customer Name *</label>
                     <input
                       type="text"
                       value={modalCustomer}
@@ -1394,7 +1383,7 @@ export default function InvoicingModule({
                     />
                     {showSuggestions && (
                       <div className={`absolute z-10 w-full mt-1 rounded-xl border shadow-lg max-h-36 overflow-y-auto ${
-                        isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'
+                        isDarkMode ? 'bg-ink-900 border-ink-700' : 'bg-white border-ink-200'
                       }`}>
                         {customerSuggestions.map(c => (
                           <button
@@ -1402,11 +1391,11 @@ export default function InvoicingModule({
                             type="button"
                             onMouseDown={() => selectCustomer(c)}
                             className={`w-full text-left px-3 py-2 text-xs font-semibold flex justify-between items-center cursor-pointer ${
-                              isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-gray-50 text-gray-800'
+                              isDarkMode ? 'hover:bg-ink-800 text-ink-200' : 'hover:bg-ink-50 text-ink-800'
                             }`}
                           >
                             <span>{c.Customer_Name}</span>
-                            <span className="text-[10px] text-gray-400 dark:text-slate-500 font-mono">{c.Contact || 'No contact'}</span>
+                            <span className="text-2xs text-ink-500 dark:text-ink-400 font-mono">{c.Contact || 'No contact'}</span>
                           </button>
                         ))}
                       </div>
@@ -1415,19 +1404,19 @@ export default function InvoicingModule({
 
                   {/* Contact */}
                   <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">Contact / Email</label>
+                    <label className="block text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1.5">Contact / Email</label>
                     <input type="text" value={modalContact} onChange={e => setModalContact(e.target.value)} placeholder="Phone, email, or billing reference…" className={inputClass} />
                   </div>
 
                   {/* Address */}
                   <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">Billing Address</label>
+                    <label className="block text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1.5">Billing Address</label>
                     <textarea value={modalAddress} onChange={e => setModalAddress(e.target.value)} rows={2} placeholder="Customer billing / delivery address…" className={`${inputClass} resize-y`} />
                   </div>
 
                   {/* Status */}
                   <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">Payment Status</label>
+                    <label className="block text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1.5">Payment Status</label>
                     <select value={modalStatus} onChange={e => setModalStatus(e.target.value as 'Paid' | 'Pending')} className={inputClass}>
                       <option value="Pending">Pending / Uncollected</option>
                       <option value="Paid">Paid</option>
@@ -1436,20 +1425,20 @@ export default function InvoicingModule({
 
                   {/* Notes */}
                   <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">Notes</label>
+                    <label className="block text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1.5">Notes</label>
                     <textarea value={modalNotes} onChange={e => setModalNotes(e.target.value)} placeholder="Optional remarks…" rows={2} className={`${inputClass} resize-none`} />
                   </div>
 
                   {/* Discount option */}
                   <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">
+                    <label className="block text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1.5">
                       Discount (Optional)
                     </label>
                     <div className="flex gap-2">
                       <select
                         value={discountType}
                         onChange={e => setDiscountType(e.target.value as 'none'|'percentage'|'fixed')}
-                        className={`px-2.5 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'}`}
+                        className={`px-2.5 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-brand-500 ${isDarkMode ? 'bg-ink-950 border-ink-700 text-ink-100' : 'bg-white border-ink-200 text-ink-900'}`}
                       >
                         <option value="none">No Discount</option>
                         <option value="percentage">Percentage (%)</option>
@@ -1461,7 +1450,7 @@ export default function InvoicingModule({
                           value={discountValue || ''}
                           onChange={e => setDiscountValue(Number(e.target.value))}
                           placeholder={discountType === 'percentage' ? 'e.g. 10' : 'e.g. 50'}
-                          className={`flex-1 px-2.5 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'}`}
+                          className={`flex-1 px-2.5 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-brand-500 ${isDarkMode ? 'bg-ink-950 border-ink-700 text-ink-100' : 'bg-white border-ink-200 text-ink-900'}`}
                         />
                       )}
                     </div>
@@ -1470,7 +1459,7 @@ export default function InvoicingModule({
                   {/* Extra Charges */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400">
+                      <label className="text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400">
                         Extra Charges (Optional)
                       </label>
                       <label className="flex items-center gap-1.5 cursor-pointer">
@@ -1478,9 +1467,9 @@ export default function InvoicingModule({
                           type="checkbox"
                           checked={includeExtraCharge}
                           onChange={e => setIncludeExtraCharge(e.target.checked)}
-                          className="accent-indigo-600 cursor-pointer"
+                          className="accent-brand-600 cursor-pointer"
                         />
-                        <span className="text-[10px] font-semibold text-gray-500 dark:text-slate-400">Include in invoice</span>
+                        <span className="text-2xs font-semibold text-ink-500 dark:text-ink-400">Include in invoice</span>
                       </label>
                     </div>
                     {includeExtraCharge && (
@@ -1493,7 +1482,7 @@ export default function InvoicingModule({
                                 const val = e.target.value;
                                 setExtraCharges(prev => prev.map((c, i) => i === idx ? { ...c, label: val === 'Custom' ? '' : val } : c));
                               }}
-                              className={`px-2 py-1.5 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'}`}
+                              className={`px-2 py-1.5 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-brand-500 ${isDarkMode ? 'bg-ink-950 border-ink-700 text-ink-100' : 'bg-white border-ink-200 text-ink-900'}`}
                             >
                               <option value="Delivery">Delivery</option>
                               <option value="Packaging">Packaging</option>
@@ -1506,7 +1495,7 @@ export default function InvoicingModule({
                                 placeholder="Label"
                                 value={charge.label}
                                 onChange={e => setExtraCharges(prev => prev.map((c, i) => i === idx ? { ...c, label: e.target.value } : c))}
-                                className={`w-28 px-2 py-1.5 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'}`}
+                                className={`w-28 px-2 py-1.5 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-brand-500 ${isDarkMode ? 'bg-ink-950 border-ink-700 text-ink-100' : 'bg-white border-ink-200 text-ink-900'}`}
                               />
                             )}
                             <input
@@ -1514,9 +1503,9 @@ export default function InvoicingModule({
                               value={charge.amount}
                               onChange={e => setExtraCharges(prev => prev.map((c, i) => i === idx ? { ...c, amount: Number(e.target.value) } : c))}
                               placeholder="0"
-                              className={`w-20 px-2 py-1.5 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono ${isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'}`}
+                              className={`w-20 px-2 py-1.5 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-brand-500 font-mono ${isDarkMode ? 'bg-ink-950 border-ink-700 text-ink-100' : 'bg-white border-ink-200 text-ink-900'}`}
                             />
-                            <span className={`text-[10px] font-bold ${charge.amount === 0 ? 'text-emerald-600' : 'text-gray-400 dark:text-slate-500'}`}>
+                            <span className={`text-2xs font-bold ${charge.amount === 0 ? 'text-emerald-600' : 'text-ink-500 dark:text-ink-400'}`}>
                               {charge.amount === 0 ? 'FREE' : `RM ${charge.amount.toFixed(2)}`}
                             </span>
                             {extraCharges.length > 1 && (
@@ -1533,7 +1522,7 @@ export default function InvoicingModule({
                         <button
                           type="button"
                           onClick={() => setExtraCharges(prev => [...prev, { label: 'Delivery', amount: 0 }])}
-                          className={`flex items-center gap-1 text-[10px] font-bold cursor-pointer hover:underline ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}
+                          className={`flex items-center gap-1 text-2xs font-bold cursor-pointer hover:underline ${isDarkMode ? 'text-brand-400' : 'text-brand-600'}`}
                         >
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
                           Add another charge
@@ -1542,18 +1531,18 @@ export default function InvoicingModule({
                     )}
                   </div>
 
-                  <p className="text-[10px] text-gray-400 dark:text-slate-500">
+                  <p className="text-2xs text-ink-500 dark:text-ink-400">
                     This customer is saved automatically for faster future invoices & quotations.
                   </p>
                 </div>
 
                 {/* Right: line items — AI Studio style */}
                 <div className="flex flex-col gap-2">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400">Line Items *</label>
+                  <label className="text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400">Line Items *</label>
 
                   {/* Add row input — stacked on mobile, single row on desktop */}
                   <div className={`flex flex-col gap-1.5 p-2 rounded-xl border ${
-                    isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-gray-50 border-gray-200'
+                    isDarkMode ? 'bg-ink-900 border-ink-700' : 'bg-ink-50 border-ink-200'
                   }`}>
                     {/* Description — full width, with preset autocomplete */}
                     <div className="relative">
@@ -1565,25 +1554,25 @@ export default function InvoicingModule({
                         onFocus={() => setShowItemPresets(true)}
                         onBlur={() => setTimeout(() => setShowItemPresets(false), 150)}
                         onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addNewItem(); } }}
-                        className={`w-full px-2.5 py-1.5 text-[11px] rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                          isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
+                        className={`w-full px-2.5 py-1.5 text-2xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-brand-500 ${
+                          isDarkMode ? 'bg-ink-950 border-ink-700 text-ink-100' : 'bg-white border-ink-200 text-ink-900'
                         }`}
                       />
                       {showItemPresets && itemPresetMatches.length > 0 && (
                         <div className={`absolute z-20 left-0 right-0 mt-1 max-h-52 overflow-y-auto rounded-lg border shadow-lg ${
-                          isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'
+                          isDarkMode ? 'bg-ink-900 border-ink-700' : 'bg-white border-ink-200'
                         }`}>
                           {itemPresetMatches.map((p, i) => (
                             <button
                               key={i}
                               type="button"
                               onMouseDown={() => { setNewItemName(p.name); setNewItemPrice(p.price); setShowItemPresets(false); }}
-                              className={`w-full flex items-center justify-between gap-3 px-2.5 py-1.5 text-left text-[11px] cursor-pointer transition-colors ${
-                                isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-indigo-50 text-gray-800'
+                              className={`w-full flex items-center justify-between gap-3 px-2.5 py-1.5 text-left text-2xs cursor-pointer transition-colors ${
+                                isDarkMode ? 'hover:bg-ink-800 text-ink-200' : 'hover:bg-brand-50 text-ink-800'
                               }`}
                             >
                               <span className="truncate">{p.name}</span>
-                              <span className={`shrink-0 font-mono font-bold ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
+                              <span className={`shrink-0 font-mono font-bold ${isDarkMode ? 'text-ink-500' : 'text-ink-500'}`}>
                                 {p.price > 0 ? `${currency} ${p.price.toFixed(2)}` : '—'}
                               </span>
                             </button>
@@ -1597,22 +1586,22 @@ export default function InvoicingModule({
                         type="number" placeholder="Qty" min="0" step="any"
                         value={newItemQty || ''}
                         onChange={e => setNewItemQty(Number(e.target.value))}
-                        className={`w-20 px-2 py-1.5 text-[11px] text-center rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                          isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
+                        className={`w-20 px-2 py-1.5 text-2xs text-center rounded-lg border focus:outline-none focus:ring-1 focus:ring-brand-500 ${
+                          isDarkMode ? 'bg-ink-950 border-ink-700 text-ink-100' : 'bg-white border-ink-200 text-ink-900'
                         }`}
                       />
                       <input
                         type="number" placeholder="Price RM" min="0" step="any"
                         value={newItemPrice || ''}
                         onChange={e => setNewItemPrice(Number(e.target.value))}
-                        className={`flex-1 px-2 py-1.5 text-[11px] text-right rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                          isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
+                        className={`flex-1 px-2 py-1.5 text-2xs text-right rounded-lg border focus:outline-none focus:ring-1 focus:ring-brand-500 ${
+                          isDarkMode ? 'bg-ink-950 border-ink-700 text-ink-100' : 'bg-white border-ink-200 text-ink-900'
                         }`}
                       />
                       <button
                         type="button"
                         onClick={addNewItem}
-                        className="shrink-0 w-8 h-8 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center cursor-pointer"
+                        className="shrink-0 w-8 h-8 rounded-lg bg-brand-600 hover:bg-brand-700 text-white flex items-center justify-center cursor-pointer"
                       >
                         <Plus className="w-4 h-4" />
                       </button>
@@ -1622,8 +1611,8 @@ export default function InvoicingModule({
                   {/* Column headers */}
                   {lineItems.length > 0 && (
                     <div
-                      className={`grid text-[9px] font-bold uppercase tracking-wider px-2 py-1 ${
-                        isDarkMode ? 'text-slate-500' : 'text-gray-400'
+                      className={`grid text-2xs font-bold uppercase tracking-wider px-2 py-1 ${
+                        isDarkMode ? 'text-ink-500' : 'text-ink-500'
                       }`}
                       style={{ gridTemplateColumns: '1fr 48px 72px 68px 52px' }}
                     >
@@ -1643,7 +1632,7 @@ export default function InvoicingModule({
                         <div
                           key={idx}
                           className={`flex flex-wrap gap-1.5 items-center px-2 py-2 rounded-lg ${
-                            isDarkMode ? 'bg-slate-800/60' : 'bg-indigo-50'
+                            isDarkMode ? 'bg-ink-800/60' : 'bg-brand-50'
                           }`}
                         >
                           <input
@@ -1651,8 +1640,8 @@ export default function InvoicingModule({
                             value={editItem.name}
                             onChange={e => setEditItem(prev => ({ ...prev, name: e.target.value }))}
                             placeholder="Description"
-                            className={`flex-1 min-w-[120px] px-2 py-1 text-[11px] rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                              isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
+                            className={`flex-1 min-w-[120px] px-2 py-1 text-2xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-brand-500 ${
+                              isDarkMode ? 'bg-ink-950 border-ink-700 text-ink-100' : 'bg-white border-ink-200 text-ink-900'
                             }`}
                           />
                           <input
@@ -1660,8 +1649,8 @@ export default function InvoicingModule({
                             value={editItem.qty || ''}
                             onChange={e => setEditItem(prev => ({ ...prev, qty: Number(e.target.value) }))}
                             placeholder="Qty"
-                            className={`w-14 px-2 py-1 text-[11px] text-center rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                              isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
+                            className={`w-14 px-2 py-1 text-2xs text-center rounded-lg border focus:outline-none focus:ring-1 focus:ring-brand-500 ${
+                              isDarkMode ? 'bg-ink-950 border-ink-700 text-ink-100' : 'bg-white border-ink-200 text-ink-900'
                             }`}
                           />
                           <input
@@ -1669,8 +1658,8 @@ export default function InvoicingModule({
                             value={editItem.price || ''}
                             onChange={e => setEditItem(prev => ({ ...prev, price: Number(e.target.value) }))}
                             placeholder="Price"
-                            className={`w-20 px-2 py-1 text-[11px] text-right rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                              isDarkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
+                            className={`w-20 px-2 py-1 text-2xs text-right rounded-lg border focus:outline-none focus:ring-1 focus:ring-brand-500 ${
+                              isDarkMode ? 'bg-ink-950 border-ink-700 text-ink-100' : 'bg-white border-ink-200 text-ink-900'
                             }`}
                           />
                           <div className="flex gap-1">
@@ -1681,15 +1670,15 @@ export default function InvoicingModule({
                                 setLineItems(prev => prev.map((it, i) => i === idx ? { ...editItem } : it));
                                 setEditingItemIdx(null);
                               }}
-                              className="px-2 py-1 text-[10px] font-bold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer"
+                              className="px-2 py-1 text-2xs font-bold rounded-lg bg-brand-600 hover:bg-brand-700 text-white cursor-pointer"
                             >
                               Save
                             </button>
                             <button
                               type="button"
                               onClick={() => setEditingItemIdx(null)}
-                              className={`px-2 py-1 text-[10px] font-bold rounded-lg border cursor-pointer ${
-                                isDarkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-gray-200 text-gray-600 hover:bg-gray-100'
+                              className={`px-2 py-1 text-2xs font-bold rounded-lg border cursor-pointer ${
+                                isDarkMode ? 'border-ink-600 text-ink-300 hover:bg-ink-700' : 'border-ink-200 text-ink-600 hover:bg-ink-100'
                               }`}
                             >
                               ✕
@@ -1701,27 +1690,27 @@ export default function InvoicingModule({
                         <div
                           key={idx}
                           className={`grid items-center gap-2 px-2 py-1.5 rounded-lg ${
-                            isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-gray-50'
+                            isDarkMode ? 'hover:bg-ink-800/40' : 'hover:bg-ink-50'
                           }`}
                           style={{ gridTemplateColumns: '1fr 48px 72px 68px 52px' }}
                         >
-                          <span className={`text-[11px] font-medium truncate ${isDarkMode ? 'text-slate-200' : 'text-gray-800'}`}>
+                          <span className={`text-2xs font-medium truncate ${isDarkMode ? 'text-ink-200' : 'text-ink-800'}`}>
                             {item.name}
                           </span>
-                          <span className={`text-[11px] font-mono text-center ${isDarkMode ? 'text-slate-300' : 'text-gray-600'}`}>
+                          <span className={`text-2xs font-mono text-center ${isDarkMode ? 'text-ink-300' : 'text-ink-600'}`}>
                             {item.qty}
                           </span>
-                          <span className={`text-[11px] font-mono text-right ${isDarkMode ? 'text-slate-300' : 'text-gray-600'}`}>
+                          <span className={`text-2xs font-mono text-right ${isDarkMode ? 'text-ink-300' : 'text-ink-600'}`}>
                             {Number(item.price || 0).toFixed(2)}
                           </span>
-                          <span className={`text-[11px] font-mono font-bold text-right ${isDarkMode ? 'text-slate-100' : 'text-gray-900'}`}>
+                          <span className={`text-2xs font-mono font-bold text-right ${isDarkMode ? 'text-ink-100' : 'text-ink-900'}`}>
                             {((item.qty || 0) * (item.price || 0)).toFixed(2)}
                           </span>
                           <div className="flex items-center justify-center gap-0.5">
                             <button
                               type="button"
                               onClick={() => { setEditItem({ ...item }); setEditingItemIdx(idx); }}
-                              className="text-indigo-400 hover:text-indigo-600 cursor-pointer p-1 rounded hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
+                              className="text-brand-400 hover:text-brand-600 cursor-pointer p-1 rounded hover:bg-brand-50 dark:hover:bg-brand-950/30"
                             >
                               <Edit className="w-3 h-3" />
                             </button>
@@ -1737,7 +1726,7 @@ export default function InvoicingModule({
                       )
                     ))}
                     {lineItems.length === 0 && (
-                      <p className={`text-[10px] text-center py-3 ${isDarkMode ? 'text-slate-600' : 'text-gray-400'}`}>
+                      <p className={`text-2xs text-center py-3 ${isDarkMode ? 'text-ink-600' : 'text-ink-500'}`}>
                         No items yet — fill the row above and press +
                       </p>
                     )}
@@ -1745,10 +1734,10 @@ export default function InvoicingModule({
 
                   {/* Grand total */}
                   <div className={`flex items-center justify-between p-3 rounded-xl mt-auto ${
-                    isDarkMode ? 'bg-slate-950 border border-slate-800' : 'bg-gray-50 border border-gray-200'
+                    isDarkMode ? 'bg-ink-950 border border-ink-800' : 'bg-ink-50 border border-ink-200'
                   }`}>
-                    <span className="text-xs font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Grand Total</span>
-                    <span className="text-xl font-black text-gray-900 dark:text-white font-mono">
+                    <span className="text-xs font-bold text-ink-500 dark:text-ink-400 uppercase tracking-wider">Grand Total</span>
+                    <span className="text-xl font-black text-ink-900 dark:text-white font-mono">
                       {currency} {grandTotal.toFixed(2)}
                     </span>
                   </div>
@@ -1756,7 +1745,7 @@ export default function InvoicingModule({
               </div>
 
               {/* Footer */}
-              <div className={`flex items-center justify-between gap-2 pt-4 mt-4 border-t ${isDarkMode ? 'border-slate-800' : 'border-gray-100'}`}>
+              <div className={`flex items-center justify-between gap-2 pt-4 mt-4 border-t ${isDarkMode ? 'border-ink-800' : 'border-ink-100'}`}>
                 <div>
                   {editingInvoice && (
                     <button
@@ -1773,12 +1762,12 @@ export default function InvoicingModule({
                     </button>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 justify-end sticky bottom-0 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 mt-4 bg-ink-50/95 dark:bg-ink-900/95 backdrop-blur-sm border-t border-ink-200 dark:border-ink-800 z-10">
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
                     className={`px-4 py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors ${
-                      isDarkMode ? 'bg-transparent border-slate-700 text-slate-300 hover:bg-slate-800' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                      isDarkMode ? 'bg-transparent border-ink-700 text-ink-300 hover:bg-ink-800' : 'bg-white border-ink-200 text-ink-700 hover:bg-ink-50'
                     }`}
                   >
                     Cancel
@@ -1786,7 +1775,7 @@ export default function InvoicingModule({
                   <button
                     type="submit"
                     disabled={isSyncing}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer shadow-sm"
+                    className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer shadow-sm"
                   >
                     {isSyncing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
                     {isSyncing ? 'Saving…' : (editingInvoice ? 'Update Invoice' : 'Generate & Save')}
@@ -1794,17 +1783,16 @@ export default function InvoicingModule({
                 </div>
               </div>
             </form>
-          </div>
-        </div>
+        </Sheet>
       )}
 
       {/* ── Customer Directory Modal ──────────────────────────────────────── */}
       {isCustomerDirOpen && (
         <div className="fixed inset-0 z-[55] bg-black/60 flex items-center justify-center p-4">
-          <div className={`w-full max-w-3xl rounded-2xl shadow-xl flex flex-col max-h-[85vh] ${isDarkMode ? 'bg-slate-900 border border-slate-800 text-slate-100' : 'bg-white border border-slate-200'}`}>
+          <div className={`w-full max-w-3xl rounded-2xl shadow-xl flex flex-col max-h-[85vh] ${isDarkMode ? 'bg-ink-900 border border-ink-800 text-ink-100' : 'bg-white border border-ink-200'}`}>
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-slate-800 shrink-0">
-              <h3 className="text-sm font-bold text-indigo-500 uppercase tracking-wider">Saved Customer Records</h3>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-ink-100 dark:border-ink-800 shrink-0">
+              <h3 className="text-sm font-bold text-brand-500 uppercase tracking-wider">Saved Customer Records</h3>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
@@ -1812,11 +1800,11 @@ export default function InvoicingModule({
                     setCustName(''); setCustContact(''); setCustAddress(''); setCustType('Regular');
                     setIsCustomerFormOpen(true);
                   }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg cursor-pointer transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-lg cursor-pointer transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" /> Add Customer
                 </button>
-                <button onClick={() => setIsCustomerDirOpen(false)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 cursor-pointer text-gray-400">
+                <button onClick={() => setIsCustomerDirOpen(false)} className="p-1.5 rounded-lg hover:bg-ink-100 dark:hover:bg-ink-800 cursor-pointer text-ink-500">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -1824,33 +1812,33 @@ export default function InvoicingModule({
 
             {/* Customer form (inline) */}
             {isCustomerFormOpen && (
-              <div className={`px-6 py-4 border-b ${isDarkMode ? 'border-slate-700 bg-slate-800/50' : 'border-gray-100 bg-indigo-50/30'}`}>
-                <h4 className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider mb-3">
+              <div className={`px-6 py-4 border-b ${isDarkMode ? 'border-ink-700 bg-ink-800/50' : 'border-ink-100 bg-brand-50/30'}`}>
+                <h4 className="text-2xs font-bold text-brand-500 uppercase tracking-wider mb-3">
                   {editingCustomer ? 'Edit Customer' : 'New Customer'}
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                   <div>
-                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Full Name *</label>
+                    <label className="block text-2xs font-bold text-ink-500 uppercase mb-1">Full Name *</label>
                     <input value={custName} onChange={e => setCustName(e.target.value)}
                       placeholder="Customer full name"
-                      className={`w-full px-2.5 py-1.5 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-gray-200'}`} />
+                      className={`w-full px-2.5 py-1.5 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-brand-500 ${isDarkMode ? 'bg-ink-900 border-ink-700 text-ink-100' : 'bg-white border-ink-200'}`} />
                   </div>
                   <div>
-                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Contact / Email</label>
+                    <label className="block text-2xs font-bold text-ink-500 uppercase mb-1">Contact / Email</label>
                     <input value={custContact} onChange={e => setCustContact(e.target.value)}
                       placeholder="Phone or email"
-                      className={`w-full px-2.5 py-1.5 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-gray-200'}`} />
+                      className={`w-full px-2.5 py-1.5 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-brand-500 ${isDarkMode ? 'bg-ink-900 border-ink-700 text-ink-100' : 'bg-white border-ink-200'}`} />
                   </div>
                   <div>
-                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Address</label>
+                    <label className="block text-2xs font-bold text-ink-500 uppercase mb-1">Address</label>
                     <input value={custAddress} onChange={e => setCustAddress(e.target.value)}
                       placeholder="Billing address (optional)"
-                      className={`w-full px-2.5 py-1.5 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-gray-200'}`} />
+                      className={`w-full px-2.5 py-1.5 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-brand-500 ${isDarkMode ? 'bg-ink-900 border-ink-700 text-ink-100' : 'bg-white border-ink-200'}`} />
                   </div>
                   <div>
-                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Customer Type</label>
+                    <label className="block text-2xs font-bold text-ink-500 uppercase mb-1">Customer Type</label>
                     <select value={custType} onChange={e => setCustType(e.target.value as 'Regular' | 'New')}
-                      className={`w-full px-2.5 py-1.5 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-gray-200'}`}>
+                      className={`w-full px-2.5 py-1.5 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-brand-500 ${isDarkMode ? 'bg-ink-900 border-ink-700 text-ink-100' : 'bg-white border-ink-200'}`}>
                       <option value="Regular">Regular Client</option>
                       <option value="New">New Client</option>
                     </select>
@@ -1858,7 +1846,7 @@ export default function InvoicingModule({
                 </div>
                 <div className="flex gap-2 justify-end">
                   <button onClick={() => setIsCustomerFormOpen(false)}
-                    className="px-3 py-1.5 text-xs font-bold rounded-lg border cursor-pointer text-gray-500 hover:bg-gray-50 dark:hover:bg-slate-800">
+                    className="px-3 py-1.5 text-xs font-bold rounded-lg border cursor-pointer text-ink-500 hover:bg-ink-50 dark:hover:bg-ink-800">
                     Cancel
                   </button>
                   <button
@@ -1890,7 +1878,7 @@ export default function InvoicingModule({
                         setIsSyncing(false);
                       }
                     }}
-                    className="px-3 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer">
+                    className="px-3 py-1.5 text-xs font-bold rounded-lg bg-brand-600 hover:bg-brand-700 text-white cursor-pointer">
                     {editingCustomer ? 'Save Changes' : 'Add Customer'}
                   </button>
                 </div>
@@ -1900,11 +1888,11 @@ export default function InvoicingModule({
             {/* Table */}
             <div className="overflow-y-auto flex-1 px-6 py-4">
               {(db?.customers || []).length === 0 ? (
-                <p className="text-center text-xs text-gray-400 py-8">No saved customers yet. Click "Add Customer" to create one.</p>
+                <p className="text-center text-xs text-ink-500 py-8">No saved customers yet. Click "Add Customer" to create one.</p>
               ) : (
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className={`text-[9px] font-bold uppercase tracking-wider border-b ${isDarkMode ? 'border-slate-700 text-slate-400' : 'border-gray-100 text-gray-400'}`}>
+                    <tr className={`text-2xs font-bold uppercase tracking-wider border-b ${isDarkMode ? 'border-ink-700 text-ink-500' : 'border-ink-100 text-ink-500'}`}>
                       <th className="text-left py-2 pr-3">Name</th>
                       <th className="text-left py-2 pr-3">Contact</th>
                       <th className="text-left py-2 pr-3">Address</th>
@@ -1912,14 +1900,14 @@ export default function InvoicingModule({
                       <th className="text-right py-2">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-50 dark:divide-slate-800/60">
+                  <tbody className="divide-y divide-ink-50 dark:divide-ink-800/60">
                     {(db?.customers || []).map((c: any, i: number) => (
-                      <tr key={i} className={`${isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-gray-50/60'}`}>
-                        <td className="py-2.5 pr-3 font-semibold text-gray-800 dark:text-slate-200">{c.Customer_Name}</td>
-                        <td className="py-2.5 pr-3 text-gray-500 dark:text-slate-400">{c.Contact || '-'}</td>
-                        <td className="py-2.5 pr-3 text-gray-500 dark:text-slate-400 max-w-[160px] truncate">{c.Address || '-'}</td>
+                      <tr key={i} className={`${isDarkMode ? 'hover:bg-ink-800/40' : 'hover:bg-ink-50/60'}`}>
+                        <td className="py-2.5 pr-3 font-semibold text-ink-800 dark:text-ink-200">{c.Customer_Name}</td>
+                        <td className="py-2.5 pr-3 text-ink-500 dark:text-ink-400">{c.Contact || '-'}</td>
+                        <td className="py-2.5 pr-3 text-ink-500 dark:text-ink-400 max-w-[160px] truncate">{c.Address || '-'}</td>
                         <td className="py-2.5 pr-3">
-                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${c.Customer_Type === 'Regular' ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-100 text-indigo-700'}`}>
+                          <span className={`px-2 py-0.5 rounded-full text-2xs font-bold uppercase ${c.Customer_Type === 'Regular' ? 'bg-emerald-100 text-emerald-700' : 'bg-brand-100 text-brand-700'}`}>
                             {c.Customer_Type || 'Regular'}
                           </span>
                         </td>
@@ -1934,7 +1922,7 @@ export default function InvoicingModule({
                                 setCustType(c.Customer_Type || 'Regular');
                                 setIsCustomerFormOpen(true);
                               }}
-                              className="text-indigo-500 hover:text-indigo-700 font-bold text-[10px] cursor-pointer hover:underline"
+                              className="text-brand-500 hover:text-brand-700 font-bold text-2xs cursor-pointer hover:underline"
                             >Edit</button>
                             <button
                               onClick={async () => {
@@ -1954,7 +1942,7 @@ export default function InvoicingModule({
                                   setIsSyncing(false);
                                 }
                               }}
-                              className="text-rose-400 hover:text-rose-600 font-bold text-[10px] cursor-pointer hover:underline"
+                              className="text-rose-400 hover:text-rose-600 font-bold text-2xs cursor-pointer hover:underline"
                             >Delete</button>
                           </div>
                         </td>
@@ -1966,9 +1954,9 @@ export default function InvoicingModule({
             </div>
 
             {/* Footer */}
-            <div className={`px-6 py-3 border-t flex justify-end ${isDarkMode ? 'border-slate-800' : 'border-gray-100'}`}>
+            <div className={`px-6 py-3 border-t flex justify-end ${isDarkMode ? 'border-ink-800' : 'border-ink-100'}`}>
               <button onClick={() => setIsCustomerDirOpen(false)}
-                className="px-4 py-2 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 cursor-pointer">
+                className="px-4 py-2 text-xs font-bold rounded-xl bg-ink-100 hover:bg-ink-200 dark:bg-ink-800 dark:hover:bg-ink-700 text-ink-700 dark:text-ink-200 cursor-pointer">
                 Close
               </button>
             </div>

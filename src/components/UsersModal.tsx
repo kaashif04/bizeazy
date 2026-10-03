@@ -7,8 +7,9 @@
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Users as UsersIcon, X, Loader2, Plus, KeyRound, Trash2, Check, AlertTriangle, ShieldCheck,
+  Users as UsersIcon, Loader2, Plus, KeyRound, Trash2, Check, AlertTriangle, ShieldCheck,
 } from 'lucide-react';
+import { Sheet } from './ui/Sheet';
 import {
   listUsers, createUser, updateUser, resetUserPassword, deleteUser, changePassword,
   ALL_MODULES, MODULE_LABELS, ModuleName, Session, SessionUser,
@@ -17,13 +18,13 @@ import {
 type Tab = 'users' | 'password';
 
 const INPUT =
-  'w-full px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500';
+  'w-full px-3 py-2 text-xs rounded-lg border border-ink-200 dark:border-ink-700 bg-ink-50 dark:bg-ink-950 text-ink-900 dark:text-white placeholder-ink-400 dark:placeholder-ink-600 focus:outline-none focus:ring-1 focus:ring-brand-500';
 const LABEL =
-  'block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1';
+  'block text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1';
 const PRIMARY =
-  'px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer shadow-sm';
+  'px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer shadow-sm';
 const GHOST =
-  'px-3 py-1.5 rounded-lg border border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 cursor-pointer transition-colors';
+  'px-3 py-1.5 rounded-lg border border-ink-200 dark:border-ink-700 text-xs font-bold text-ink-700 dark:text-ink-300 hover:bg-ink-50 dark:hover:bg-ink-800 cursor-pointer transition-colors';
 
 function ModuleTicks({
   selected, disabled, onToggle,
@@ -33,18 +34,18 @@ function ModuleTicks({
       {ALL_MODULES.map(m => (
         <label
           key={m}
-          className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border text-[11px] font-medium select-none ${
+          className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border text-2xs font-medium select-none ${
             disabled
-              ? 'opacity-50 cursor-not-allowed border-gray-200 dark:border-slate-700'
-              : 'cursor-pointer border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800'
-          } text-gray-700 dark:text-slate-300`}
+              ? 'opacity-50 cursor-not-allowed border-ink-200 dark:border-ink-700'
+              : 'cursor-pointer border-ink-200 dark:border-ink-700 hover:bg-ink-50 dark:hover:bg-ink-800'
+          } text-ink-700 dark:text-ink-300`}
         >
           <input
             type="checkbox"
             disabled={disabled}
             checked={selected.indexOf(m) !== -1}
             onChange={() => onToggle(m)}
-            className="w-3.5 h-3.5 rounded border-gray-300 dark:border-slate-600 text-indigo-600"
+            className="w-3.5 h-3.5 rounded border-ink-300 dark:border-ink-600 text-brand-600"
           />
           {MODULE_LABELS[m]}
         </label>
@@ -159,30 +160,24 @@ export function UsersModal({
     setEdit(e => e && ({ ...e, modules: e.modules.indexOf(m) !== -1 ? e.modules.filter(x => x !== m) : [...e.modules, m] }));
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className={`w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh] ${isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white border border-gray-200'}`}>
-
-        <div className={`flex items-center justify-between px-5 py-4 border-b flex-shrink-0 ${isDark ? 'border-slate-800' : 'border-gray-100'}`}>
-          <div className="flex items-center gap-2">
-            <UsersIcon className="w-4 h-4 text-indigo-500" />
-            <h2 className="text-sm font-bold text-gray-900 dark:text-white">Users &amp; Access</h2>
-            <span className="text-[10px] font-semibold text-gray-400 dark:text-slate-500">{session.company.company_name}</span>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-slate-200 cursor-pointer">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
+    <Sheet
+      title="Users & Access"
+      subtitle={session.company.company_name}
+      icon={<UsersIcon className="w-4 h-4" />}
+      onClose={onClose}
+      maxWidth="2xl"
+    >
+      <div className="-mx-4 sm:-mx-5 -my-4">
         {isAdmin && (
-          <div className={`flex border-b flex-shrink-0 ${isDark ? 'border-slate-800' : 'border-gray-100'}`}>
+          <div className={`flex border-b sticky top-0 z-10 ${isDark ? 'border-ink-800 bg-ink-900' : 'border-ink-200 bg-ink-50'}`}>
             {([['users', 'Team Members'], ['password', 'My Password']] as const).map(([key, label]) => (
               <button
                 key={key}
                 onClick={() => { setTab(key); setError(''); }}
                 className={`flex-1 py-2.5 text-xs font-bold transition-colors cursor-pointer ${
                   tab === key
-                    ? 'border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-300'
-                    : 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200'
+                    ? 'border-b-2 border-brand-500 text-brand-600 dark:text-brand-300'
+                    : 'text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200'
                 }`}
               >
                 {label}
@@ -191,7 +186,7 @@ export function UsersModal({
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="p-4 sm:p-5 space-y-4">
           {error && (
             <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg text-xs text-red-700 dark:text-red-400">
               <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
@@ -203,7 +198,7 @@ export function UsersModal({
             <>
               {loading ? (
                 <div className="flex items-center justify-center py-10">
-                  <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
+                  <Loader2 className="w-5 h-5 animate-spin text-brand-500" />
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -213,26 +208,26 @@ export function UsersModal({
                     return (
                       <div
                         key={u.user_id}
-                        className={`rounded-xl border p-3 ${isDark ? 'border-slate-800 bg-slate-950/40' : 'border-gray-200 bg-gray-50/60'}`}
+                        className={`rounded-xl border p-3 ${isDark ? 'border-ink-800 bg-ink-950/40' : 'border-ink-200 bg-ink-50/60'}`}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-xs font-bold text-gray-900 dark:text-white truncate">{u.full_name || u.user_id}</span>
-                              <span className="text-[10px] font-mono text-gray-500 dark:text-slate-500">{u.user_id}</span>
+                              <span className="text-xs font-bold text-ink-900 dark:text-white truncate">{u.full_name || u.user_id}</span>
+                              <span className="text-2xs font-mono text-ink-500 dark:text-ink-400">{u.user_id}</span>
                               {u.role === 'admin' && (
-                                <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+                                <span className="inline-flex items-center gap-1 text-2xs font-bold uppercase px-1.5 py-0.5 rounded bg-brand-100 dark:bg-brand-950 text-brand-700 dark:text-brand-300">
                                   <ShieldCheck className="w-2.5 h-2.5" />Admin
                                 </span>
                               )}
                               {!u.active && (
-                                <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-gray-200 dark:bg-slate-800 text-gray-600 dark:text-slate-400">
+                                <span className="text-2xs font-bold uppercase px-1.5 py-0.5 rounded bg-ink-200 dark:bg-ink-800 text-ink-600 dark:text-ink-400">
                                   Disabled
                                 </span>
                               )}
-                              {isSelf && <span className="text-[9px] font-bold uppercase text-gray-400 dark:text-slate-600">you</span>}
+                              {isSelf && <span className="text-2xs font-bold uppercase text-ink-500 dark:text-ink-400">you</span>}
                             </div>
-                            <p className="text-[10px] text-gray-500 dark:text-slate-500 mt-0.5 truncate">
+                            <p className="text-2xs text-ink-500 dark:text-ink-400 mt-0.5 truncate">
                               {u.role === 'admin' ? 'All modules' : (u.modules.map(m => MODULE_LABELS[m]).join(' · ') || 'No modules assigned')}
                             </p>
                           </div>
@@ -242,13 +237,13 @@ export function UsersModal({
                             </button>
                             <button onClick={() => handleReset(u.user_id)} disabled={busy}
                               title="Reset password"
-                              className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer">
+                              className="p-1.5 rounded-lg text-ink-500 hover:text-brand-600 dark:hover:text-brand-400 cursor-pointer">
                               <KeyRound className="w-3.5 h-3.5" />
                             </button>
                             {!isSelf && (
                               <button onClick={() => handleDelete(u.user_id)} disabled={busy}
                                 title="Delete user"
-                                className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 dark:hover:text-red-400 cursor-pointer">
+                                className="p-1.5 rounded-lg text-ink-500 hover:text-red-600 dark:hover:text-red-400 cursor-pointer">
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             )}
@@ -256,7 +251,7 @@ export function UsersModal({
                         </div>
 
                         {isEditing && edit && (
-                          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-800 space-y-2.5">
+                          <div className="mt-3 pt-3 border-t border-ink-200 dark:border-ink-800 space-y-2.5">
                             <div className="grid grid-cols-2 gap-2">
                               <div>
                                 <label className={LABEL}>Full Name</label>
@@ -303,8 +298,8 @@ export function UsersModal({
               )}
 
               {adding ? (
-                <div className={`rounded-xl border p-3 space-y-2.5 ${isDark ? 'border-indigo-900/60 bg-indigo-950/20' : 'border-indigo-200 bg-indigo-50/50'}`}>
-                  <p className="text-xs font-bold text-gray-900 dark:text-white">New team member</p>
+                <div className={`rounded-xl border p-3 space-y-2.5 ${isDark ? 'border-brand-900/60 bg-brand-950/20' : 'border-brand-200 bg-brand-50/50'}`}>
+                  <p className="text-xs font-bold text-ink-900 dark:text-white">New team member</p>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className={LABEL}>User ID *</label>
@@ -348,7 +343,7 @@ export function UsersModal({
               ) : (
                 <button
                   onClick={() => { setAdding(true); setError(''); }}
-                  className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-dashed border-gray-300 dark:border-slate-700 text-xs font-bold text-gray-500 dark:text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer transition-colors"
+                  className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-dashed border-ink-300 dark:border-ink-700 text-xs font-bold text-ink-500 dark:text-ink-400 hover:border-brand-400 hover:text-brand-600 dark:hover:text-brand-400 cursor-pointer transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   Add Team Member
@@ -359,8 +354,8 @@ export function UsersModal({
 
           {tab === 'password' && (
             <div className="space-y-2.5 max-w-sm">
-              <p className="text-xs text-gray-500 dark:text-slate-400">
-                Signed in as <span className="font-bold text-gray-800 dark:text-slate-200">{session.user.user_id}</span>.
+              <p className="text-xs text-ink-500 dark:text-ink-400">
+                Signed in as <span className="font-bold text-ink-800 dark:text-ink-200">{session.user.user_id}</span>.
               </p>
               <div>
                 <label className={LABEL}>Current Password</label>
@@ -384,6 +379,6 @@ export function UsersModal({
           )}
         </div>
       </div>
-    </div>
+    </Sheet>
   );
 }

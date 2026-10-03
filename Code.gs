@@ -753,11 +753,16 @@ function adminEmailsFor(companyId) {
   }).map(function(u) { return String(u.Email).trim(); });
 }
 
-/** A company can opt out with a Config row: notifications → {"salary_email":false} */
+/**
+ * Email reminders are OPT-IN: the in-app bell is the only reminder until a
+ * company turns them on with a Config row:  notifications → {"salary_email":true}
+ * The scanner, the trigger installer and the self-check all stay in place, so
+ * switching it on later is one cell, not a code change.
+ */
 function salaryEmailEnabled(spreadsheetId) {
   var cfg = getAppConfig(spreadsheetId);
   var settings = cfg && cfg.success && cfg.data ? cfg.data[NOTIFY_CONFIG_KEY] : null;
-  return !settings || settings.salary_email !== false;
+  return !!(settings && settings.salary_email === true);
 }
 
 function reminderBody(companyName, due) {
@@ -816,7 +821,11 @@ function sendDueReminders() {
   return sent;
 }
 
-/** Run once from the editor to schedule the daily 8am scan. */
+/**
+ * Run once from the editor to schedule the daily 8am scan. Reminders are
+ * opt-in per company (see salaryEmailEnabled), so installing the trigger alone
+ * sends nothing until a company sets notifications → {"salary_email":true}.
+ */
 function installReminderTrigger() {
   removeReminderTrigger();
   ScriptApp.newTrigger('sendDueReminders').timeBased().atHour(8).everyDays(1).create();

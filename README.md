@@ -110,6 +110,37 @@ the email. Apps Script cannot import TypeScript, so `Code.gs` re-derives it — 
 `notifications.selfcheck.ts` loads `Code.gs` and fails if the two ever disagree about
 the deadline or about who is owed a payslip.
 
+## Design system
+
+Tokens live in [src/index.css](src/index.css); that file is the place to change how
+the app looks.
+
+- **One neutral ramp.** `gray-*` and `slate-*` were both in use, in the same
+  components, so a light-mode border and a dark-mode surface disagreed about their
+  undertone. Everything now resolves to one warm `ink` ramp. The legacy names are
+  still defined with the same values, so a class the rename missed still lands right.
+- **Pine brand, saffron warning, clay danger.** The accent is reserved for primary
+  actions, current selection and state — not decoration.
+- **Archivo** carries the app. Inter and JetBrains Mono stay loaded because they are
+  *document* faces, selectable per branch for printed invoices and payslips.
+- `ink-400` is a non-text tone: it passes contrast on dark grounds, not light ones.
+  Use `ink-500` for secondary text in light mode.
+- Elements inside a `data-document` subtree opt out of app theming. An invoice or
+  payslip is a white sheet whatever the app theme is.
+
+### Phone first
+
+The real work happens on a phone, so:
+
+- A bottom tab bar ([BottomNav](src/components/ui/BottomNav.tsx)) carries the four
+  modules. The off-canvas sidebar keeps the rare things: branch, refresh, settings,
+  users, theme, sign out.
+- Every dialog is a [Sheet](src/components/ui/Sheet.tsx): a bottom sheet with pinned
+  header and actions on a phone, a centred dialog from `sm` up. It portals to
+  `<body>`, locks the page behind it, traps Tab, and closes on Escape.
+- Lists become cards below `md`; the tables remain above it.
+- Controls meet 44px on touch pointers, 38px everywhere else.
+
 ## Checks
 
 | What | How |

@@ -67,7 +67,7 @@ export interface TemplateCustomization {
   text_dark: string;         // Primary dark text (hex)
   font_family: string;       // Custom font name
   title_size: string;        // 'text-base' | 'text-lg' | 'text-xl' | 'text-2xl' | 'text-3xl' | 'text-4xl'
-  body_size: string;         // 'text-[10px]' | 'text-xs' | 'text-sm' | 'text-base'
+  body_size: string;         // 'text-2xs' | 'text-xs' | 'text-sm' | 'text-base'
   padding: string;           // 'p-4' | 'p-8' | 'p-12' | 'p-16'
   layout_order: 'logo-left' | 'logo-right' | 'logo-split' | 'stacked'; // Custom layout options to move around
   hide_payment_details: boolean;
