@@ -15,90 +15,23 @@
  * ─────────────────────────────────────────────────────
  */
 
-import { initializeApp } from 'firebase/app';
-import {
-  getAuth, signInWithPopup, GoogleAuthProvider,
-  onAuthStateChanged, User, signOut
-} from 'firebase/auth';
 import {
   DatabaseState, Invoice, InvoiceItem, Payment,
   Customer, CompanyProfile, Employee, Payslip,
   Quotation, QuotationDay, QuotationItem, PricingMode, PackageSubMode, ServingStyle
 } from './types';
-import firebaseConfig from '../firebase-applet-config.json';
+import { gasGet, gasPost, getApiUrl, setApiUrl, DEFAULT_API_URL } from './auth';
 
-// ── Firebase init ─────────────────────────────────────────────
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+// Sign-in now lives in auth.ts (user ID + password against the Users directory).
+// Firebase Google sign-in is gone: the Google token it produced was never used
+// for data access — the Apps Script web app reads the sheets as its own owner —
+// so it authenticated nobody and gated nothing.
+export { getApiUrl, setApiUrl, DEFAULT_API_URL };
+export const API_URL = DEFAULT_API_URL;
 
-const provider = new GoogleAuthProvider();
-provider.addScope('https://www.googleapis.com/auth/spreadsheets');
-
-let isSigningIn = false;
-let cachedAccessToken: string | null =
-  typeof window !== 'undefined'
-    ? localStorage.getItem('connected_google_access_token')
-    : null;
-
-// ── Auth ──────────────────────────────────────────────────────
-export const initAuth = (
-  onAuthSuccess: (user: User, token: string) => void,
-  onAuthFailure: () => void
-) => {
-  return onAuthStateChanged(auth, async (user: User | null) => {
-    if (user) {
-      const storedToken =
-        typeof window !== 'undefined'
-          ? localStorage.getItem('connected_google_access_token')
-          : null;
-      if (storedToken) {
-        cachedAccessToken = storedToken;
-        onAuthSuccess(user, storedToken);
-      } else if (cachedAccessToken) {
-        onAuthSuccess(user, cachedAccessToken);
-      } else {
-        onAuthFailure();
-      }
-    } else {
-      cachedAccessToken = null;
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('connected_google_access_token');
-      }
-      onAuthFailure();
-    }
-  });
-};
-
-export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
-  try {
-    isSigningIn = true;
-    const result = await signInWithPopup(auth, provider);
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    if (!credential?.accessToken) {
-      throw new Error('Failed to retrieve Google Sheets access token back from auth provider.');
-    }
-    cachedAccessToken = credential.accessToken;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('connected_google_access_token', cachedAccessToken);
-    }
-    return { user: result.user, accessToken: cachedAccessToken };
-  } catch (error: any) {
-    console.error('Sign-in error details: ', error);
-    throw error;
-  } finally {
-    isSigningIn = false;
-  }
-};
-
-export const getAccessToken = async (): Promise<string | null> => cachedAccessToken;
-
-export const logout = async () => {
-  await signOut(auth);
-  cachedAccessToken = null;
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem('connected_google_access_token');
-  }
-};
+// The `token` parameter on the exported calls below is vestigial: call sites in
+// the modules still pass it, but the live session token is read from auth.ts so
+// there is exactly one source of truth.
 
 // ── Row mappers ───────────────────────────────────────────────
 const mapInvoicesToRows = (invoices: Invoice[], profiles?: CompanyProfile[]): any[][] => {
@@ -170,19 +103,8 @@ export const initializeSheetsDatabase = async (
   spreadsheetId: string, token: string
 ): Promise<boolean> => {
   try {
-    const payload = { action: 'initializeDatabase', spreadsheetId };
-    const savedApiUrl = getApiUrl();
-    const response = await fetch(
-      `${savedApiUrl}?action=initializeDatabase&spreadsheetId=${encodeURIComponent(spreadsheetId)}`,
-      {
-        method: 'POST', redirect: 'follow',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload)
-      }
-    );
-    if (!response.ok) throw new Error('Sync failed: ' + response.statusText);
-    const json = await response.json();
-    return !!json.success;
+    await gasPost({ action: 'initializeDatabase', spreadsheetId });
+    return true;
   } catch (err) {
     console.error('Error initializing database:', err);
     return false;
@@ -196,23 +118,9 @@ export const fetchDataAll = async (
   profiles?: CompanyProfile[],
   branchFilter?: string
 ): Promise<DatabaseState & { profiles?: CompanyProfile[] }> => {
-  const url = `${getApiUrl()}?action=fetchDataAll&spreadsheetId=${spreadsheetId}&t=${new Date().getTime()}`;
-
-  const res = await fetch(url, { method: 'GET', redirect: 'follow' });
-  if (!res.ok) throw new Error(`Google Sheets Fetch Error: ${res.statusText}`);
-
-  const text = await res.text();
-  let json: any;
-  try {
-    json = JSON.parse(text);
-  } catch (err: any) {
-    console.error('Raw response from fetchDataAll:', text);
-    throw new Error(`Google Sheets Fetch Error: Invalid JSON. ${err.message}`);
-  }
-
-  if (!json?.success) {
-    throw new Error(json?.error || 'Google Sheets Fetch Error: Web app reported failure.');
-  }
+  // The backend resolves the spreadsheet from the session, so tabs this user's
+  // modules do not cover come back empty rather than being filtered here.
+  const json = { data: await gasGet({ action: 'fetchDataAll', spreadsheetId }) };
 
   // ── Customers ────────────────────────────────────────────
   const rawCustomers = json.data?.customers || [];
@@ -621,18 +529,12 @@ export const syncStateToSheets = async (
 
   // Fetch current sheet state for non-destructive merge
   try {
-    const url = `${getApiUrl()}?action=fetchDataAll&spreadsheetId=${spreadsheetId}&t=${new Date().getTime()}`;
-    const res = await fetch(url);
-    if (res.ok) {
-      const json = await res.json();
-      if (json?.success) {
-        allInvoices   = json.data?.invoices    || [];
-        allCustomers  = json.data?.customers   || [];
-        allEmployees  = json.data?.employees   || [];
-        allPayslips   = json.data?.payslips    || [];
-        allQuotations = json.data?.quotations  || [];
-      }
-    }
+    const data = await gasGet({ action: 'fetchDataAll', spreadsheetId });
+    allInvoices   = data?.invoices    || [];
+    allCustomers  = data?.customers   || [];
+    allEmployees  = data?.employees   || [];
+    allPayslips   = data?.payslips    || [];
+    allQuotations = data?.quotations  || [];
   } catch (err) {
     console.warn('Could not fetch old sheet records for merge:', err);
   }
@@ -857,75 +759,13 @@ export const syncStateToSheets = async (
     }
   };
 
-  const savedApiUrl = getApiUrl();
-  const response = await fetch(
-    `${savedApiUrl}?action=syncData&spreadsheetId=${encodeURIComponent(spreadsheetId)}`,
-    {
-      method: 'POST', redirect: 'follow',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
-    }
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Apps Script Sync Error:', errorText);
-    throw new Error('Sync failed: ' + response.statusText);
-  }
-
-  const json = await response.json();
-  if (!json?.success) {
-    throw new Error((json?.error) || 'Failed to save via Apps Script.');
-  }
+  await gasPost(payload);
 };
-
-// ── API URL helpers ───────────────────────────────────────────
-export const DEFAULT_API_URL =
-  'https://script.google.com/macros/s/AKfycbwvv6xIpTxH8U3QvPfIZGuRzXfBm-k4bLCVIx_TF5c6qdtVlnhGobUivjwh4gQ9Dnuxyw/exec';
-
-export const getApiUrl = (): string => {
-  if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem('gas_api_url');
-    if (stored?.trim()) return stored.trim();
-  }
-  return DEFAULT_API_URL;
-};
-
-export const setApiUrl = (url: string) => {
-  if (typeof window !== 'undefined') {
-    if (url?.trim()) localStorage.setItem('gas_api_url', url.trim());
-    else localStorage.removeItem('gas_api_url');
-  }
-};
-
-export const API_URL = DEFAULT_API_URL;
 
 // ── App config helpers ────────────────────────────────────────
-export const fetchAppConfigFromAppsScript = async (): Promise<any> => {
-  const url = `${getApiUrl()}?action=getConfig&t=${new Date().getTime()}`;
-  const res = await fetch(url, { method: 'GET', redirect: 'follow' });
-  if (!res.ok) throw new Error(`Apps Script Config Fetch Error: ${res.statusText}`);
-  const text = await res.text();
-  let json: any;
-  try { json = JSON.parse(text); } catch (err: any) {
-    throw new Error(`Apps Script Config Parse Error: ${err.message}`);
-  }
-  if (json?.success) return json.data;
-  throw new Error((json?.error) || 'Failed to retrieve configuration from Apps Script.');
-};
+export const fetchAppConfigFromAppsScript = async (): Promise<any> =>
+  gasGet({ action: 'getConfig' });
 
 export const saveAppConfigToAppsScript = async (config: any): Promise<void> => {
-  const payload = { action: 'saveConfig', config };
-  const response = await fetch(`${getApiUrl()}?action=saveConfig`, {
-    method: 'POST', redirect: 'follow',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(payload)
-  });
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Apps Script Error:', errorText);
-    throw new Error('Sync failed: ' + response.statusText);
-  }
-  const json = await response.json();
-  if (!json?.success) throw new Error((json?.error) || 'Failed to save configuration via Apps Script.');
+  await gasPost({ action: 'saveConfig', config });
 };

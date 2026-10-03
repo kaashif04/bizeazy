@@ -13,17 +13,14 @@
  */
 
 // ─── Router ───────────────────────────────────────────────────
+function jsonOut(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
 function doGet(e) {
-  if (e && e.parameter && e.parameter.action) {
-    var result = { success: false, error: "Invalid action" };
-    if (e.parameter.action === 'getConfig') {
-      result = getAppConfig();
-    } else if (e.parameter.action === 'fetchDataAll') {
-      result = fetchDataAll(e.parameter.spreadsheetId);
-    }
-    return ContentService.createTextOutput(JSON.stringify(result))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
+  var p = (e && e.parameter) || {};
+  if (p.action) return jsonOut(handleAction(p.action, p, p.token));
   return HtmlService.createHtmlOutputFromFile('Index')
     .setTitle('BizEazy Invoicing')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
@@ -32,38 +29,80 @@ function doGet(e) {
 
 function doPost(e) {
   try {
-    var postData = {};
+    var params = {};
     if (e && e.postData && e.postData.contents) {
       try {
-        postData = JSON.parse(e.postData.contents);
+        params = JSON.parse(e.postData.contents);
       } catch (_) {
         // fallback: form-encoded
         e.postData.contents.split('&').forEach(function(part) {
           var kv = part.split('=');
-          if (kv.length === 2) postData[decodeURIComponent(kv[0])] = decodeURIComponent(kv[1]);
+          if (kv.length === 2) params[decodeURIComponent(kv[0])] = decodeURIComponent(kv[1]);
         });
       }
     }
-
-    var action       = (postData && postData.action)       || (e && e.parameter && e.parameter.action);
-    var spreadsheetId = (postData && postData.spreadsheetId) || (e && e.parameter && e.parameter.spreadsheetId);
-    var result = { success: false, error: "Invalid action" };
-
-    if (!action) throw new Error("No action specified");
-
-    if      (action === 'saveConfig')           { result = saveAppConfig(postData.config); }
-    else if (action === 'getConfig')             { result = getAppConfig(); }
-    else if (action === 'saveInvoice')           { result = saveInvoice(postData.payload || postData, spreadsheetId); }
-    else if (action === 'updateInvoiceStatus')   { result = updateInvoiceStatus(postData.invoiceId, postData.status, spreadsheetId); }
-    else if (action === 'fetchDataAll')          { result = fetchDataAll(spreadsheetId); }
-    else if (action === 'syncData')              { result = syncData(postData.db || postData, spreadsheetId); }
-    else if (action === 'initializeDatabase')    { result = initializeDatabase(spreadsheetId); }
-
-    return ContentService.createTextOutput(JSON.stringify(result))
-      .setMimeType(ContentService.MimeType.JSON);
+    // Query-string values fill gaps in the body, never override it.
+    if (e && e.parameter) {
+      Object.keys(e.parameter).forEach(function(k) {
+        if (params[k] === undefined) params[k] = e.parameter[k];
+      });
+    }
+    if (!params.action) throw new Error("No action specified");
+    return jsonOut(handleAction(params.action, params, params.token));
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return jsonOut({ success: false, error: err.toString() });
+  }
+}
+
+function denied() { return { success: false, error: 'You do not have access to that.' }; }
+
+/**
+ * Single gate for every action. This web app is deployed "Anyone", so the
+ * token check here — not anything in the React app — is what keeps one
+ * company's books away from another's.
+ */
+function handleAction(action, p, token) {
+  try {
+    // ── Public: no session required ──
+    if (action === 'login')           return login(p);
+    if (action === 'registerCompany') return registerCompany(p);
+    if (action === 'checkUserId')     return checkUserId(p.userId);
+    if (action === 'ping')            return { success: true };
+
+    var session = resolveSession(token);
+    if (!session) {
+      return { success: false, code: 'AUTH', error: 'Your session has expired. Please sign in again.' };
+    }
+    if (ADMIN_ACTIONS[action] && !session.isAdmin) {
+      return { success: false, error: 'Admin access required.' };
+    }
+
+    // The SESSION decides which spreadsheet is touched. Any spreadsheetId the
+    // client sent is deliberately ignored — otherwise any signed-in user could
+    // name another company's spreadsheet and read or overwrite it.
+    var sheetId = session.spreadsheetId;
+
+    if (action === 'logout')              return destroySession(token);
+    if (action === 'session')             return { success: true, data: sessionPayload(session) };
+    if (action === 'fetchDataAll')        return fetchDataAll(sheetId, session);
+    if (action === 'syncData')            return syncData(p.db || p, sheetId, session);
+    if (action === 'getConfig')           return getAppConfig(sheetId);
+    if (action === 'initializeDatabase')  return initializeDatabase(sheetId);
+    if (action === 'changePassword')      return changeOwnPassword(session, p);
+
+    if (action === 'saveConfig')          return hasModule(session, 'settings')  ? saveAppConfig(p.config, sheetId) : denied();
+    if (action === 'saveInvoice')         return hasModule(session, 'invoicing') ? saveInvoice(p.payload || p, sheetId) : denied();
+    if (action === 'updateInvoiceStatus') return hasModule(session, 'invoicing') ? updateInvoiceStatus(p.invoiceId, p.status, sheetId) : denied();
+
+    if (action === 'listUsers')           return listUsers(session);
+    if (action === 'createUser')          return createUser(session, p);
+    if (action === 'updateUser')          return updateUser(session, p);
+    if (action === 'resetUserPassword')   return resetUserPassword(session, p);
+    if (action === 'deleteUser')          return deleteUser(session, p);
+
+    return { success: false, error: 'Invalid action: ' + action };
+  } catch (err) {
+    return { success: false, error: err.toString() };
   }
 }
 
@@ -110,39 +149,65 @@ function getSheetRowsAsObjects(sheet) {
 
 // ─── App config ───────────────────────────────────────────────
 /**
- * Stores config as a JSON string in ScriptProperties.
- * Accepts either an object or a JSON string from the frontend.
+ * Config now lives in a Config tab inside each COMPANY's own spreadsheet, one
+ * row per outlet key. It used to be a single ScriptProperties blob, which is
+ * per-script: every tenant would have shared one company profile. Rows also
+ * beat ScriptProperties on size — a property caps at 9KB, which a base64 logo
+ * blows straight past, while a cell holds 50,000 characters.
  */
-function saveAppConfig(config) {
+function configTab(spreadsheetId) {
+  return sheetFor(getDatabase(spreadsheetId), 'Config', ['Key', 'Value']);
+}
+
+function saveAppConfig(config, spreadsheetId) {
   try {
-    var str = (typeof config === 'string') ? config : JSON.stringify(config);
-    PropertiesService.getScriptProperties().setProperty('GLOBAL_CONFIG', str);
+    var obj = (typeof config === 'string') ? JSON.parse(config) : config;
+    if (!obj || typeof obj !== 'object') return { success: false, error: 'Config must be an object.' };
+
+    var tab = configTab(spreadsheetId);
+    if (tab.getLastRow() > 1) tab.getRange(2, 1, tab.getLastRow() - 1, 2).clearContent();
+
+    var rows = Object.keys(obj).map(function(k) { return [k, JSON.stringify(obj[k])]; });
+    if (rows.length) tab.getRange(2, 1, rows.length, 2).setValues(rows);
     return { success: true };
   } catch (err) {
     return { success: false, error: err.toString() };
   }
 }
 
-/**
- * Returns config as a PARSED OBJECT so the frontend can do gasConfig['Bistro'].
- * Previous version returned a raw string — that broke App.tsx profile mapping.
- */
-function getAppConfig() {
+function getAppConfig(spreadsheetId) {
   try {
-    var stored = PropertiesService.getScriptProperties().getProperty('GLOBAL_CONFIG');
-    if (!stored) {
-      var defaultCfg = {
-        bistro: { prefix: "BIS-26-", name: "A1 Bistro",          address: "16g, Jalan PJU 5/20D, Kota Damansara", contact: "012-3456789" },
-        nk:     { prefix: "NK-26-",  name: "Kiya's Restaurant",  address: "14A, Jalan Datuk Sulaiman",            contact: "012-9876543" }
-      };
-      PropertiesService.getScriptProperties().setProperty('GLOBAL_CONFIG', JSON.stringify(defaultCfg));
-      return { success: true, data: defaultCfg };   // ← parsed object
+    var tab = configTab(spreadsheetId);
+    var out = {};
+    var last = tab.getLastRow();
+    if (last > 1) {
+      tab.getRange(2, 1, last - 1, 2).getValues().forEach(function(r) {
+        if (!r[0]) return;
+        try { out[String(r[0])] = JSON.parse(r[1]); } catch (_) { out[String(r[0])] = r[1]; }
+      });
     }
-    try {
-      return { success: true, data: JSON.parse(stored) };  // ← parsed object
-    } catch (_) {
-      return { success: true, data: stored };  // last resort: return raw string
+    if (Object.keys(out).length) return { success: true, data: out };
+
+    // One-time migration for the original single-tenant deployment: lift the
+    // old script-level blob into this spreadsheet's Config tab, then forget it.
+    var legacy = PropertiesService.getScriptProperties().getProperty('GLOBAL_CONFIG');
+    if (legacy) {
+      try {
+        var parsed = JSON.parse(legacy);
+        saveAppConfig(parsed, spreadsheetId);
+        return { success: true, data: parsed };
+      } catch (_) { /* unparseable legacy blob — fall through to defaults */ }
     }
+
+    var defaultCfg = {
+      Bistro: {
+        store_name: 'My Outlet', company_name: '', address: '', email: '', phone: '',
+        currency_symbol: 'RM', series_format: 'INV-26-',
+        logo_url: '', footer_text: '', payment_info: ''
+      }
+    };
+    saveAppConfig(defaultCfg, spreadsheetId);
+    return { success: true, data: defaultCfg };
   } catch (err) {
     return { success: false, error: err.toString() };
   }
@@ -153,7 +218,7 @@ function getAppConfig() {
  * FIX: now returns invoice_items[] from the Invoice_Items tab.
  * sheetsService.ts reads json.data.invoice_items — was always [] before.
  */
-function fetchDataAll(spreadsheetId) {
+function fetchDataAll(spreadsheetId, session) {
   try {
     var ss = getDatabase(spreadsheetId);
 
@@ -172,9 +237,7 @@ function fetchDataAll(spreadsheetId) {
     var quotationDaysTab  = ss.getSheetByName("Quotation_Days");
     var quotationItemsTab = ss.getSheetByName("Quotation_Items");
 
-    return {
-      success: true,
-      data: {
+    var data = {
         invoices:        invoicesTab       ? getSheetRowsAsObjects(invoicesTab)       : [],
         customers:       customersTab      ? getSheetRowsAsObjects(customersTab)      : [],
         employees:       employeesTab      ? getSheetRowsAsObjects(employeesTab)      : [],
@@ -184,8 +247,13 @@ function fetchDataAll(spreadsheetId) {
         quotations:      quotationsTab     ? getSheetRowsAsObjects(quotationsTab)     : [],
         quotation_days:  quotationDaysTab  ? getSheetRowsAsObjects(quotationDaysTab)  : [],
         quotation_items: quotationItemsTab ? getSheetRowsAsObjects(quotationItemsTab) : []
-      }
     };
+
+    // Withhold tabs this user's modules do not cover. Filtering only in the UI
+    // would still send every salary down the wire to a cashier's browser.
+    if (session) data = filterDataByModules(data, session);
+
+    return { success: true, data: data };
   } catch (err) {
     return { success: false, error: err.toString() };
   }
@@ -220,8 +288,10 @@ function invoiceItemKey(it) {
 }
 
 // ─── syncData ─────────────────────────────────────────────────
-function syncData(payload, spreadsheetId) {
+function syncData(payload, spreadsheetId, session) {
   if (!payload) return { success: false, error: "Empty payload" };
+  // Drop anything this user may not write before a single cell is touched.
+  if (session) payload = filterPayloadByModules(payload, session);
   var lock = LockService.getScriptLock();
   try {
     lock.waitLock(30000);
@@ -354,7 +424,7 @@ function syncData(payload, spreadsheetId) {
 
     // ── Quotations ──
     var quotationsSheet = ss.getSheetByName("Quotations");
-    if (quotationsSheet) {
+    if (quotationsSheet && payload.quotations) {
       if (quotationsSheet.getLastRow() > 1)
         quotationsSheet.getRange(2, 1, quotationsSheet.getLastRow() - 1, quotationsSheet.getLastColumn()).clearContent();
       if (payload.quotations && payload.quotations.length > 0) {
@@ -376,7 +446,7 @@ function syncData(payload, spreadsheetId) {
 
     // ── Quotation_Days ──
     var quotationDaysSheet = ss.getSheetByName("Quotation_Days");
-    if (quotationDaysSheet) {
+    if (quotationDaysSheet && payload.quotation_days) {
       if (quotationDaysSheet.getLastRow() > 1)
         quotationDaysSheet.getRange(2, 1, quotationDaysSheet.getLastRow() - 1, quotationDaysSheet.getLastColumn()).clearContent();
       if (payload.quotation_days && payload.quotation_days.length > 0) {
@@ -393,7 +463,7 @@ function syncData(payload, spreadsheetId) {
 
     // ── Quotation_Items ──
     var quotationItemsSheet = ss.getSheetByName("Quotation_Items");
-    if (quotationItemsSheet) {
+    if (quotationItemsSheet && payload.quotation_items) {
       if (quotationItemsSheet.getLastRow() > 1)
         quotationItemsSheet.getRange(2, 1, quotationItemsSheet.getLastRow() - 1, quotationItemsSheet.getLastColumn()).clearContent();
       if (payload.quotation_items && payload.quotation_items.length > 0) {
@@ -421,26 +491,48 @@ function syncData(payload, spreadsheetId) {
 // beyond it. This fixes misaligned sheets caused by incremental header
 // appends landing in the wrong positions (e.g. Nationality vs Citizenship,
 // empty-header columns shifting Payment_Transferred out of range).
+function enforceHeaders(tab, expected) {
+  var last = tab.getLastColumn();
+  // Read before writing. initializeDatabase runs on every fetch and sync, and
+  // this used to re-write ten header rows each time; headers are almost always
+  // already correct, and a read is far cheaper than a setValues.
+  if (last >= expected.length) {
+    var current = tab.getRange(1, 1, 1, last).getValues()[0];
+    var same = true;
+    for (var i = 0; i < expected.length; i++) {
+      if (String(current[i]) !== expected[i]) { same = false; break; }
+    }
+    for (var j = expected.length; same && j < last; j++) {
+      if (String(current[j]) !== '') { same = false; }
+    }
+    if (same) return;
+  }
+  tab.getRange(1, 1, 1, expected.length).setValues([expected]);
+  if (last > expected.length) {
+    tab.getRange(1, expected.length + 1, 1, last - expected.length).clearContent();
+  }
+}
+
+// Forces a column to Plain Text format so Sheets stops silently
+// auto-converting date-like strings (e.g. "2026-05-15") into real Date
+// cells, which previously caused fields like Joining_Date to round-trip
+// as shifted/garbled timestamps instead of the plain string we wrote.
+function forceTextColumn(tab, colIndex) {
+  var maxRows = Math.max(tab.getMaxRows(), 2);
+  tab.getRange(2, colIndex, maxRows - 1, 1).setNumberFormat('@');
+}
+
+// Get-or-create a tab and pin its header row. Used for the data tabs below and
+// for the directory tabs in Auth.gs.
+function sheetFor(ss, name, headers) {
+  var tab = ss.getSheetByName(name) || ss.insertSheet(name);
+  enforceHeaders(tab, headers);
+  return tab;
+}
+
 function initializeDatabase(spreadsheetId) {
   try {
     var ss = getDatabase(spreadsheetId);
-
-    function enforceHeaders(tab, expected) {
-      tab.getRange(1, 1, 1, expected.length).setValues([expected]);
-      var last = tab.getLastColumn();
-      if (last > expected.length) {
-        tab.getRange(1, expected.length + 1, 1, last - expected.length).clearContent();
-      }
-    }
-
-    // Forces a column to Plain Text format so Sheets stops silently
-    // auto-converting date-like strings (e.g. "2026-05-15") into real Date
-    // cells, which previously caused fields like Joining_Date to round-trip
-    // as shifted/garbled timestamps instead of the plain string we wrote.
-    function forceTextColumn(tab, colIndex) {
-      var maxRows = Math.max(tab.getMaxRows(), 2);
-      tab.getRange(2, colIndex, maxRows - 1, 1).setNumberFormat('@');
-    }
 
     // ── Invoices ──
     var invoicesTab = ss.getSheetByName("Invoices");
@@ -528,6 +620,9 @@ function initializeDatabase(spreadsheetId) {
       'Day_ID','Quotation_ID','Event_Date','Pax','Serving_Style','Day_Package_Rate'
     ]);
     forceTextColumn(quotationDaysTab, 3); // Event_Date
+
+    // ── Config (per-company profiles/outlets) ──
+    sheetFor(ss, 'Config', ['Key', 'Value']);
 
     // ── Quotation_Items ──
     // Session_Label/Session_Time let a single day have multiple separately-menu'd

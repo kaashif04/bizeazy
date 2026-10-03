@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { User } from 'firebase/auth';
 import {
-  initAuth, googleSignIn, logout as firebaseLogout,
   fetchDataAll, syncStateToSheets, setApiUrl, getApiUrl,
   fetchAppConfigFromAppsScript, saveAppConfigToAppsScript,
 } from './sheetsService';
+import {
+  Session, SessionUser, ModuleName, can, loadSession, refreshSession,
+  logout as endSession, SIGNED_OUT_EVENT,
+} from './auth';
+import { LoginScreen, RegisterScreen } from './components/AuthScreens';
+import { UsersModal } from './components/UsersModal';
 import { DatabaseState, CompanyProfile, TemplateCustomization, InvoiceItem } from './types';
 import { getPaymentSummary, PAYMENT_STATUS_LABEL } from './utils/payments';
 import { attachA4Scale } from './utils/a4scale';
@@ -15,12 +19,12 @@ import QuotationModule from './components/QuotationModule';
 import {
   LayoutDashboard, FileText, Users, LogOut, Moon, Sun, RefreshCw,
   Building2, TrendingUp, Clock, Loader2, X, AlertTriangle, ArrowRight,
-  CreditCard, Settings, Menu, Upload, CalendarRange,
+  CreditCard, Settings, Menu, Upload, CalendarRange, UserCog,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type AppView = 'hub' | 'invoicing' | 'payroll' | 'quotations';
-type AuthStatus = 'loading' | 'unauthenticated' | 'needs-setup' | 'authenticated';
+type AuthStatus = 'loading' | 'unauthenticated' | 'authenticated';
 
 interface Toast {
   id: string;
@@ -175,122 +179,6 @@ function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: 
   );
 }
 
-// ─── Auth Screen ──────────────────────────────────────────────────────────────
-function AuthScreen({
-  onSignIn, isLoading, error,
-}: { onSignIn: () => void; isLoading: boolean; error: string | null }) {
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex items-center justify-center p-6">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 bg-indigo-600 rounded-xl mb-4 shadow-sm">
-            <Building2 className="w-6 h-6 text-white" />
-          </div>
-          <h1 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white">BizEazy Hub</h1>
-          <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">Restaurant Operations Center</p>
-        </div>
-        <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
-          <p className="text-xs text-gray-500 dark:text-slate-400 text-center mb-5 leading-relaxed">
-            Sign in with your Google account to access invoicing and payroll data connected to Google Sheets.
-          </p>
-          {error && (
-            <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg text-xs text-red-700 dark:text-red-400 mb-4">
-              <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-          <button
-            onClick={onSignIn}
-            disabled={isLoading}
-            className="w-full flex items-center justify-center gap-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold text-sm py-2.5 px-4 rounded-xl transition-colors cursor-pointer shadow-sm"
-          >
-            {isLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-              </svg>
-            )}
-            {isLoading ? 'Signing in…' : 'Continue with Google'}
-          </button>
-        </div>
-        <p className="text-center text-[10px] text-gray-400 dark:text-slate-600 mt-4">
-          Invoicing · Payroll · Google Sheets · Malaysian Statutory 2026
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// ─── Setup Screen ─────────────────────────────────────────────────────────────
-function SetupScreen({ onSave }: { onSave: (spreadsheetId: string, apiUrl: string) => void }) {
-  const [sheetId, setSheetId] = useState(localStorage.getItem('bizeazy_spreadsheet_id') || '');
-  const [apiUrlLocal, setApiUrlLocal] = useState(localStorage.getItem('gas_api_url') || '');
-  const [error, setError] = useState('');
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!sheetId.trim()) { setError('Spreadsheet ID is required.'); return; }
-    onSave(sheetId.trim(), apiUrlLocal.trim());
-  };
-
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex items-center justify-center p-6">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-12 h-12 bg-indigo-600 rounded-xl mb-4 shadow-sm">
-            <Building2 className="w-6 h-6 text-white" />
-          </div>
-          <h1 className="text-xl font-black tracking-tight text-gray-900 dark:text-white">Connect Google Sheets</h1>
-          <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">Link your data source to get started</p>
-        </div>
-        <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">
-                Google Spreadsheet ID *
-              </label>
-              <input
-                type="text"
-                value={sheetId}
-                onChange={e => { setSheetId(e.target.value); setError(''); }}
-                placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"
-                className="w-full px-3 py-2.5 text-xs rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              />
-              <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-1">
-                Found in your Sheets URL: /spreadsheets/d/<strong>ID</strong>/edit
-              </p>
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">
-                Apps Script API URL <span className="normal-case font-normal">(optional)</span>
-              </label>
-              <input
-                type="text"
-                value={apiUrlLocal}
-                onChange={e => setApiUrlLocal(e.target.value)}
-                placeholder="https://script.google.com/macros/s/…/exec"
-                className="w-full px-3 py-2.5 text-xs rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              />
-              <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-1">Leave blank to use the default deployed endpoint.</p>
-            </div>
-            {error && <p className="text-xs text-red-500 dark:text-red-400">{error}</p>}
-            <button
-              type="submit"
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm py-2.5 rounded-xl transition-colors cursor-pointer shadow-sm"
-            >
-              Save & Connect
-            </button>
-          </form>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Company Profiles Modal ───────────────────────────────────────────────────
 function CompanyProfilesModal({
   profiles, isDark, onClose, onSave,
@@ -306,7 +194,11 @@ function CompanyProfilesModal({
   const [bistro, setBistro] = useState({ ...init('Bistro') });
   const [nk, setNk] = useState({ ...init('Nasi Kandar') });
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'Bistro' | 'Nasi Kandar'>('Bistro');
+  // Only the outlets this company actually has. Until Phase 2 widens the outlet
+  // id beyond the two legacy slots, a one-outlet company simply has one tab.
+  const outletIds = (['Bistro', 'Nasi Kandar'] as const).filter(id => profiles.some(p => p.id === id));
+  const tabIds = outletIds.length ? outletIds : (['Bistro'] as const);
+  const [activeTab, setActiveTab] = useState<'Bistro' | 'Nasi Kandar'>(tabIds[0]);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -357,7 +249,9 @@ function CompanyProfilesModal({
     e.preventDefault();
     setSaving(true);
     try {
-      await onSave([bistro, nk]);
+      // Save only the outlets that exist, so the untouched legacy slot is not
+      // written back as a phantom second branch.
+      await onSave(tabIds.map(id => (id === 'Bistro' ? bistro : nk)));
     } finally {
       setSaving(false);
     }
@@ -407,7 +301,7 @@ function CompanyProfilesModal({
 
         {/* Outlet tabs */}
         <div className={`flex border-b flex-shrink-0 ${isDark ? 'border-slate-800' : 'border-gray-100'}`}>
-          {(['Bistro', 'Nasi Kandar'] as const).map(tab => (
+          {tabIds.map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -634,22 +528,14 @@ function CompanyProfilesModal({
 
 // ─── Settings Modal ───────────────────────────────────────────────────────────
 function SettingsModal({
-  currentSheetId, isDark, onClose, onSave,
+  company, isDark, onClose, onSave,
 }: {
-  currentSheetId: string;
+  company: { company_name: string; spreadsheet_id: string };
   isDark: boolean;
   onClose: () => void;
-  onSave: (sheetId: string, apiUrl: string) => void;
+  onSave: (apiUrl: string) => void;
 }) {
-  const [sheetId, setSheetId] = useState(currentSheetId);
   const [apiUrl, setApiUrlLocal] = useState(() => getApiUrl());
-  const [error, setError] = useState('');
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!sheetId.trim()) { setError('Spreadsheet ID cannot be empty.'); return; }
-    onSave(sheetId.trim(), apiUrl.trim());
-  };
 
   const inputClass = `w-full px-3 py-2.5 text-xs rounded-lg border font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
     isDark
@@ -670,20 +556,26 @@ function SettingsModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={e => { e.preventDefault(); onSave(apiUrl.trim()); }} className="p-5 space-y-4">
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-1.5">
-              Google Spreadsheet ID *
+              Company Data Source
             </label>
-            <input
-              type="text"
-              value={sheetId}
-              onChange={e => { setSheetId(e.target.value); setError(''); }}
-              placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"
-              className={inputClass}
-            />
+            <div className={`rounded-lg border px-3 py-2.5 ${isDark ? 'border-slate-800 bg-slate-950' : 'border-gray-200 bg-gray-50'}`}>
+              <p className="text-xs font-bold text-gray-900 dark:text-white">{company.company_name || 'Your company'}</p>
+              <p className="text-[10px] font-mono text-gray-400 dark:text-slate-500 break-all mt-0.5">{company.spreadsheet_id}</p>
+              {company.spreadsheet_id && (
+                <a
+                  href={`https://docs.google.com/spreadsheets/d/${company.spreadsheet_id}/edit`}
+                  target="_blank" rel="noreferrer"
+                  className="inline-block text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline mt-1"
+                >
+                  Open in Google Sheets →
+                </a>
+              )}
+            </div>
             <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-1">
-              From your Sheets URL: /spreadsheets/d/<strong>ID</strong>/edit
+              Bound to your account — the server picks this, so it cannot be pointed at another company's book.
             </p>
           </div>
 
@@ -702,8 +594,6 @@ function SettingsModal({
               Leave blank to restore the default endpoint.
             </p>
           </div>
-
-          {error && <p className="text-xs text-red-500 dark:text-red-400">{error}</p>}
 
           <div className={`flex items-center justify-end gap-2 pt-2 border-t ${isDark ? 'border-slate-800' : 'border-gray-100'}`}>
             <button
@@ -738,7 +628,8 @@ const NAV_ITEMS: { view: AppView; Icon: React.FC<React.SVGProps<SVGSVGElement>>;
 
 function Sidebar({
   activeView, setActiveView, profiles, activeBranchLocation, setActiveBranchLocation,
-  isDark, setIsDark, isDataLoading, onRefresh, onSignOut, onOpenSettings, onOpenProfiles, user,
+  isDark, setIsDark, isDataLoading, onRefresh, onSignOut, onOpenSettings, onOpenProfiles,
+  onOpenUsers, user, companyName, allowed,
   isMobileOpen, onMobileClose,
 }: {
   activeView: AppView;
@@ -753,7 +644,10 @@ function Sidebar({
   onSignOut: () => void;
   onOpenSettings: () => void;
   onOpenProfiles: () => void;
-  user: User | null;
+  onOpenUsers: () => void;
+  user: SessionUser | null;
+  companyName: string;
+  allowed: (v: AppView | ModuleName) => boolean;
   isMobileOpen: boolean;
   onMobileClose: () => void;
 }) {
@@ -780,7 +674,7 @@ function Sidebar({
 
       {/* Nav items */}
       <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
-        {NAV_ITEMS.map(({ view, Icon, label }) => {
+        {NAV_ITEMS.filter(({ view }) => allowed(view)).map(({ view, Icon, label }) => {
           const active = activeView === view;
           return (
             <button
@@ -841,12 +735,21 @@ function Sidebar({
           <Settings className="w-3.5 h-3.5 flex-shrink-0" />
           Connection Settings
         </button>
+        {allowed('settings') && (
+          <button
+            onClick={onOpenProfiles}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-gray-500 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
+          >
+            <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
+            Company Profiles
+          </button>
+        )}
         <button
-          onClick={onOpenProfiles}
+          onClick={onOpenUsers}
           className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-gray-500 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
         >
-          <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
-          Company Profiles
+          <UserCog className="w-3.5 h-3.5 flex-shrink-0" />
+          {user?.role === 'admin' ? 'Users & Access' : 'My Password'}
         </button>
         <button
           onClick={() => setIsDark(!isDark)}
@@ -868,13 +771,15 @@ function Sidebar({
       <div className="px-3 py-2.5 border-t border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50 flex-shrink-0">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-950 flex items-center justify-center text-[10px] font-black text-indigo-700 dark:text-indigo-300 flex-shrink-0 uppercase">
-            {user?.displayName?.charAt(0) || user?.email?.charAt(0) || '?'}
+            {(user?.full_name || user?.user_id || '?').charAt(0)}
           </div>
           <div className="min-w-0">
             <div className="text-[10px] font-semibold text-gray-900 dark:text-white truncate">
-              {user?.displayName || user?.email || 'User'}
+              {user?.full_name || user?.user_id || 'User'}
             </div>
-            <div className="text-[9px] text-gray-400 dark:text-slate-500">Admin</div>
+            <div className="text-[9px] text-gray-400 dark:text-slate-500 truncate">
+              {user?.role === 'admin' ? 'Admin' : 'Member'} · {companyName}
+            </div>
           </div>
         </div>
       </div>
@@ -885,9 +790,10 @@ function Sidebar({
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>('loading');
-  const [user, setUser] = useState<User | null>(null);
-  const [accessToken, setAccessToken] = useState('');
-  const [spreadsheetId, setSpreadsheetId] = useState(() => localStorage.getItem('bizeazy_spreadsheet_id') || '');
+  const [session, setSession] = useState<Session | null>(null);
+  const [authView, setAuthView] = useState<'login' | 'register'>('login');
+  const spreadsheetId = session?.company.spreadsheet_id || '';
+  const accessToken = session?.token || '';
   const [db, setDb] = useState<DatabaseState>(EMPTY_DB);
   const [profiles, setProfiles] = useState<CompanyProfile[]>(DEFAULT_PROFILES);
   const [activeView, setActiveView] = useState<AppView>('hub');
@@ -912,6 +818,7 @@ export default function App() {
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isProfilesOpen, setIsProfilesOpen] = useState(false);
+  const [isUsersOpen, setIsUsersOpen] = useState(false);
   const [previewInvoiceId, setPreviewInvoiceId] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   // Design (colors/fonts/layout) now lives entirely on each CompanyProfile's `template`
@@ -942,7 +849,7 @@ export default function App() {
     localStorage.setItem('bizeazy_dark', String(isDark));
   }, [isDark]);
 
-  const loadData = useCallback(async (token: string, sheetId: string) => {
+  const loadData = useCallback(async (sheetId: string) => {
     if (!sheetId) return;
     setIsDataLoading(true);
     try {
@@ -954,7 +861,7 @@ export default function App() {
       } catch {
         // Silently fall back to defaults if GAS config unavailable
       }
-      const data = await fetchDataAll(sheetId, token, resolvedProfiles);
+      const data = await fetchDataAll(sheetId, '', resolvedProfiles);
       setDb(data);
       setActiveBranchLocation(prev =>
         prev || resolvedProfiles[0]?.store_name || resolvedProfiles[0]?.name || 'La Bistro Cafe'
@@ -967,68 +874,59 @@ export default function App() {
     }
   }, [triggerToast]);
 
+  // A remembered session renders straight away so a reload is not a login
+  // screen, then gets confirmed against the server — a token that was revoked
+  // or expired while the tab was closed must not keep working offline.
   useEffect(() => {
-    const unsub = initAuth(
-      (authUser, token) => {
-        setUser(authUser);
-        setAccessToken(token);
-        const sheetId = localStorage.getItem('bizeazy_spreadsheet_id') || '';
-        if (!sheetId) {
-          setAuthStatus('needs-setup');
-        } else {
-          setSpreadsheetId(sheetId);
-          setAuthStatus('authenticated');
-          loadData(token, sheetId);
-        }
-      },
-      () => {
-        setUser(null);
-        setAccessToken('');
-        setAuthStatus('unauthenticated');
-      },
-    );
-    return unsub;
+    const stored = loadSession();
+    if (!stored) { setAuthStatus('unauthenticated'); return; }
+    setSession(stored);
+    setAuthStatus('authenticated');
+    loadData(stored.company.spreadsheet_id);
+    refreshSession()
+      .then(fresh => setSession(prev => ({ ...fresh, token: prev?.token || fresh.token })))
+      .catch(() => { /* the gateway already cleared it and fired SIGNED_OUT_EVENT */ });
   }, [loadData]);
 
-  const handleSignIn = async () => {
-    setIsSigningIn(true);
-    setSignInError(null);
-    try {
-      const result = await googleSignIn();
-      if (result) {
-        setUser(result.user);
-        setAccessToken(result.accessToken);
-        const sheetId = localStorage.getItem('bizeazy_spreadsheet_id') || '';
-        if (!sheetId) {
-          setAuthStatus('needs-setup');
-        } else {
-          setSpreadsheetId(sheetId);
-          setAuthStatus('authenticated');
-          loadData(result.accessToken, sheetId);
-        }
-      }
-    } catch (err: any) {
-      setSignInError(err.message || 'Sign in failed. Please try again.');
-    } finally {
-      setIsSigningIn(false);
-    }
-  };
+  // Any call that comes back with an expired session drops us here.
+  useEffect(() => {
+    const onSignedOut = () => {
+      setSession(null);
+      setDb(EMPTY_DB);
+      setActiveView('hub');
+      setAuthStatus('unauthenticated');
+      triggerToast('Your session has expired. Please sign in again.', 'warning');
+    };
+    window.addEventListener(SIGNED_OUT_EVENT, onSignedOut);
+    return () => window.removeEventListener(SIGNED_OUT_EVENT, onSignedOut);
+  }, [triggerToast]);
 
-  const handleSetupSave = (newSheetId: string, newApiUrl: string) => {
-    localStorage.setItem('bizeazy_spreadsheet_id', newSheetId);
-    if (newApiUrl) setApiUrl(newApiUrl);
-    setSpreadsheetId(newSheetId);
+  const handleSignedIn = (next: Session) => {
+    setSession(next);
     setAuthStatus('authenticated');
-    loadData(accessToken, newSheetId);
+    setAuthView('login');
+    loadData(next.company.spreadsheet_id);
   };
 
   const handleSignOut = async () => {
-    await firebaseLogout();
-    setUser(null);
-    setAccessToken('');
+    await endSession();
+    setSession(null);
     setDb(EMPTY_DB);
+    setActiveView('hub');
     setAuthStatus('unauthenticated');
   };
+
+  /** Hub is always open; every other view is a module the account must carry. */
+  const allowed = useCallback(
+    (v: AppView | ModuleName): boolean => v === 'hub' || can(session, v as ModuleName),
+    [session],
+  );
+
+  // Belt to the server's braces: if a user lands on (or is left sitting in) a
+  // module they may not open, put them back on the hub.
+  useEffect(() => {
+    if (activeView !== 'hub' && !allowed(activeView)) setActiveView('hub');
+  }, [activeView, allowed]);
 
   const handleSync = useCallback(async (
     sheetId: string, token: string,
@@ -1064,12 +962,10 @@ export default function App() {
     }
   };
 
-  const handleSettingsSave = (newSheetId: string, newApiUrl: string) => {
-    localStorage.setItem('bizeazy_spreadsheet_id', newSheetId);
+  const handleSettingsSave = (newApiUrl: string) => {
     setApiUrl(newApiUrl); // setApiUrl handles empty → restore default
-    setSpreadsheetId(newSheetId);
     setIsSettingsOpen(false);
-    loadData(accessToken, newSheetId);
+    loadData(spreadsheetId);
     triggerToast('Settings saved. Reloading data…', 'info');
   };
 
@@ -1090,19 +986,12 @@ export default function App() {
     );
   }
 
-  if (authStatus === 'unauthenticated') {
+  if (authStatus === 'unauthenticated' || !session) {
     return (
       <div className={wrapClass}>
-        <AuthScreen onSignIn={handleSignIn} isLoading={isSigningIn} error={signInError} />
-        <ToastContainer toasts={toasts} onRemove={removeToast} />
-      </div>
-    );
-  }
-
-  if (authStatus === 'needs-setup') {
-    return (
-      <div className={wrapClass}>
-        <SetupScreen onSave={handleSetupSave} />
+        {authView === 'register'
+          ? <RegisterScreen onRegistered={handleSignedIn} onBack={() => setAuthView('login')} />
+          : <LoginScreen onSignedIn={handleSignedIn} onRegister={() => setAuthView('register')} />}
         <ToastContainer toasts={toasts} onRemove={removeToast} />
       </div>
     );
@@ -1174,40 +1063,43 @@ export default function App() {
               <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
               Hub Overview
             </button>
-            <button
-              onClick={() => { setActiveView('invoicing'); triggerToast('Entering Invoicing Console...', 'success'); }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${dm ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
-            >
-              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-              Invoicing
-            </button>
-            <button
-              onClick={() => { setActiveView('quotations'); triggerToast('Entering Quotations Console...', 'success'); }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${dm ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
-            >
-              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-              Quotations
-            </button>
-            <button
-              onClick={() => { setActiveView('payroll'); triggerToast('Entering Payslip Console...', 'success'); }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${dm ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
-            >
-              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-              Payroll
-            </button>
+{allowed('invoicing') && (
+              <button
+                onClick={() => { setActiveView('invoicing'); triggerToast('Entering Invoicing Console...', 'success'); }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${dm ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
+              >
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                Invoicing
+              </button>
+            )}
+{allowed('quotations') && (
+              <button
+                onClick={() => { setActiveView('quotations'); triggerToast('Entering Quotations Console...', 'success'); }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${dm ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
+              >
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                Quotations
+              </button>
+            )}
+{allowed('payroll') && (
+              <button
+                onClick={() => { setActiveView('payroll'); triggerToast('Entering Payslip Console...', 'success'); }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${dm ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
+              >
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Payroll
+              </button>
+            )}
           </nav>
 
           {/* Branch selector */}
           <div className={`px-3 py-3 border-t space-y-1 ${dm ? 'border-slate-800' : 'border-slate-100'}`}>
             <p className={`text-[9px] font-bold uppercase tracking-widest px-2 mb-2 ${dm ? 'text-slate-600' : 'text-slate-400'}`}>Active Branch</p>
-            {([
-              { id: 'Bistro' as const, label: bistroName },
-              { id: 'Nasi Kandar' as const, label: nkName },
-            ]).map(b => (
+            {profiles.map(p => ({ id: p.id, label: p.store_name || p.name })).map(b => (
               <button
                 key={b.id}
                 onClick={() => {
-                  setActiveBranchLocation(b.id === 'Bistro' ? bistroName : nkName);
+                  setActiveBranchLocation(b.label);
                   triggerToast(`Switched to ${b.label}`, 'success');
                 }}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-semibold transition-all cursor-pointer text-left ${
@@ -1225,7 +1117,7 @@ export default function App() {
           {/* Bottom actions */}
           <div className={`px-3 py-3 border-t space-y-0.5 ${dm ? 'border-slate-800' : 'border-slate-100'}`}>
             <button
-              onClick={() => loadData(accessToken, spreadsheetId)}
+              onClick={() => loadData(spreadsheetId)}
               className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[11px] font-semibold cursor-pointer transition-all ${dm ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'}`}
             >
               <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
@@ -1238,12 +1130,21 @@ export default function App() {
               <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
               Connection Settings
             </button>
+            {allowed('settings') && (
+              <button
+                onClick={() => setIsProfilesOpen(true)}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[11px] font-semibold cursor-pointer transition-all ${dm ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'}`}
+              >
+                <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                Company Profiles
+              </button>
+            )}
             <button
-              onClick={() => setIsProfilesOpen(true)}
+              onClick={() => setIsUsersOpen(true)}
               className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[11px] font-semibold cursor-pointer transition-all ${dm ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'}`}
             >
-              <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-              Company Profiles
+              <UserCog className="w-3.5 h-3.5 shrink-0" />
+              {session.user.role === 'admin' ? 'Users & Access' : 'My Password'}
             </button>
             <button
               onClick={() => { setIsDark(p => !p); triggerToast(`Switched to ${!isDark ? 'Dark' : 'Light'} mode`, 'success'); }}
@@ -1255,10 +1156,7 @@ export default function App() {
               }
             </button>
             <button
-              onClick={() => {
-                if (typeof window !== 'undefined') sessionStorage.setItem('explicit_logout', 'true');
-                firebaseLogout().then(() => { setUser(null); setAccessToken(''); triggerToast('Signed out.', 'success'); });
-              }}
+              onClick={() => { handleSignOut().then(() => triggerToast('Signed out.', 'success')); }}
               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[11px] font-semibold cursor-pointer transition-all text-rose-500 hover:bg-rose-500/10"
             >
               <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
@@ -1269,12 +1167,14 @@ export default function App() {
           {/* User chip */}
           <div className={`px-4 py-3 border-t ${dm ? 'border-slate-800' : 'border-slate-100'}`}>
             <div className="flex items-center gap-2.5">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black ${dm ? 'bg-indigo-500/20 text-indigo-400' : 'bg-indigo-100 text-indigo-700'}`}>
-                {(user?.email || 'U')[0].toUpperCase()}
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black uppercase ${dm ? 'bg-indigo-500/20 text-indigo-400' : 'bg-indigo-100 text-indigo-700'}`}>
+                {(session.user.full_name || session.user.user_id || 'U')[0]}
               </div>
               <div className="min-w-0">
-                <p className={`text-[11px] font-bold truncate ${dm ? 'text-slate-200' : 'text-slate-800'}`}>{user?.displayName || user?.email?.split('@')[0] || 'User'}</p>
-                <p className={`text-[9px] font-semibold ${dm ? 'text-slate-500' : 'text-slate-400'}`}>Admin</p>
+                <p className={`text-[11px] font-bold truncate ${dm ? 'text-slate-200' : 'text-slate-800'}`}>{session.user.full_name || session.user.user_id}</p>
+                <p className={`text-[9px] font-semibold truncate ${dm ? 'text-slate-500' : 'text-slate-400'}`}>
+                  {session.user.role === 'admin' ? 'Admin' : 'Member'} · {session.company.company_name}
+                </p>
               </div>
             </div>
           </div>
@@ -1291,18 +1191,24 @@ export default function App() {
               <span className={`text-xs font-black tracking-widest uppercase ${dm ? 'text-indigo-400' : 'text-indigo-600'}`}>BizEazy</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <button onClick={() => { setActiveView('invoicing'); triggerToast("Entering Invoicing...","success"); }}
-                className={`px-2.5 py-1 text-[10px] font-bold rounded-lg cursor-pointer ${dm ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>
-                Invoicing
-              </button>
-              <button onClick={() => { setActiveView('quotations'); triggerToast("Entering Quotations...","success"); }}
-                className={`px-2.5 py-1 text-[10px] font-bold rounded-lg cursor-pointer ${dm ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>
-                Quotations
-              </button>
-              <button onClick={() => { setActiveView('payroll'); triggerToast("Entering Payroll...","success"); }}
-                className={`px-2.5 py-1 text-[10px] font-bold rounded-lg cursor-pointer ${dm ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>
-                Payroll
-              </button>
+              {allowed('invoicing') && (
+                <button onClick={() => { setActiveView('invoicing'); triggerToast("Entering Invoicing...","success"); }}
+                  className={`px-2.5 py-1 text-[10px] font-bold rounded-lg cursor-pointer ${dm ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>
+                  Invoicing
+                </button>
+              )}
+              {allowed('quotations') && (
+                <button onClick={() => { setActiveView('quotations'); triggerToast("Entering Quotations...","success"); }}
+                  className={`px-2.5 py-1 text-[10px] font-bold rounded-lg cursor-pointer ${dm ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>
+                  Quotations
+                </button>
+              )}
+              {allowed('payroll') && (
+                <button onClick={() => { setActiveView('payroll'); triggerToast("Entering Payroll...","success"); }}
+                  className={`px-2.5 py-1 text-[10px] font-bold rounded-lg cursor-pointer ${dm ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>
+                  Payroll
+                </button>
+              )}
               <button onClick={() => setIsDark(p => !p)}
                 className={`p-1.5 rounded-lg cursor-pointer ${dm ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
                 {dm
@@ -1370,10 +1276,10 @@ export default function App() {
             {/* Module shortcuts */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[
-                { icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>, label: 'Invoicing Module', desc: 'Create, manage & track invoices', cta: 'Open →', accent: 'indigo', onClick: () => { setActiveView('invoicing'); triggerToast('Entering Invoicing Console...', 'success'); }, stat1Label: 'Total Invoices', stat1Val: String(activeInvoicesHub.length), stat2Label: 'Pending', stat2Val: String(unpaidCountHub), stat2Warn: unpaidCountHub > 0 },
-                { icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>, label: 'Quotations Module', desc: 'Multi-day catering quotes & estimates', cta: 'Open →', accent: 'indigo', onClick: () => { setActiveView('quotations'); triggerToast('Entering Quotations Console...', 'success'); }, stat1Label: 'Quotations', stat1Val: String(activeQuotationsHub.length), stat2Label: 'Expired', stat2Val: String(expiredQuotationsHub), stat2Warn: expiredQuotationsHub > 0 },
-                { icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>, label: 'Payroll Module', desc: 'Employee roster & payslip generator', cta: 'Open →', accent: 'indigo', onClick: () => { setActiveView('payroll'); triggerToast('Entering Payslip Console...', 'success'); }, stat1Label: 'Employees', stat1Val: String(activeEmployeesHub.length), stat2Label: 'Saved Payslips', stat2Val: String(savedPayslipsHub.length), stat2Warn: false },
-              ].map((mod, i) => (
+                { icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>, view: 'invoicing' as AppView, label: 'Invoicing Module', desc: 'Create, manage & track invoices', cta: 'Open →', accent: 'indigo', onClick: () => { setActiveView('invoicing'); triggerToast('Entering Invoicing Console...', 'success'); }, stat1Label: 'Total Invoices', stat1Val: String(activeInvoicesHub.length), stat2Label: 'Pending', stat2Val: String(unpaidCountHub), stat2Warn: unpaidCountHub > 0 },
+                { icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>, view: 'quotations' as AppView, label: 'Quotations Module', desc: 'Multi-day catering quotes & estimates', cta: 'Open →', accent: 'indigo', onClick: () => { setActiveView('quotations'); triggerToast('Entering Quotations Console...', 'success'); }, stat1Label: 'Quotations', stat1Val: String(activeQuotationsHub.length), stat2Label: 'Expired', stat2Val: String(expiredQuotationsHub), stat2Warn: expiredQuotationsHub > 0 },
+                { icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>, view: 'payroll' as AppView, label: 'Payroll Module', desc: 'Employee roster & payslip generator', cta: 'Open →', accent: 'indigo', onClick: () => { setActiveView('payroll'); triggerToast('Entering Payslip Console...', 'success'); }, stat1Label: 'Employees', stat1Val: String(activeEmployeesHub.length), stat2Label: 'Saved Payslips', stat2Val: String(savedPayslipsHub.length), stat2Warn: false },
+              ].filter(mod => allowed(mod.view)).map((mod, i) => (
                 <div key={i} className={`rounded-2xl border p-4 sm:p-5 transition-all ${dm ? 'bg-[#0f1623] border-slate-800 hover:border-slate-700' : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm hover:shadow-md'}`}>
                   <div className="flex items-start justify-between mb-3 sm:mb-4">
                     <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center ${mod.accent === 'emerald' ? (dm ? 'bg-emerald-500/15 text-emerald-400' : 'bg-emerald-50 text-emerald-600') : (dm ? 'bg-indigo-500/15 text-indigo-400' : 'bg-indigo-50 text-indigo-600')}`}>{mod.icon}</div>
@@ -1488,7 +1394,10 @@ export default function App() {
           <CompanyProfilesModal profiles={profiles} isDark={isDark} onClose={() => setIsProfilesOpen(false)} onSave={handleProfilesSave} />
         )}
         {isSettingsOpen && (
-          <SettingsModal currentSheetId={spreadsheetId} isDark={isDark} onClose={() => setIsSettingsOpen(false)} onSave={handleSettingsSave} />
+          <SettingsModal company={session.company} isDark={isDark} onClose={() => setIsSettingsOpen(false)} onSave={handleSettingsSave} />
+        )}
+        {isUsersOpen && (
+          <UsersModal session={session} isDark={isDark} onClose={() => setIsUsersOpen(false)} onToast={triggerToast} />
         )}
         <ToastContainer toasts={toasts} onRemove={removeToast} />
       </div>
@@ -1516,11 +1425,14 @@ export default function App() {
           isDark={isDark}
           setIsDark={setIsDark}
           isDataLoading={isDataLoading}
-          onRefresh={() => loadData(accessToken, spreadsheetId)}
+          onRefresh={() => loadData(spreadsheetId)}
           onSignOut={handleSignOut}
           onOpenSettings={() => { setIsSettingsOpen(true); setIsMobileNavOpen(false); }}
           onOpenProfiles={() => { setIsProfilesOpen(true); setIsMobileNavOpen(false); }}
-          user={user}
+          onOpenUsers={() => { setIsUsersOpen(true); setIsMobileNavOpen(false); }}
+          user={session.user}
+          companyName={session.company.company_name}
+          allowed={allowed}
           isMobileOpen={isMobileNavOpen}
           onMobileClose={() => setIsMobileNavOpen(false)}
         />
@@ -1632,11 +1544,14 @@ export default function App() {
       )}
       {isSettingsOpen && (
         <SettingsModal
-          currentSheetId={spreadsheetId}
+          company={session.company}
           isDark={isDark}
           onClose={() => setIsSettingsOpen(false)}
           onSave={handleSettingsSave}
         />
+      )}
+      {isUsersOpen && (
+        <UsersModal session={session} isDark={isDark} onClose={() => setIsUsersOpen(false)} onToast={triggerToast} />
       )}
       {/* ── Invoice Design Studio Modal ── */}
       {isPreviewOpen && previewInvoiceId && (
