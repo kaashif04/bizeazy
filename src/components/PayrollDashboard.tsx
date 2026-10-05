@@ -305,6 +305,14 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
     }
 
     let updatedEmployees = [...db.employees];
+    // Rows are keyed by Employee_ID end to end (dedupe on read and on write), so
+    // a repeated ID would silently fold two people into one. The ID is only the
+    // clock's last five digits, so check it against everyone on file.
+    let newId = '';
+    if (!editingEmployee) {
+      let n = Date.now();
+      do { newId = `EMP-${String(n++).slice(-5)}`; } while (db.employees.some(e => e.Employee_ID === newId));
+    }
 
     if (editingEmployee) {
       // Editing Mode
@@ -329,7 +337,6 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       triggerToast("Updating Employee settings internally...", "info");
     } else {
       // Creation Mode
-      const newId = `EMP-${Date.now().toString().slice(-5)}`;
       const newEmp: Employee = {
         Employee_ID: newId,
         Employee_Name: empName,
@@ -358,8 +365,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
 
     // Persist fields the Apps Script schema doesn't have columns for
     const savedEmp = nextDb.employees.find(e =>
-      editingEmployee ? e.Employee_ID === editingEmployee.Employee_ID : e.Employee_Name === empName
-    );
+      e.Employee_ID === (editingEmployee ? editingEmployee.Employee_ID : newId));
     if (savedEmp) {
       saveEmployeeExtras(savedEmp.Employee_ID, {
         Citizenship: savedEmp.Citizenship,
@@ -496,7 +502,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
     const freshAllowances: Record<string, ItemizedItem[]> = {};
     const freshDeductions: Record<string, ItemizedItem[]> = {};
     activeBranchEmployees.forEach(e => {
-      const savedSlip = activeBranchPayslips.find(p => p.Employee_ID === e.Employee_ID && p.Month_Year === monthForLookup);
+      const savedSlip = activeBranchPayslips.find(p => p.Employee_ID === e.Employee_ID && normaliseMonthLabel(p.Month_Year) === monthForLookup);
       if (savedSlip && savedSlip.Allowances_JSON) {
         try {
           freshAllowances[e.Employee_ID] = JSON.parse(savedSlip.Allowances_JSON);

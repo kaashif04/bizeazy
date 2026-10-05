@@ -20,7 +20,7 @@ import {
   Customer, CompanyProfile, Employee, Payslip, SalaryAdvance,
   Quotation, QuotationDay, QuotationItem, PricingMode, PackageSubMode, ServingStyle
 } from './types';
-import { gasGet, gasPost, getApiUrl, setApiUrl, DEFAULT_API_URL } from './auth';
+import { gasGet, gasPost, getApiUrl, setApiUrl, DEFAULT_API_URL, can, loadSession } from './auth';
 import { resolveOutletId, outletLabel } from './utils/outlets';
 
 // Sign-in now lives in auth.ts (user ID + password against the Users directory).
@@ -417,23 +417,18 @@ export const fetchDataAll = async (
     // parent (Invoice_ID / Quotation_ID) which is already filtered above.
   }
 
-  // ── Merge localStorage extras (fields not persisted by the Apps Script) ──
-  // Citizenship, Age, Joining_Date, Payment_Transferred, Transfer_Date are not
-  // columns in the current Google Sheet schema.  We save them locally so they
-  // survive a "Refresh Data" without requiring any Apps Script changes.
+  // ── Merge localStorage extras ──
+  // The browser keeps a copy of a few fields (Citizenship, Age, Joining_Date,
+  // Employer_Bears_Statutory; payslip save/payment state) until a sync lands
+  // them in the sheet — syncStateToSheets then forgets them. They only fill a
+  // cell the sheet has left BLANK: a filled cell was written by the server,
+  // maybe from another device, and an older local copy must not overrule it.
   if (typeof window !== 'undefined') {
     try {
-      const empExtras: Record<string, any> = JSON.parse(localStorage.getItem('bizeazy_employee_extras') || '{}');
-      employees = employees.map(emp => {
-        const extra = empExtras[emp.Employee_ID];
-        return extra ? { ...emp, ...extra } : emp;
-      });
-
-      const psExtras: Record<string, any> = JSON.parse(localStorage.getItem('bizeazy_payslip_extras') || '{}');
-      payslips = payslips.map(ps => {
-        const extra = psExtras[ps.Payslip_ID];
-        return extra ? { ...ps, ...extra } : ps;
-      });
+      ({ employees, payslips } = mergeLocalExtras(
+        employees, rawEmployees, JSON.parse(localStorage.getItem(EMP_EXTRAS_KEY) || '{}'),
+        payslips, rawPayslips, JSON.parse(localStorage.getItem(PS_EXTRAS_KEY) || '{}'),
+      ));
     } catch {
       // localStorage unavailable or corrupt — continue without extras
     }
@@ -455,7 +450,11 @@ export const fetchDataAll = async (
   quotation_days  = dedupeByKey(quotation_days,  d  => String(d.Day_ID       || ''));
   quotation_items = dedupeByKey(quotation_items, it => String(it.Item_ID     || ''));
 
-  return { invoices, invoice_items, payments, customers, employees, payslips, quotations, quotation_days, quotation_items, profiles: [] };
+  const loaded = { invoices, invoice_items, payments, customers, employees, payslips, quotations, quotation_days, quotation_items };
+  // Only a full load is a baseline for the next save's merge; a filtered one
+  // would make every other branch look deleted.
+  if (!branchFilter) remember(spreadsheetId, loaded);
+  return { ...loaded, profiles: [] };
 };
 
 /** Advances_JSON cell → advances. A malformed cell reads as none rather than breaking the roster. */
@@ -471,16 +470,57 @@ function parseAdvances(raw: unknown): SalaryAdvance[] {
   }
 }
 
-// ── localStorage helpers for fields not yet in the Apps Script schema ────────
+// ── localStorage stand-ins until a sync lands them (see the merge above) ────────
+const EMP_EXTRAS_KEY = 'bizeazy_employee_extras';
+const PS_EXTRAS_KEY = 'bizeazy_payslip_extras';
+
+const isBlank = (v: unknown) => v === undefined || v === null || String(v).trim() === '';
+const gapsOnly = (extra: Record<string, any>, raw: Record<string, any> = {}) =>
+  Object.fromEntries(Object.entries(extra).filter(([k]) => isBlank(raw[k])));
+
+/** Local copies fill only the cells the sheet left blank. Pure, for the self-check. */
+export function mergeLocalExtras(
+  employees: Employee[], rawEmployees: any[], empExtras: Record<string, any>,
+  payslips: Payslip[], rawPayslips: any[], psExtras: Record<string, any>,
+): { employees: Employee[]; payslips: Payslip[] } {
+  const rawEmp = new Map<string, any>(rawEmployees.map(r => [String(r.Employee_ID || ''), r]));
+  const rawPs = new Map<string, any>(rawPayslips.map(r => [String(r.Payslip_ID || ''), r]));
+  return {
+    employees: employees.map(emp => {
+      const extra = empExtras[emp.Employee_ID];
+      return extra ? { ...emp, ...gapsOnly(extra, rawEmp.get(emp.Employee_ID)) } : emp;
+    }),
+    payslips: payslips.map(ps => {
+      const extra = psExtras[ps.Payslip_ID];
+      if (!extra) return ps;
+      const fill: Record<string, any> = gapsOnly(extra, rawPs.get(ps.Payslip_ID));
+      // Saving and paying are never undone in the app, so a local "yes" still
+      // stands over a FALSE cell when the sync that would have written it failed.
+      if (extra.Is_Saved === true) fill.Is_Saved = true;
+      if (extra.Payment_Transferred === true) fill.Payment_Transferred = true;
+      return { ...ps, ...fill };
+    }),
+  };
+}
+
+/** Drop the local copies for rows the sheet now holds. */
+function forgetExtras(key: string, ids: string[]) {
+  try {
+    const all: Record<string, any> = JSON.parse(localStorage.getItem(key) || '{}');
+    ids.forEach(id => { delete all[id]; });
+    if (Object.keys(all).length) localStorage.setItem(key, JSON.stringify(all));
+    else localStorage.removeItem(key);
+  } catch {}
+}
 export const saveEmployeeExtras = (
   employeeId: string,
   extras: { Citizenship?: string; Age?: number; Joining_Date?: string; Employer_Bears_Statutory?: boolean }
 ) => {
   if (typeof window === 'undefined') return;
   try {
-    const all: Record<string, any> = JSON.parse(localStorage.getItem('bizeazy_employee_extras') || '{}');
+    const all: Record<string, any> = JSON.parse(localStorage.getItem(EMP_EXTRAS_KEY) || '{}');
     all[employeeId] = { ...(all[employeeId] || {}), ...extras };
-    localStorage.setItem('bizeazy_employee_extras', JSON.stringify(all));
+    localStorage.setItem(EMP_EXTRAS_KEY, JSON.stringify(all));
   } catch {}
 };
 
@@ -490,46 +530,74 @@ export const savePayslipExtras = (
 ) => {
   if (typeof window === 'undefined') return;
   try {
-    const all: Record<string, any> = JSON.parse(localStorage.getItem('bizeazy_payslip_extras') || '{}');
+    const all: Record<string, any> = JSON.parse(localStorage.getItem(PS_EXTRAS_KEY) || '{}');
     all[payslipId] = { ...(all[payslipId] || {}), ...extras };
-    localStorage.setItem('bizeazy_payslip_extras', JSON.stringify(all));
+    localStorage.setItem(PS_EXTRAS_KEY, JSON.stringify(all));
   } catch {}
 };
 
 // ── syncStateToSheets ─────────────────────────────────────────
-export const syncStateToSheets = async (
-  spreadsheetId: string,
-  token: string,
-  db: DatabaseState,
-  profiles?: CompanyProfile[],
-  activeBranchLocation?: string
-): Promise<void> => {
-  let allInvoices: any[]   = [];
-  let allCustomers: any[]  = [];
-  let allEmployees: any[]  = [];
-  let allPayslips: any[]   = [];
-  let allQuotations: any[] = [];
+// ── Saving: a three-way merge ─────────────────────────────────
+// A save rewrites whole tabs, and two devices can each hold a copy loaded at a
+// different time. Taking either side wholesale loses work: this device's copy
+// would revert what others changed since it loaded, and the sheet's would drop
+// what this device just did. So each row is decided against `lastSeen`, what
+// this device last loaded or saved:
+//   changed or added here             → this device's row
+//   untouched here                    → the sheet's row (it may be newer), or
+//                                       none if another device deleted it
+//   deleted here                      → gone
+//   on the sheet, never seen here     → kept (added elsewhere)
+// ponytail: the read-merge-write still has a window of a second or two in which
+// two simultaneous saves can cross. Closing it needs per-row writes on the
+// server, which is the Supabase move.
+let lastSeen: { spreadsheetId: string; db: DatabaseState } | null = null;
+const remember = (spreadsheetId: string, db: DatabaseState) => {
+  lastSeen = { spreadsheetId, db: JSON.parse(JSON.stringify(db)) };
+};
 
-  const targetBranch = activeBranchLocation || 'A1 Bistro';
+type SyncTab = 'invoices' | 'customers' | 'employees' | 'payslips' | 'invoice_items'
+  | 'payments' | 'quotations' | 'quotation_days' | 'quotation_items';
 
-  // Fetch current sheet state for non-destructive merge
-  try {
-    const data = await gasGet({ action: 'fetchDataAll', spreadsheetId });
-    allInvoices   = data?.invoices    || [];
-    allCustomers  = data?.customers   || [];
-    allEmployees  = data?.employees   || [];
-    allPayslips   = data?.payslips    || [];
-    allQuotations = data?.quotations  || [];
-  } catch (err) {
-    console.warn('Could not fetch old sheet records for merge:', err);
-  }
+const SYNC_KEYS: Record<SyncTab, (r: any) => string> = {
+  invoices:        r => String(r.Invoice_ID || ''),
+  customers:       r => `${String(r.Customer_Name || '').toLowerCase()}|${String(r.Branch_Location || '').toLowerCase()}`,
+  employees:       r => String(r.Employee_ID || ''),
+  payslips:        r => String(r.Payslip_ID || ''),
+  invoice_items:   invoiceItemKey,
+  payments:        r => String(r.Payment_ID || ''),
+  quotations:      r => String(r.Quotation_ID || ''),
+  quotation_days:  r => String(r.Day_ID || ''),
+  quotation_items: r => String(r.Item_ID || '') || `${r.Quotation_ID}|${r.Day_ID}|${r.Item_Name}|${r.Quantity}|${r.Price}`,
+};
 
-  const otherInvoices   = allInvoices.filter(i  => (i.Branch_Location  || '').toLowerCase() !== targetBranch.toLowerCase());
-  const otherCustomers  = allCustomers.filter(c  => (c.Branch_Location  || '').toLowerCase() !== targetBranch.toLowerCase());
-  const otherEmployees  = allEmployees.filter(e  => (e.Branch_Location  || '').toLowerCase() !== targetBranch.toLowerCase());
-  const otherPayslips   = allPayslips.filter(p   => (p.Branch_Location  || '').toLowerCase() !== targetBranch.toLowerCase());
-  const otherQuotations = allQuotations.filter(q => (q.Branch_Location || '').toLowerCase() !== targetBranch.toLowerCase());
+/** The rule above, for one tab. Pure, for the self-check. */
+export function mergeForSync<T>(local: T[], server: T[], base: T[] | null, key: (r: T) => string): T[] {
+  // A tab this device holds nothing of was never loaded (or was cleared by a
+  // sign-out), not emptied row by row: never read that as "delete them all".
+  const seen = base && local.length ? new Map(base.map(r => [key(r), JSON.stringify(r)])) : null;
+  const onSheet = new Map(server.map(r => [key(r), r]));
+  const here = new Set(local.map(key));
+  const out: T[] = [];
+  local.forEach(row => {
+    const k = key(row);
+    if (k && seen?.get(k) === JSON.stringify(row)) {
+      const current = onSheet.get(k);
+      if (current) out.push(current);
+      return;
+    }
+    out.push(row);
+  });
+  server.forEach(row => {
+    const k = key(row);
+    if (!k || here.has(k) || seen?.has(k)) return;
+    out.push(row);
+  });
+  return out;
+}
 
+/** In-memory records → the rows syncData writes. */
+function formatForSheet(db: DatabaseState, profiles: CompanyProfile[] | undefined, targetBranch: string): Record<SyncTab, any[]> {
   const currentInvoicesFormatted = db.invoices.map(inv => {
     let companyName: string = inv.Company;
     if (profiles) {
@@ -640,12 +708,19 @@ export const syncStateToSheets = async (
     Item_Name: it.Item_Name, Quantity: it.Quantity, Price: it.Price, Subtotal: it.Subtotal,
   })) || [];
 
-  // Normalise other-branch rows so they have the same keys as the current-branch rows.
-  // This matters because some Apps Scripts derive sheet column headers from the first row
-  // in the array.  By putting currentBranch first and filling missing keys on otherBranch
-  // rows, every row has an identical schema and no column gets silently dropped.
-  const normalizedOtherEmployees = otherEmployees.map((e: any) => {
-    // Decode other-branch rows: prefer dedicated columns, fall back to ||bm: for old data
+  return {
+    invoices: currentInvoicesFormatted, customers: currentCustomersFormatted,
+    employees: currentEmployeesFormatted, payslips: currentPayslipsFormatted,
+    invoice_items: currentItemsFormatted, payments: currentPaymentsFormatted,
+    quotations: currentQuotationsFormatted, quotation_days: currentQuotationDaysFormatted,
+    quotation_items: currentQuotationItemsFormatted,
+  };
+}
+
+/** Sheet rows → the same shape, decoding the legacy encodings old builds wrote. */
+function normalizeSheetRows(data: any): Record<SyncTab, any[]> {
+  const employees = (data.employees || []).map((e: any) => {
+    // Prefer dedicated columns, fall back to ||bm: for old data
     const rawBank = String(e.Bank_Details || '');
     const bmIdx = rawBank.indexOf('||bm:');
     const cleanBank = bmIdx >= 0 ? rawBank.substring(0, bmIdx) : rawBank;
@@ -675,14 +750,14 @@ export const syncStateToSheets = async (
       Joining_Date: joiningDate,
       Employer_Bears_Statutory: e.Employer_Bears_Statutory === true || String(e.Employer_Bears_Statutory || '').toLowerCase() === 'true',
       // Passed through untouched: the sync rewrites the whole tab, so a column
-      // missing here is a column erased for every other branch.
+      // missing here is a column erased from every row this device did not edit.
       Pay_Basis: e.Pay_Basis || '', End_Date: e.End_Date || '',
       Registered_On: e.Registered_On || '', Advances_JSON: e.Advances_JSON || '',
     };
   });
 
-  const normalizedOtherPayslips = otherPayslips.map((p: any) => {
-    // Decode other-branch rows: strip legacy _bm_paid, prefer dedicated columns
+  const payslips = (data.payslips || []).map((p: any) => {
+    // Strip legacy _bm_paid, prefer dedicated columns
     let deductionsArr: any[] = [];
     let isPaid = p.Payment_Transferred === true || String(p.Payment_Transferred || '').toLowerCase() === 'true';
     let transferDate = p.Transfer_Date || '';
@@ -717,7 +792,7 @@ export const syncStateToSheets = async (
     };
   });
 
-  const normalizedOtherQuotations = otherQuotations.map((q: any) => ({
+  const quotations = (data.quotations || []).map((q: any) => ({
     Quotation_ID: q.Quotation_ID || '', Date: q.Date || '', Valid_Until: q.Valid_Until || '',
     Company: q.Company || '', Customer_Name: q.Customer_Name || '',
     Customer_Contact: q.Customer_Contact || '-', Customer_Address: q.Customer_Address || '-',
@@ -732,28 +807,54 @@ export const syncStateToSheets = async (
     Converted_Invoice_ID: q.Converted_Invoice_ID || '',
   }));
 
-  const payload = {
-    action: 'syncData',
-    spreadsheetId,
-    db: {
-      // Current-branch rows go FIRST so that (a) Apps Scripts deriving column
-      // headers from the first row see the full schema, and (b) dedupeByKey
-      // keeps the current (authoritative) copy when the same key also appears in
-      // the merged "other branch" rows. Dedupe is what stops the sheet from
-      // accumulating duplicate rows on every sync.
-      invoices:        dedupeByKey([...currentInvoicesFormatted,   ...otherInvoices],           r => String(r.Invoice_ID || '')),
-      customers:       dedupeByKey([...currentCustomersFormatted,  ...otherCustomers],          r => `${String(r.Customer_Name || '').toLowerCase()}|${String(r.Branch_Location || '').toLowerCase()}`),
-      employees:       dedupeByKey([...currentEmployeesFormatted,  ...normalizedOtherEmployees], r => String(r.Employee_ID || '')),
-      payslips:        dedupeByKey([...currentPayslipsFormatted,   ...normalizedOtherPayslips],  r => String(r.Payslip_ID || '')),
-      invoice_items:   dedupeByKey(currentItemsFormatted,   invoiceItemKey),
-      payments:        dedupeByKey(currentPaymentsFormatted, p => String(p.Payment_ID || '')),
-      quotations:      dedupeByKey([...currentQuotationsFormatted, ...normalizedOtherQuotations], r => String(r.Quotation_ID || '')),
-      quotation_days:  dedupeByKey(currentQuotationDaysFormatted, d => String(d.Day_ID || '')),
-      quotation_items: dedupeByKey(currentQuotationItemsFormatted, it => String(it.Item_ID || '') || `${it.Quotation_ID}|${it.Day_ID}|${it.Item_Name}|${it.Quantity}|${it.Price}`),
-    }
+  return {
+    invoices: data.invoices || [], customers: data.customers || [],
+    employees, payslips,
+    invoice_items: data.invoice_items || [], payments: data.payments || [],
+    quotations,
+    quotation_days: data.quotation_days || [], quotation_items: data.quotation_items || [],
   };
+}
 
-  await gasPost(payload);
+export const syncStateToSheets = async (
+  spreadsheetId: string,
+  token: string,
+  db: DatabaseState,
+  profiles?: CompanyProfile[],
+  activeBranchLocation?: string
+): Promise<void> => {
+  // Only fills Branch_Location on a brand-new row that has none yet.
+  const targetBranch = activeBranchLocation || 'A1 Bistro';
+
+  // The sheet as it is right now. Without it the merge cannot tell a row
+  // deleted elsewhere from one never seen, so a failed read stops the save.
+  let data: any;
+  try {
+    data = await gasGet({ action: 'fetchDataAll', spreadsheetId });
+  } catch (err: any) {
+    throw new Error(`Could not read the sheet before saving, so nothing was written: ${err?.message || err}`);
+  }
+
+  const onSheet = normalizeSheetRows(data || {});
+  const here = formatForSheet(db, profiles, targetBranch);
+  const base = lastSeen && lastSeen.spreadsheetId === spreadsheetId
+    ? formatForSheet(lastSeen.db, profiles, targetBranch) : null;
+
+  const merged = {} as Record<SyncTab, any[]>;
+  (Object.keys(SYNC_KEYS) as SyncTab[]).forEach(tab => {
+    merged[tab] = dedupeByKey(mergeForSync(here[tab], onSheet[tab], base ? base[tab] : null, SYNC_KEYS[tab]), SYNC_KEYS[tab]);
+  });
+
+  await gasPost({ action: 'syncData', spreadsheetId, db: merged });
+  remember(spreadsheetId, db);
+
+  // The sheet now holds every employee and payslip just sent, so their local
+  // stand-ins are spent and could only go stale. Kept if this user cannot write
+  // payroll: the server dropped those rows, and the copies are all there is.
+  if (typeof window !== 'undefined' && can(loadSession(), 'payroll')) {
+    forgetExtras(EMP_EXTRAS_KEY, merged.employees.map((r: any) => String(r.Employee_ID || '')));
+    forgetExtras(PS_EXTRAS_KEY, merged.payslips.map((r: any) => String(r.Payslip_ID || '')));
+  }
 };
 
 // ── App config helpers ────────────────────────────────────────

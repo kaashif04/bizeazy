@@ -518,8 +518,13 @@ function enforceHeaders(tab, expected) {
 // auto-converting date-like strings (e.g. "2026-05-15") into real Date
 // cells, which previously caused fields like Joining_Date to round-trip
 // as shifted/garbled timestamps instead of the plain string we wrote.
+// The same goes for digit-only text: an IC like "010203141234" or a phone like
+// "0123456789" becomes a number and loses its leading zero for good.
+// Runs on every fetch and sync, so it reads before writing: if the column's
+// last row is already text, the whole column is (rows added later fail this).
 function forceTextColumn(tab, colIndex) {
   var maxRows = Math.max(tab.getMaxRows(), 2);
+  if (tab.getRange(maxRows, colIndex).getNumberFormat() === '@') return;
   tab.getRange(2, colIndex, maxRows - 1, 1).setNumberFormat('@');
 }
 
@@ -543,7 +548,8 @@ function initializeDatabase(spreadsheetId) {
       'Discount_Value','Subtotal_Amount','Notes','Customer_Contact',
       'Customer_Address','Branch_Location','Invoice_Items_JSON'
     ]);
-    forceTextColumn(invoicesTab, 2); // Date
+    forceTextColumn(invoicesTab, 2);  // Date
+    forceTextColumn(invoicesTab, 10); // Customer_Contact
 
     // ── Invoice_Items ──
     var itemsTab = ss.getSheetByName("Invoice_Items");
@@ -555,6 +561,7 @@ function initializeDatabase(spreadsheetId) {
     if (!paymentsTab) paymentsTab = ss.insertSheet("Invoice_Payments");
     enforceHeaders(paymentsTab, ['Payment_ID','Invoice_ID','Amount','Date','Method','Reference']);
     forceTextColumn(paymentsTab, 4); // Date
+    forceTextColumn(paymentsTab, 6); // Reference
 
     // ── Patrons / Customers ──
     var patronsTab = ss.getSheetByName("Patrons") || ss.getSheetByName("Customers");
@@ -564,6 +571,7 @@ function initializeDatabase(spreadsheetId) {
       patronsTab.setName("Patrons");
     }
     enforceHeaders(patronsTab, ['Customer_Name','Contact','Customer_Type','Address','Branch_Location']);
+    forceTextColumn(patronsTab, 2); // Contact
 
     // ── Employees ──
     // Enforcing exact order fixes the legacy "Nationality" column at pos 9
@@ -578,6 +586,8 @@ function initializeDatabase(spreadsheetId) {
       'Basic_Salary','Bank_Details','Branch_Location','Citizenship','Age','Joining_Date',
       'Employer_Bears_Statutory','Pay_Basis','End_Date','Registered_On','Advances_JSON'
     ]);
+    forceTextColumn(employeesTab, 3);  // IC_Passport
+    forceTextColumn(employeesTab, 7);  // Bank_Details
     forceTextColumn(employeesTab, 11); // Joining_Date
     forceTextColumn(employeesTab, 14); // End_Date
     forceTextColumn(employeesTab, 15); // Registered_On
@@ -601,6 +611,7 @@ function initializeDatabase(spreadsheetId) {
       'Employer_Statutory_Offset','Employee_SKBBK','Pay_Period'
     ]);
     forceTextColumn(payslipsTab, 3);  // Issue_Date
+    forceTextColumn(payslipsTab, 4);  // Month_Year — else "September 2026" becomes a date
     forceTextColumn(payslipsTab, 22); // Transfer_Date (col 22 — SKBBK safely at end col 24)
 
     // ── Quotations ──
@@ -615,6 +626,7 @@ function initializeDatabase(spreadsheetId) {
     ]);
     forceTextColumn(quotationsTab, 2); // Date
     forceTextColumn(quotationsTab, 3); // Valid_Until
+    forceTextColumn(quotationsTab, 6); // Customer_Contact
 
     // ── Quotation_Days ──
     var quotationDaysTab = ss.getSheetByName("Quotation_Days");

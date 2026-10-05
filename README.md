@@ -148,7 +148,9 @@ The real work happens on a phone, so:
 | Backend auth logic | `runAuthSelfCheck()` in the Apps Script editor |
 | Session / remember-me rules | `npx tsx src/auth.selfcheck.ts` |
 | Outlet resolution, incl. legacy rows | `npx tsx src/utils/outlets.selfcheck.ts` |
-| Reminder rules + Code.gs mirror drift | `npx tsx src/utils/notifications.selfcheck.ts` |
+| Wage periods, EPF, reminder rules + Code.gs mirror drift | `npx tsx src/utils/notifications.selfcheck.ts` |
+| Local copies never overrule the sheet | `npx tsx src/sheetsService.selfcheck.ts` |
+| Save round trip through the real Code.gs: columns, leading zeros, two devices, no duplicates | `npx tsx src/sync.selfcheck.ts` |
 | Reminder date rules, in Apps Script | `runReminderSelfCheck()` in the editor |
 | Types | `npm run lint` |
 
