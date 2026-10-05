@@ -260,14 +260,24 @@ const before = JSON.stringify(ss.getSheetByName('Employees')!.grid);
 const realFetch = g.fetch;
 g.fetch = async (url: string, init: { body: string }) =>
   JSON.parse(init.body).action === 'fetchDataAll'
-    ? { ok: false, statusText: 'Service Unavailable', text: async () => '' }
+    ? { ok: false, status: 503, statusText: '', text: async () => '' }
     : realFetch(url, init);
 let threw = false;
 try { await phone.syncStateToSheets('sheet-1', '', edit(await loadOn(laptop), 'EMP-00001', { Age: 50 }), profiles, 'Branch Two'); }
-catch { threw = true; }
+catch (err: any) { threw = true; ok(/HTTP 503/.test(err.message), `the error must name the HTTP status, got "${err.message}"`); }
 g.fetch = realFetch;
 ok(threw, 'a save that cannot read the sheet first must fail loudly');
 ok(JSON.stringify(ss.getSheetByName('Employees')!.grid) === before, 'and must not have written anything');
+
+// One bad answer from Google is retried, and the save then goes through.
+let blips = 1;
+g.fetch = async (url: string, init: { body: string }) =>
+  JSON.parse(init.body).action === 'fetchDataAll' && blips-- > 0
+    ? { ok: false, status: 503, statusText: '', text: async () => '' }
+    : realFetch(url, init);
+await phone.syncStateToSheets('sheet-1', '', edit(await loadOn(phone), 'EMP-00001', { Age: 42 }), profiles, 'Branch Two');
+g.fetch = realFetch;
+ok((await empOnSheet('EMP-00001'))!.Age === 42, 'a single failed read must be retried, not fail the save');
 
 // A save from an emptied copy (as after a sign-out) must not wipe the sheet.
 await phone.syncStateToSheets('sheet-1', '', {

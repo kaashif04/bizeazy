@@ -130,7 +130,33 @@ async function parse(res: Response): Promise<any> {
  * (and therefore never in an execution log or a referrer). Apps Script answers
  * both verbs; only the body is read.
  */
-export const gasGet = (params: Record<string, string>): Promise<any> => gasPost(params);
+export async function gasGet(params: Record<string, string>): Promise<any> {
+  // Apps Script fails the odd request on its own (rate limits, brief server
+  // errors). A read is safe to repeat, so retry those before giving up; a write
+  // is never retried here, and a rejected session is never a blip.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await gasPost(params);
+    } catch (err) {
+      const transient = err instanceof TypeError
+        || (err instanceof HttpError && (err.status === 429 || err.status >= 500));
+      if (!transient || attempt >= 2) throw err;
+      await new Promise(r => setTimeout(r, 800 * 2 ** attempt));
+    }
+  }
+}
+
+/** A non-2xx answer, kept distinct so gasGet can tell a blip from a refusal. */
+export class HttpError extends Error {
+  constructor(public status: number, message: string) { super(message); }
+}
+
+const httpHint = (status: number): string =>
+  status === 429 ? ' — Google is rate-limiting the script, try again in a minute'
+  : status >= 500 ? ' — Google Apps Script had a temporary error'
+  : status === 404 ? ' — check the Apps Script URL in Connection Settings'
+  : status === 401 || status === 403 ? ' — the Apps Script must be deployed with access "Anyone"'
+  : '';
 
 /**
  * POST through the gateway. text/plain is deliberate: it keeps the request
@@ -143,7 +169,7 @@ export async function gasPost(body: Record<string, any>): Promise<any> {
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({ ...body, token: getToken() }),
   });
-  if (!res.ok) throw new Error(`Request failed: ${res.statusText}`);
+  if (!res.ok) throw new HttpError(res.status, `The server answered HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ''}${httpHint(res.status)}.`);
   return handleResult(await parse(res));
 }
 
