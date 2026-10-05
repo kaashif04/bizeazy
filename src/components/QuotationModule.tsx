@@ -1116,9 +1116,9 @@ export default function QuotationModule({
     try {
       setIsSyncing(true);
       await syncStateToSheets(spreadsheetId, accessToken, nextDb, profiles, activeBranchLocation);
-      triggerToast(`${quotationId} saved to Google Sheets!`, 'success');
+      triggerToast(`${quotationId} saved.`, 'success');
     } catch (err: any) {
-      triggerToast(`Sync failed: ${err.message}`, 'error');
+      triggerToast(`Not saved yet: ${err.message}`, 'error');
     } finally {
       setIsSyncing(false);
     }
@@ -1143,7 +1143,7 @@ export default function QuotationModule({
       setIsSyncing(true);
       await syncStateToSheets(spreadsheetId, accessToken, nextDb, profiles, activeBranchLocation);
     } catch (err: any) {
-      triggerToast(`Sync failed after delete: ${err.message}`, 'error');
+      triggerToast(`Not deleted yet: ${err.message}`, 'error');
     } finally {
       setIsSyncing(false);
     }
@@ -1188,9 +1188,9 @@ export default function QuotationModule({
     try {
       setIsSyncing(true);
       await syncStateToSheets(spreadsheetId, accessToken, nextDb, profiles, activeBranchLocation);
-      triggerToast(`${invoiceId} saved to Google Sheets!`, 'success');
+      triggerToast(`${invoiceId} saved.`, 'success');
     } catch (err: any) {
-      triggerToast(`Saved locally but Sheets Sync failed: ${err.message}`, 'error');
+      triggerToast(`Not saved yet: ${err.message}`, 'error');
     } finally {
       setIsSyncing(false);
     }

@@ -1,11 +1,12 @@
 /**
- * auth.ts — session handling and the single gateway to the Apps Script backend.
+ * auth.ts — signing in, the signed-in user, and account management.
  *
- * Every request carries the session token, and the backend resolves the target
- * spreadsheet from that token rather than from anything we send. The company's
- * spreadsheet id is still returned to us, but only so the UI can show it — it
- * is not what grants access.
+ * Supabase Auth holds the real session (tokens, refresh, expiry). This module
+ * keeps a small copy of who is signed in — name, role, modules, company — so
+ * the app renders instantly on reload, then re-confirms it with the server.
+ * What anyone may read or write is decided by row-level security, not here.
  */
+import { supabase, setRemember, remembered, loginEmail } from './supabase';
 
 export type ModuleName = 'invoicing' | 'quotations' | 'payroll' | 'settings';
 export const ALL_MODULES: ModuleName[] = ['invoicing', 'quotations', 'payroll', 'settings'];
@@ -29,42 +30,17 @@ export interface SessionUser {
 export interface SessionCompany {
   company_id: string;
   company_name: string;
-  spreadsheet_id: string;
 }
 
 export interface Session {
-  token: string;
-  expires_at: string;
   user: SessionUser;
   company: SessionCompany;
 }
 
-// ── API URL ───────────────────────────────────────────────────
-export const DEFAULT_API_URL =
-  'https://script.google.com/macros/s/AKfycbwvv6xIpTxH8U3QvPfIZGuRzXfBm-k4bLCVIx_TF5c6qdtVlnhGobUivjwh4gQ9Dnuxyw/exec';
-
-export const getApiUrl = (): string => {
-  if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem('gas_api_url');
-    if (stored?.trim()) return stored.trim();
-  }
-  return DEFAULT_API_URL;
-};
-
-export const setApiUrl = (url: string) => {
-  if (typeof window === 'undefined') return;
-  if (url?.trim()) localStorage.setItem('gas_api_url', url.trim());
-  else localStorage.removeItem('gas_api_url');
-};
-
-// ── Session storage ───────────────────────────────────────────
+// ── The cached copy ───────────────────────────────────────────
 const SESSION_KEY = 'bizeazy_session';
 export const SIGNED_OUT_EVENT = 'bizeazy:signed-out';
 
-// "Remember me" is the difference between surviving a closed browser and not:
-// a remembered session goes to localStorage (and gets a 30-day token from the
-// server), an unremembered one to sessionStorage (12-hour token, gone with the
-// tab). Both are re-validated server-side on every call.
 const stores = (): Storage[] => {
   if (typeof window === 'undefined') return [];
   const out: Storage[] = [];
@@ -79,19 +55,18 @@ export function loadSession(): Session | null {
       const raw = store.getItem(SESSION_KEY);
       if (!raw) continue;
       const s = JSON.parse(raw) as Session;
-      if (!s?.token || !s?.user) { store.removeItem(SESSION_KEY); continue; }
-      if (s.expires_at && Date.parse(s.expires_at) < Date.now()) { store.removeItem(SESSION_KEY); continue; }
+      if (!s?.user?.user_id || !s?.company?.company_id) { store.removeItem(SESSION_KEY); continue; }
       return s;
     } catch { /* unreadable or blocked store — try the next */ }
   }
   return null;
 }
 
+/** Remembered → localStorage, outliving the browser; otherwise sessionStorage, gone with the tab. */
 export function saveSession(session: Session, remember: boolean) {
   clearSession();
   try {
-    const store = remember ? window.localStorage : window.sessionStorage;
-    store.setItem(SESSION_KEY, JSON.stringify(session));
+    (remember ? window.localStorage : window.sessionStorage).setItem(SESSION_KEY, JSON.stringify(session));
   } catch { /* private mode / blocked storage — session lives in memory only */ }
 }
 
@@ -101,81 +76,62 @@ export function clearSession() {
   }
 }
 
-export const getToken = (): string => loadSession()?.token || '';
+function signalSignedOut() {
+  clearSession();
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(SIGNED_OUT_EVENT));
+}
 
-// ── Transport ─────────────────────────────────────────────────
-function handleResult(json: any): any {
-  if (json?.success) return json.data;
-  if (json?.code === 'AUTH') {
-    clearSession();
-    if (typeof window !== 'undefined') window.dispatchEvent(new Event(SIGNED_OUT_EVENT));
+// A refresh token that stopped working (revoked, or the account banned) ends
+// the session on Supabase's side; tell the app instead of failing every call.
+supabase.auth.onAuthStateChange((event) => {
+  if (event === 'SIGNED_OUT' && loadSession()) signalSignedOut();
+});
+
+const DEACTIVATED = 'This account has been deactivated. Contact your administrator.';
+const EXPIRED = 'Your session has expired. Please sign in again.';
+
+/** Who is signed in, read fresh from the server. */
+async function fetchSession(): Promise<Session> {
+  const { data: { session: auth } } = await supabase.auth.getSession();
+  if (!auth) throw new Error(EXPIRED);
+
+  const { data: p, error } = await supabase
+    .from('profiles')
+    .select('display_id, full_name, email, role, modules, active, company_id, companies ( name )')
+    .eq('user_id', auth.user.id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  // Row-level security hides an inactive person's own profile from them.
+  if (!p || !p.active) {
+    await supabase.auth.signOut();
+    throw new Error(DEACTIVATED);
   }
-  throw new Error(json?.error || 'The server rejected that request.');
+  const company: any = Array.isArray(p.companies) ? p.companies[0] : p.companies;
+  const role = p.role === 'admin' ? 'admin' : 'member';
+  return {
+    user: {
+      user_id: p.display_id,
+      full_name: p.full_name,
+      email: p.email,
+      role,
+      modules: (role === 'admin' ? ALL_MODULES : (p.modules || [])) as ModuleName[],
+      active: p.active,
+    },
+    company: { company_id: p.company_id, company_name: company?.name || '' },
+  };
 }
 
-async function parse(res: Response): Promise<any> {
-  const text = await res.text();
-  try {
-    return JSON.parse(text);
-  } catch {
-    // An HTML body here almost always means the deployment URL is wrong or the
-    // web app is not shared with "Anyone" — say that instead of "unexpected <".
-    console.error('Non-JSON response from Apps Script:', text.slice(0, 500));
-    throw new Error('The backend returned a non-JSON response. Check the Apps Script URL and that it is deployed with access set to "Anyone".');
-  }
-}
-
-/**
- * Reads go through POST as well, so the session token never ends up in a URL
- * (and therefore never in an execution log or a referrer). Apps Script answers
- * both verbs; only the body is read.
- */
-export async function gasGet(params: Record<string, string>): Promise<any> {
-  // Apps Script fails the odd request on its own (rate limits, brief server
-  // errors). A read is safe to repeat, so retry those before giving up; a write
-  // is never retried here, and a rejected session is never a blip.
-  for (let attempt = 0; ; attempt++) {
-    try {
-      return await gasPost(params);
-    } catch (err) {
-      const transient = err instanceof TypeError
-        || (err instanceof HttpError && (err.status === 429 || err.status >= 500));
-      if (!transient || attempt >= 2) throw err;
-      await new Promise(r => setTimeout(r, 800 * 2 ** attempt));
-    }
-  }
-}
-
-/** A non-2xx answer, kept distinct so gasGet can tell a blip from a refusal. */
-export class HttpError extends Error {
-  constructor(public status: number, message: string) { super(message); }
-}
-
-const httpHint = (status: number): string =>
-  status === 429 ? ' — Google is rate-limiting the script, try again in a minute'
-  : status >= 500 ? ' — Google Apps Script had a temporary error'
-  : status === 404 ? ' — check the Apps Script URL in Connection Settings'
-  : status === 401 || status === 403 ? ' — the Apps Script must be deployed with access "Anyone"'
-  : '';
-
-/**
- * POST through the gateway. text/plain is deliberate: it keeps the request
- * "simple" so the browser skips the CORS preflight that Apps Script cannot answer.
- */
-export async function gasPost(body: Record<string, any>): Promise<any> {
-  const res = await fetch(`${getApiUrl()}?action=${encodeURIComponent(body.action)}`, {
-    method: 'POST',
-    redirect: 'follow',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ ...body, token: getToken() }),
-  });
-  if (!res.ok) throw new HttpError(res.status, `The server answered HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ''}${httpHint(res.status)}.`);
-  return handleResult(await parse(res));
-}
-
-// ── Auth calls ────────────────────────────────────────────────
+// ── Signing in and out ────────────────────────────────────────
 export async function login(userId: string, password: string, remember: boolean): Promise<Session> {
-  const session = await gasPost({ action: 'login', userId, password, remember }) as Session;
+  setRemember(remember);
+  const { error } = await supabase.auth.signInWithPassword({ email: loginEmail(userId), password });
+  if (error) {
+    if (/banned/i.test(error.message)) throw new Error(DEACTIVATED);
+    if (/fetch|network/i.test(error.message)) throw new Error('Could not reach the server. Check your connection and try again.');
+    // Same message either way: "no such user" would hand out valid user IDs.
+    throw new Error('Incorrect user ID or password.');
+  }
+  const session = await fetchSession();
   saveSession(session, remember);
   return session;
 }
@@ -190,40 +146,61 @@ export interface RegisterInput {
 }
 
 export async function registerCompany(input: RegisterInput): Promise<Session> {
-  const session = await gasPost({ action: 'registerCompany', ...input, remember: true }) as Session;
-  saveSession(session, true);
-  return session;
+  await accounts('registerCompany', { ...input });
+  return login(input.userId, input.password, true);
 }
 
 export async function checkUserId(userId: string): Promise<{ available: boolean; reason?: string }> {
-  return gasPost({ action: 'checkUserId', userId });
+  return accounts('checkUserId', { userId });
 }
 
 export async function logout(): Promise<void> {
-  try {
-    if (getToken()) await gasPost({ action: 'logout' });
-  } catch {
-    // Already-dead sessions are fine to sign out of locally.
-  } finally {
-    clearSession();
-  }
+  clearSession();   // first, so the SIGNED_OUT event that follows is not read as an expiry
+  try { await supabase.auth.signOut(); } catch { /* already gone */ }
 }
 
 /** Re-validate a restored session against the server. */
 export async function refreshSession(): Promise<Session> {
-  return gasPost({ action: 'session' });
+  try {
+    const session = await fetchSession();
+    saveSession(session, remembered());
+    return session;
+  } catch (err) {
+    // Offline is not signed out: keep the cached copy and let the next call retry.
+    if (!/expired|deactivated/i.test((err as Error).message)) throw err;
+    signalSignedOut();
+    throw err;
+  }
 }
 
 export async function changePassword(oldPassword: string, newPassword: string): Promise<void> {
-  await gasPost({ action: 'changePassword', oldPassword, newPassword });
+  if (newPassword.length < 8) throw new Error('Password must be at least 8 characters.');
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user?.email) throw new Error(EXPIRED);
+  // Re-entering the current password is the proof; an open session alone is not enough.
+  const { error: wrong } = await supabase.auth.signInWithPassword({ email: user.email, password: oldPassword });
+  if (wrong) throw new Error('Current password is incorrect.');
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) throw new Error(error.message);
 }
 
-// ── User management (admin) ───────────────────────────────────
-export const listUsers        = (): Promise<SessionUser[]> => gasPost({ action: 'listUsers' });
-export const createUser       = (p: { userId: string; password: string; fullName: string; email?: string; role: 'admin' | 'member'; modules: ModuleName[] }) => gasPost({ action: 'createUser', ...p });
-export const updateUser       = (p: { userId: string; fullName?: string; email?: string; role?: 'admin' | 'member'; modules?: ModuleName[]; active?: boolean }) => gasPost({ action: 'updateUser', ...p });
-export const resetUserPassword = (userId: string, password: string) => gasPost({ action: 'resetUserPassword', userId, password });
-export const deleteUser       = (userId: string) => gasPost({ action: 'deleteUser', userId });
+// ── Account management (the accounts edge function) ───────────
+async function accounts(action: string, body: Record<string, unknown>): Promise<any> {
+  const { data, error } = await supabase.functions.invoke('accounts', { body: { action, ...body } });
+  if (error) throw new Error('Could not reach the server. Check your connection and try again.');
+  if (data?.success) return data.data;
+  const message = String(data?.error || 'The server rejected that request.');
+  if (/session has expired/i.test(message)) signalSignedOut();
+  throw new Error(message);
+}
+
+export const listUsers = (): Promise<SessionUser[]> => accounts('listUsers', {});
+export const createUser = (p: { userId: string; password: string; fullName: string; email?: string; role: 'admin' | 'member'; modules: ModuleName[] }) =>
+  accounts('createUser', p);
+export const updateUser = (p: { userId: string; fullName?: string; email?: string; role?: 'admin' | 'member'; modules?: ModuleName[]; active?: boolean }) =>
+  accounts('updateUser', p);
+export const resetUserPassword = (userId: string, password: string) => accounts('resetUserPassword', { userId, password });
+export const deleteUser = (userId: string) => accounts('deleteUser', { userId });
 
 export const can = (session: Session | null, mod: ModuleName): boolean =>
   !!session && (session.user.role === 'admin' || session.user.modules.indexOf(mod) !== -1);

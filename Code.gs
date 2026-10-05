@@ -933,3 +933,68 @@ function runReminderSelfCheck() {
   Logger.log('All reminder self-checks passed.');
   return 'All reminder self-checks passed.';
 }
+
+// ─── Moving to Supabase ───────────────────────────────────────
+/**
+ * One-time export for the move to Supabase. Paste your spreadsheet link below,
+ * then Run this function from the editor. It saves bizeazy-export-<date>.json
+ * to your Google Drive; in the app, open Data & Import and choose that file.
+ *
+ * Read-only: unlike fetchDataAll it does not run initializeDatabase first, so
+ * not a cell, header or format in the sheet is changed by exporting.
+ */
+function exportForBizEazy() {
+  var SPREADSHEET = '';   // ← paste the whole Google Sheets URL, or just its id
+
+  var match = String(SPREADSHEET).match(/\/d\/([a-zA-Z0-9_-]+)/);
+  var id = match ? match[1] : String(SPREADSHEET).trim();
+  if (!/^[a-zA-Z0-9_-]{30,}$/.test(id)) {
+    throw new Error('Paste your spreadsheet link into SPREADSHEET at the top of exportForBizEazy() first.');
+  }
+  var ss = SpreadsheetApp.openById(id);
+
+  function rows(names) {
+    for (var i = 0; i < names.length; i++) {
+      var tab = ss.getSheetByName(names[i]);
+      if (tab) return getSheetRowsAsObjects(tab);
+    }
+    return [];
+  }
+  var data = {
+    invoices:        rows(['Invoices']),
+    invoice_items:   rows(['Invoice_Items']),
+    payments:        rows(['Invoice_Payments']),
+    customers:       rows(['Patrons', 'Customers']),
+    employees:       rows(['Employees']),
+    payslips:        rows(['Payslips']),
+    quotations:      rows(['Quotations']),
+    quotation_days:  rows(['Quotation_Days']),
+    quotation_items: rows(['Quotation_Items'])
+  };
+
+  // Branch settings: the Config tab, or the original script-level blob.
+  var config = {};
+  var cfgTab = ss.getSheetByName('Config');
+  if (cfgTab && cfgTab.getLastRow() > 1) {
+    cfgTab.getRange(2, 1, cfgTab.getLastRow() - 1, 2).getValues().forEach(function(r) {
+      if (!r[0]) return;
+      try { config[String(r[0])] = JSON.parse(r[1]); } catch (_) { config[String(r[0])] = r[1]; }
+    });
+  }
+  if (!Object.keys(config).length) {
+    var legacy = PropertiesService.getScriptProperties().getProperty('GLOBAL_CONFIG');
+    if (legacy) { try { config = JSON.parse(legacy); } catch (_) {} }
+  }
+
+  var file = DriveApp.createFile(
+    'bizeazy-export-' + Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd-HHmm') + '.json',
+    JSON.stringify({ format: 'bizeazy-sheets-export', version: 1, exported_at: new Date().toISOString(),
+                     spreadsheet: ss.getName(), data: data, config: config }),
+    MimeType.PLAIN_TEXT
+  );
+
+  var summary = Object.keys(data).map(function(k) { return k + ': ' + data[k].length; }).join(', ');
+  Logger.log('Exported %s', summary);
+  Logger.log('Branches: %s', Object.keys(config).join(', ') || '(none)');
+  Logger.log('Saved to your Drive: %s', file.getUrl());
+}

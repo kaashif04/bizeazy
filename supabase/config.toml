@@ -1,0 +1,6 @@
+project_id = "rtleeehglawquekygfoh"
+
+# Public actions (register, check a user ID) need no sign-in; the admin actions
+# verify the caller's token inside the function itself.
+[functions.accounts]
+verify_jwt = false

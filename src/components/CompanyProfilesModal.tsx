@@ -197,7 +197,7 @@ export function CompanyProfilesModal({
           <button type="button" onClick={onClose} className={sheetBtn.ghost}>Cancel</button>
           <button type="submit" form="branches-form" disabled={saving} className={sheetBtn.primary}>
             {saving && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-            {saving ? 'Saving…' : 'Save to Google Sheets'}
+            {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
       }

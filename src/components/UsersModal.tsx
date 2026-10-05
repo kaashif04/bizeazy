@@ -1,9 +1,9 @@
 /**
  * UsersModal.tsx — company admin: who can sign in, and what they can open.
  *
- * Module ticks are enforced in Apps Script, not here: a user without Payroll
- * never receives employee or payslip rows in the first place, so hiding the nav
- * item is cosmetic reinforcement rather than the control itself.
+ * Module ticks are enforced by the database (row-level security), not here: a
+ * user without Payroll never receives employee or payslip rows in the first
+ * place, so hiding the nav item is cosmetic reinforcement, not the control.
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import {

@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  fetchDataAll, syncStateToSheets, setApiUrl, getApiUrl,
-  fetchAppConfigFromAppsScript, saveAppConfigToAppsScript,
-} from './sheetsService';
+  loadAll, saveChanges, loadConfig, saveConfig, importSheetExport, forgetLoaded, EMPTY_DB, KINDS,
+} from './db';
 import {
   Session, SessionUser, ModuleName, can, loadSession, refreshSession,
   logout as endSession, SIGNED_OUT_EVENT,
@@ -89,10 +88,6 @@ function groupInvoiceItemsByDay(items: InvoiceItem[]): { grouped: GroupedDay[]; 
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const EMPTY_DB: DatabaseState = {
-  invoices: [], invoice_items: [], payments: [], customers: [], employees: [], payslips: [],
-  quotations: [], quotation_days: [], quotation_items: [],
-};
 // Used only until the company's own Config tab loads. A single neutral outlet:
 // the id stays 'Bistro' so that if config never loads, legacy rows still match.
 const DEFAULT_PROFILES: CompanyProfile[] = [
@@ -170,75 +165,95 @@ function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: 
   );
 }
 
-function SettingsModal({
-  company, isDark, onClose, onSave,
-}: {
-  company: { company_name: string; spreadsheet_id: string };
-  isDark: boolean;
-  onClose: () => void;
-  onSave: (apiUrl: string) => void;
-}) {
-  const [apiUrl, setApiUrlLocal] = useState(() => getApiUrl());
+const KIND_LABELS: Record<typeof KINDS[number], string> = {
+  invoices: 'Invoices', invoice_items: 'Invoice lines', payments: 'Payments', customers: 'Customers',
+  employees: 'Employees', payslips: 'Payslips', quotations: 'Quotations',
+  quotation_days: 'Quotation days', quotation_items: 'Quotation lines',
+};
 
-  const inputClass = `w-full px-3 py-2.5 text-xs rounded-lg border font-mono focus:outline-none focus:ring-1 focus:ring-brand-500 ${
-    isDark
-      ? 'bg-ink-950 border-ink-700 text-ink-100 placeholder-ink-600'
-      : 'bg-ink-50 border-ink-200 text-ink-900 placeholder-ink-400'
-  }`;
+/** Where the company's data lives, and the one-time move from Google Sheets. */
+function DataModal({
+  companyName, canImport, onClose, onImported,
+}: {
+  companyName: string;
+  canImport: boolean;
+  onClose: () => void;
+  onImported: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<Awaited<ReturnType<typeof importSheetExport>> | null>(null);
+
+  const onFile = async (file: File | undefined) => {
+    if (!file) return;
+    setBusy(true); setError(null); setResult(null);
+    try {
+      const done = await importSheetExport(await file.text(), gasConfigToProfiles);
+      setResult(done);
+      onImported();
+    } catch (err: any) {
+      setError(err.message || 'The import failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <Sheet
-      title="Connection Settings"
-      icon={<Settings className="w-4 h-4" />}
+      title="Data & Import"
+      icon={<Upload className="w-4 h-4" />}
       onClose={onClose}
       maxWidth="md"
-      footer={
-        <div className="flex items-center justify-end gap-2">
-          <button type="button" onClick={onClose} className={sheetBtn.ghost}>Cancel</button>
-          <button type="submit" form="connection-form" className={sheetBtn.primary}>Save &amp; Reload Data</button>
-        </div>
-      }
+      footer={<div className="flex justify-end"><button type="button" onClick={onClose} className={sheetBtn.ghost}>Done</button></div>}
     >
-        <form id="connection-form" onSubmit={e => { e.preventDefault(); onSave(apiUrl.trim()); }} className="space-y-4">
-          <div>
-            <label className="block text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1.5">
-              Company Data Source
-            </label>
-            <div className={`rounded-lg border px-3 py-2.5 ${isDark ? 'border-ink-800 bg-ink-950' : 'border-ink-200 bg-ink-50'}`}>
-              <p className="text-xs font-bold text-ink-900 dark:text-white">{company.company_name || 'Your company'}</p>
-              <p className="text-2xs font-mono text-ink-500 dark:text-ink-400 break-all mt-0.5">{company.spreadsheet_id}</p>
-              {company.spreadsheet_id && (
-                <a
-                  href={`https://docs.google.com/spreadsheets/d/${company.spreadsheet_id}/edit`}
-                  target="_blank" rel="noreferrer"
-                  className="inline-block text-2xs font-bold text-brand-600 dark:text-brand-400 hover:underline mt-1"
-                >
-                  Open in Google Sheets →
-                </a>
-              )}
+      <div className="space-y-5">
+        <div className="rounded-lg border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-950 px-3 py-2.5">
+          <p className="text-xs font-bold text-ink-900 dark:text-white">{companyName || 'Your company'}</p>
+          <p className="text-2xs text-ink-500 dark:text-ink-400 mt-0.5">
+            Stored in Supabase. Every save goes straight to the database, and only what changed is sent.
+          </p>
+        </div>
+
+        <div>
+          <h4 className="text-2xs font-bold uppercase tracking-wider text-ink-600 dark:text-ink-300 mb-1.5">Import from Google Sheets</h4>
+          {!canImport ? (
+            <p className="text-xs text-ink-500 dark:text-ink-400">Only an administrator can import data.</p>
+          ) : (
+            <>
+              <ol className="text-xs text-ink-600 dark:text-ink-300 space-y-1 list-decimal pl-4 leading-relaxed">
+                <li>In your Apps Script project, open <span className="font-mono">Code.gs</span>, paste your spreadsheet link into <span className="font-mono">exportForBizEazy()</span> and run it.</li>
+                <li>It saves <span className="font-mono">bizeazy-export-….json</span> to your Google Drive. Download it.</li>
+                <li>Choose that file below.</li>
+              </ol>
+              <p className="text-2xs text-ink-500 dark:text-ink-400 mt-2 leading-relaxed">
+                Your branches, invoices, payments, quotations, customers, employees and payslips are copied in.
+                The Google Sheet is not changed. Running it again updates records rather than duplicating them.
+              </p>
+              <label className={`tap mt-3 inline-flex items-center justify-center gap-1.5 px-4 rounded-lg text-xs font-bold cursor-pointer transition-colors bg-brand-600 hover:bg-brand-700 text-white ${busy ? 'opacity-60 pointer-events-none' : ''}`}>
+                {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                {busy ? 'Importing…' : 'Choose export file'}
+                <input type="file" accept=".json,application/json" className="sr-only" disabled={busy}
+                  onChange={e => { onFile(e.target.files?.[0]); e.target.value = ''; }} />
+              </label>
+            </>
+          )}
+          {error && (
+            <p role="alert" className="mt-3 flex items-start gap-1.5 text-xs font-semibold text-rose-700 dark:text-rose-300">
+              <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />{error}
+            </p>
+          )}
+          {result && (
+            <div role="status" className="mt-3 rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 p-3">
+              <p className="text-xs font-bold text-emerald-800 dark:text-emerald-200">
+                Imported {result.branches} branch{result.branches === 1 ? '' : 'es'} and:
+              </p>
+              <ul className="mt-1 grid grid-cols-2 gap-x-4 text-2xs text-emerald-800 dark:text-emerald-300 tabular-nums">
+                {KINDS.map(k => <li key={k}>{KIND_LABELS[k]}: <span className="font-bold">{result.counts[k]}</span></li>)}
+              </ul>
             </div>
-            <p className="text-2xs text-ink-500 dark:text-ink-400 mt-1">
-              Bound to your account — the server picks this, so it cannot be pointed at another company's book.
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1.5">
-              Apps Script API URL
-            </label>
-            <input
-              type="text"
-              value={apiUrl}
-              onChange={e => setApiUrlLocal(e.target.value)}
-              placeholder="https://script.google.com/macros/s/…/exec"
-              className={inputClass}
-            />
-            <p className="text-2xs text-ink-500 dark:text-ink-400 mt-1">
-              Leave blank to restore the default endpoint.
-            </p>
-          </div>
-
-        </form>
+          )}
+        </div>
+      </div>
     </Sheet>
   );
 }
@@ -358,7 +373,7 @@ function Sidebar({
           className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-ink-500 dark:text-ink-400 hover:bg-ink-50 dark:hover:bg-ink-800/60 transition-colors cursor-pointer"
         >
           <Settings className="w-3.5 h-3.5 flex-shrink-0" />
-          Connection Settings
+          Data & Import
         </button>
         {allowed('settings') && (
           <button
@@ -417,8 +432,10 @@ export default function App() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>('loading');
   const [session, setSession] = useState<Session | null>(null);
   const [authView, setAuthView] = useState<'login' | 'register'>('login');
-  const spreadsheetId = session?.company.spreadsheet_id || '';
-  const accessToken = session?.token || '';
+  // Modules still take these Sheets-era props; the company id fills the first,
+  // and the token is unused — supabase-js carries the session itself.
+  const spreadsheetId = session?.company.company_id || '';
+  const accessToken = '';
   const [db, setDb] = useState<DatabaseState>(EMPTY_DB);
   const [profiles, setProfiles] = useState<CompanyProfile[]>(DEFAULT_PROFILES);
   const [activeView, setActiveView] = useState<AppView>('hub');
@@ -480,20 +497,19 @@ export default function App() {
     localStorage.setItem('bizeazy_dark', String(isDark));
   }, [isDark]);
 
-  const loadData = useCallback(async (sheetId: string) => {
-    if (!sheetId) return;
+  const loadData = useCallback(async (companyId: string) => {
+    if (!companyId) return;
     setIsDataLoading(true);
     setLoadError(null);
     try {
       let resolvedProfiles = DEFAULT_PROFILES;
       try {
-        const config = await fetchAppConfigFromAppsScript();
-        resolvedProfiles = gasConfigToProfiles(config);
+        resolvedProfiles = gasConfigToProfiles(await loadConfig());
         setProfiles(resolvedProfiles);
       } catch {
-        // Silently fall back to defaults if GAS config unavailable
+        // Fall back to a neutral outlet; the records below still load.
       }
-      const data = await fetchDataAll(sheetId, '', resolvedProfiles);
+      const data = await loadAll();
       setDb(data);
       setHasLoaded(true);
       setActiveBranchLocation(prev => {
@@ -501,7 +517,6 @@ export default function App() {
         const stillThere = prev && resolvedProfiles.some(p => outletLabel(p) === prev);
         return stillThere ? prev : (resolvedProfiles[0] ? outletLabel(resolvedProfiles[0]) : '');
       });
-      triggerToast('Data loaded from Google Sheets.', 'success');
     } catch (err: any) {
       triggerToast(`Data load failed: ${err.message}`, 'error');
       setLoadError(err.message || 'Could not reach the server.');
@@ -518,16 +533,17 @@ export default function App() {
     if (!stored) { setAuthStatus('unauthenticated'); return; }
     setSession(stored);
     setAuthStatus('authenticated');
-    loadData(stored.company.spreadsheet_id);
+    loadData(stored.company.company_id);
     refreshSession()
-      .then(fresh => setSession(prev => ({ ...fresh, token: prev?.token || fresh.token })))
-      .catch(() => { /* the gateway already cleared it and fired SIGNED_OUT_EVENT */ });
+      .then(fresh => setSession(fresh))
+      .catch(() => { /* an expired session already fired SIGNED_OUT_EVENT; offline keeps the cached one */ });
   }, [loadData]);
 
   // Any call that comes back with an expired session drops us here.
   useEffect(() => {
     const onSignedOut = () => {
       setSession(null);
+      forgetLoaded();
       setDb(EMPTY_DB);
       setHasLoaded(false);
       setActiveView('hub');
@@ -542,12 +558,13 @@ export default function App() {
     setSession(next);
     setAuthStatus('authenticated');
     setAuthView('login');
-    loadData(next.company.spreadsheet_id);
+    loadData(next.company.company_id);
   };
 
   const handleSignOut = async () => {
     await endSession();
     setSession(null);
+    forgetLoaded();
     setDb(EMPTY_DB);
     setHasLoaded(false);
     setActiveView('hub');
@@ -568,11 +585,12 @@ export default function App() {
     if (activeView !== 'hub' && !allowed(activeView)) setActiveView('hub');
   }, [activeView, allowed]);
 
+  // Modules still call this with the Sheets-era arguments; only the records matter now.
   const handleSync = useCallback(async (
-    sheetId: string, token: string,
-    nextDb: DatabaseState, profs: CompanyProfile[], branch: string,
+    _companyId: string, _token: string,
+    nextDb: DatabaseState, _profiles: CompanyProfile[], _branch: string,
   ) => {
-    await syncStateToSheets(sheetId, token, nextDb, profs, branch);
+    await saveChanges(nextDb);
   }, []);
 
   const handleProfilesSave = async (updated: CompanyProfile[]) => {
@@ -593,20 +611,13 @@ export default function App() {
         };
         return acc;
       }, {});
-      await saveAppConfigToAppsScript(gasConfig);
+      await saveConfig(gasConfig);
       setProfiles(updated);
       setIsProfilesOpen(false);
-      triggerToast('Company profiles saved to Google Sheets!', 'success');
+      triggerToast('Company profiles saved.', 'success');
     } catch (err: any) {
       triggerToast(`Profile save failed: ${err.message}`, 'error');
     }
-  };
-
-  const handleSettingsSave = (newApiUrl: string) => {
-    setApiUrl(newApiUrl); // setApiUrl handles empty → restore default
-    setIsSettingsOpen(false);
-    loadData(spreadsheetId);
-    triggerToast('Settings saved. Reloading data…', 'info');
   };
 
   const viewTitle: Record<AppView, string> = {
@@ -763,7 +774,7 @@ export default function App() {
               className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-2xs font-semibold cursor-pointer transition-all ${dm ? 'text-ink-500 hover:bg-ink-800 hover:text-ink-200' : 'text-ink-500 hover:bg-ink-100 hover:text-ink-800'}`}
             >
               <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
-              Connection Settings
+              Data & Import
             </button>
             {allowed('settings') && (
               <button
@@ -1054,7 +1065,12 @@ export default function App() {
           <CompanyProfilesModal profiles={profiles} db={db} isDark={isDark} onClose={() => setIsProfilesOpen(false)} onSave={handleProfilesSave} />
         )}
         {isSettingsOpen && (
-          <SettingsModal company={session.company} isDark={isDark} onClose={() => setIsSettingsOpen(false)} onSave={handleSettingsSave} />
+          <DataModal
+            companyName={session.company.company_name}
+            canImport={session.user.role === 'admin'}
+            onClose={() => setIsSettingsOpen(false)}
+            onImported={() => loadData(spreadsheetId)}
+          />
         )}
         {isUsersOpen && (
           <UsersModal session={session} isDark={isDark} onClose={() => setIsUsersOpen(false)} onToast={triggerToast} />
@@ -1177,7 +1193,7 @@ export default function App() {
                   setDb(nextDb);
                   triggerToast(`Invoice ${invoiceId} deleted.`, 'success');
                   handleSync(spreadsheetId, accessToken, nextDb, profiles, activeBranchLocation)
-                    .catch(() => triggerToast('Sync failed after delete.', 'error'));
+                    .catch((err: any) => triggerToast(`Not deleted yet: ${err.message}`, 'error'));
                 }}
               />
             )}
@@ -1226,11 +1242,11 @@ export default function App() {
         />
       )}
       {isSettingsOpen && (
-        <SettingsModal
-          company={session.company}
-          isDark={isDark}
+        <DataModal
+          companyName={session.company.company_name}
+          canImport={session.user.role === 'admin'}
           onClose={() => setIsSettingsOpen(false)}
-          onSave={handleSettingsSave}
+          onImported={() => loadData(spreadsheetId)}
         />
       )}
       {isUsersOpen && (

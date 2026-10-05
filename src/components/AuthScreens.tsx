@@ -1,17 +1,15 @@
 /**
  * AuthScreens.tsx — sign in, and register a new company.
  *
- * Replaces the old Google-sign-in screen plus the "paste your spreadsheet ID"
- * setup screen: the spreadsheet a user gets is now decided by their account,
- * so there is nothing for them to paste. The Apps Script URL stays reachable
- * under Advanced for pointing a build at a different deployment.
+ * The company a user signs into is decided by their account, so there is
+ * nothing to configure here: a User ID, a password, and the choice to stay signed in.
  */
 import React, { useEffect, useState } from 'react';
 import {
-  Building2, AlertTriangle, Loader2, Eye, EyeOff, Check, X, ArrowLeft, ChevronDown,
+  Building2, AlertTriangle, Loader2, Eye, EyeOff, Check, X, ArrowLeft,
 } from 'lucide-react';
 import {
-  login, registerCompany, checkUserId, getApiUrl, setApiUrl, Session,
+  login, registerCompany, checkUserId, Session,
 } from '../auth';
 
 const CARD =
@@ -81,46 +79,6 @@ function PasswordField({
           {shown ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
         </button>
       </div>
-    </div>
-  );
-}
-
-/** Collapsed endpoint override — only needed when pointing at another deployment. */
-function AdvancedEndpoint() {
-  const [open, setOpen] = useState(false);
-  const [url, setUrl] = useState(() => getApiUrl());
-  const [saved, setSaved] = useState(false);
-
-  return (
-    <div className="mt-3">
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1 mx-auto min-h-11 px-3 text-2xs font-semibold text-ink-500 dark:text-ink-400 hover:text-ink-800 dark:hover:text-ink-200 cursor-pointer"
-      >
-        <ChevronDown className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} />
-        Advanced
-      </button>
-      {open && (
-        <div className="mt-2 space-y-1.5">
-          <label htmlFor="api-url" className={LABEL}>Apps Script API URL</label>
-          <input
-            id="api-url"
-            type="text"
-            value={url}
-            onChange={e => { setUrl(e.target.value); setSaved(false); }}
-            placeholder="https://script.google.com/macros/s/…/exec"
-            className={`${INPUT} font-mono text-xs`}
-          />
-          <button
-            type="button"
-            onClick={() => { setApiUrl(url); setSaved(true); }}
-            className="inline-flex items-center min-h-11 px-1 text-2xs font-bold text-brand-700 dark:text-brand-300 hover:underline cursor-pointer"
-          >
-            {saved ? 'Saved — reload to apply' : 'Save endpoint'}
-          </button>
-        </div>
-      )}
     </div>
   );
 }
@@ -198,7 +156,6 @@ export function LoginScreen({
           </p>
         </div>
       </div>
-      <AdvancedEndpoint />
     </Shell>
   );
 }

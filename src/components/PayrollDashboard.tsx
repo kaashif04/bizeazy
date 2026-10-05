@@ -13,7 +13,6 @@ import {
 } from '../utils/payroll';
 import { Sheet, sheetBtn } from './ui/Sheet';
 import { EmptyState } from './ui/States';
-import { saveEmployeeExtras, savePayslipExtras } from '../sheetsService';
 
 interface PayrollDashboardProps {
   db: DatabaseState;
@@ -364,25 +363,13 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
     setDb(nextDb);
     setIsEmployeeModalOpen(false);
 
-    // Persist fields the Apps Script schema doesn't have columns for
-    const savedEmp = nextDb.employees.find(e =>
-      e.Employee_ID === (editingEmployee ? editingEmployee.Employee_ID : newId));
-    if (savedEmp) {
-      saveEmployeeExtras(savedEmp.Employee_ID, {
-        Citizenship: savedEmp.Citizenship,
-        Age: savedEmp.Age,
-        Joining_Date: savedEmp.Joining_Date,
-        Employer_Bears_Statutory: savedEmp.Employer_Bears_Statutory,
-      });
-    }
-
     // Save to server
     try {
       setIsSyncing(true);
       await syncStateToSheets(spreadsheetId, accessToken, nextDb, profiles, activeBranchLocation);
-      triggerToast("Employee Database updated successfully on Google Sheets!", "success");
+      triggerToast("Employee saved.", "success");
     } catch (err: any) {
-      triggerToast(`Saved locally but Sheets Sync failed: ${err.message}`, "error");
+      triggerToast(`Not saved yet: ${err.message}`, "error");
     } finally {
       setIsSyncing(false);
     }
@@ -405,9 +392,9 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
     try {
       setIsSyncing(true);
       await syncStateToSheets(spreadsheetId, accessToken, nextDb, profiles, activeBranchLocation);
-      triggerToast("Roster updated successfully on Google Sheets!", "success");
+      triggerToast("Roster updated.", "success");
     } catch (err: any) {
-      triggerToast(`Sync failed: ${err.message}`, "error");
+      triggerToast(`Not saved yet: ${err.message}`, "error");
     } finally {
       setIsSyncing(false);
     }
@@ -439,7 +426,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       await syncStateToSheets(spreadsheetId, accessToken, nextDb, profiles, activeBranchLocation);
       triggerToast(message, "success");
     } catch (err: any) {
-      triggerToast(`Saved locally but Sheets Sync failed: ${err.message}`, "error");
+      triggerToast(`Not saved yet: ${err.message}`, "error");
     } finally {
       setIsSyncing(false);
     }
@@ -716,16 +703,9 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       updatedPayslips.push(finalizedSlips);
     }
 
-    // Bridge Is_Saved and Employer_Statutory_Offset locally so they survive
-    // a "Refresh Data" even if the Sheets sync hasn't completed yet.
-    savePayslipExtras(finalizedSlips.Payslip_ID, {
-      Is_Saved: true,
-      Employer_Statutory_Offset: finalizedSlips.Employer_Statutory_Offset,
-    });
-
     const nextDb = { ...db, payslips: updatedPayslips };
     setDb(nextDb);
-    triggerToast("Writing payslip details to cloud registers...", "info");
+    triggerToast("Saving payslip…", "info");
 
     // Clear preview but show updated details in dashboard
     setPreviewPayslip(finalizedSlips); // Keep saved state visible
@@ -735,7 +715,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       await syncStateToSheets(spreadsheetId, accessToken, nextDb, profiles, activeBranchLocation);
       triggerToast(`Payslip ${finalizedSlips.Payslip_ID} stored successfully!`, "success");
     } catch (err: any) {
-      triggerToast(`Sync failed: ${err.message}`, "error");
+      triggerToast(`Not saved yet: ${err.message}`, "error");
     } finally {
       setIsSyncing(false);
     }
@@ -748,7 +728,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
         <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 p-3.5 rounded-xl flex items-center gap-3">
           <ShieldAlert className="w-5 h-5 flex-shrink-0" />
           <div className="text-xs font-semibold">
-            Limited Staff Privileges — Read Only Mode. Staff accounts are prevented from editing the employee roster or writing any payslip records to Google Sheets. You can browse, calculate, print, and download records freely.
+            Limited Staff Privileges — Read Only Mode. Staff accounts are prevented from editing the employee roster or saving payslip records. You can browse, calculate, print, and download records freely.
           </div>
         </div>
       )}      {/* Roster Header and Trigger CTAs */}
@@ -2332,15 +2312,11 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                     )
                   };
                   setDb(nextDb);
-                  savePayslipExtras(markPaymentPayslip.Payslip_ID, {
-                    Payment_Transferred: true,
-                    Transfer_Date: formatted,
-                  });
                   triggerToast('Payment confirmed and recorded.', 'success');
                   setMarkPaymentPayslip(null);
                   setTransferDateInput('');
                   syncStateToSheets(spreadsheetId, accessToken, nextDb, profiles, activeBranchLocation)
-                    .catch(() => triggerToast('Sync failed.', 'error'));
+                    .catch((err: any) => triggerToast(`Not saved yet: ${err.message}`, 'error'));
                 }}
                 className="px-4 py-2 text-xs font-bold rounded-xl cursor-pointer
                   bg-emerald-600 hover:bg-emerald-700 text-white"

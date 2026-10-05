@@ -992,9 +992,9 @@ export default function InvoicingModule({
     try {
       setIsSyncing(true);
       await syncStateToSheets(spreadsheetId, accessToken, nextDb, profiles, activeBranchLocation);
-      triggerToast(`${invoiceId} saved to Google Sheets!`, 'success');
+      triggerToast(`${invoiceId} saved.`, 'success');
     } catch (err: any) {
-      triggerToast(`Sync failed: ${err.message}`, 'error');
+      triggerToast(`Not saved yet: ${err.message}`, 'error');
     } finally {
       setIsSyncing(false);
     }
@@ -1013,7 +1013,7 @@ export default function InvoicingModule({
       await syncStateToSheets(spreadsheetId, accessToken, nextDb, profiles, activeBranchLocation);
       triggerToast(toastMsg, 'success');
     } catch (err: any) {
-      triggerToast(`Saved locally but Sheets Sync failed: ${err.message}`, 'error');
+      triggerToast(`Not saved yet: ${err.message}`, 'error');
     } finally {
       setIsSyncing(false);
     }
@@ -1881,9 +1881,9 @@ export default function InvoicingModule({
                       try {
                         setIsSyncing(true);
                         await syncStateToSheets(spreadsheetId, accessToken, nextDb, profiles, activeBranchLocation);
-                        triggerToast(`Customer "${newCustomer.Customer_Name}" saved to Google Sheets!`, 'success');
+                        triggerToast(`Customer "${newCustomer.Customer_Name}" saved.`, 'success');
                       } catch (err: any) {
-                        triggerToast(`Saved locally but Sheets Sync failed: ${err.message}`, 'error');
+                        triggerToast(`Not saved yet: ${err.message}`, 'error');
                       } finally {
                         setIsSyncing(false);
                       }
@@ -1947,7 +1947,7 @@ export default function InvoicingModule({
                                   await syncStateToSheets(spreadsheetId, accessToken, nextDb, profiles, activeBranchLocation);
                                   triggerToast(`Customer "${c.Customer_Name}" deleted.`, 'success');
                                 } catch (err: any) {
-                                  triggerToast(`Deleted locally but Sheets Sync failed: ${err.message}`, 'error');
+                                  triggerToast(`Not deleted yet: ${err.message}`, 'error');
                                 } finally {
                                   setIsSyncing(false);
                                 }
