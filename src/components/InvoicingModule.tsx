@@ -8,6 +8,7 @@ import {
 import { DatabaseState, Invoice, InvoiceItem, Customer, CompanyProfile, Payment } from '../types';
 import { getPaymentSummary, PAYMENT_METHODS, PAYMENT_STATUS_LABEL, newPaymentId, PaymentStatus } from '../utils/payments';
 import { Sheet } from './ui/Sheet';
+import { EmptyState } from './ui/States';
 import {
   activeOutlet as resolveActiveOutlet, outletLabel, outletColor, hexToRgb,
 } from '../utils/outlets';
@@ -1160,12 +1161,21 @@ export default function InvoicingModule({
       {/* Invoice table */}
       <div className="bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 rounded-xl overflow-hidden">
         {filtered.length === 0 ? (
-          <div className="py-16 text-center">
-            <FileText className="w-8 h-8 text-ink-200 dark:text-ink-400 mx-auto mb-3" />
-            <p className="text-xs font-bold text-ink-500 dark:text-ink-400">
-              {db.invoices.length === 0 ? 'No invoices yet — create your first one.' : 'No invoices match these filters.'}
-            </p>
-          </div>
+          db.invoices.length === 0 ? (
+            <EmptyState
+              icon={<FileText />}
+              title="No invoices yet"
+              body="Create an invoice, record payments against it as they come in, and print or download it as a PDF."
+              action={isStaff ? undefined : { label: 'New Invoice', icon: <Plus />, onClick: () => openModal() }}
+            />
+          ) : (
+            <EmptyState
+              icon={<Search />}
+              title="No invoices match"
+              body="Try a different search, branch or payment status."
+              action={{ label: 'Clear filters', onClick: () => { setSearch(''); setFilterOutlet('All'); setFilterStatus('All'); } }}
+            />
+          )
         ) : (
           <>
           <div className="hidden md:block overflow-x-auto">

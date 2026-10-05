@@ -14,6 +14,7 @@ import { CompanyProfilesModal, DEFAULT_TEMPLATE } from './components/CompanyProf
 import { NotificationBell } from './components/NotificationBell';
 import { BottomNav } from './components/ui/BottomNav';
 import { Sheet, sheetBtn } from './components/ui/Sheet';
+import { Skeleton, SkeletonRows, ModuleSkeleton, EmptyState } from './components/ui/States';
 import { buildNotifications } from './utils/notifications';
 import { DatabaseState, CompanyProfile, TemplateCustomization, InvoiceItem } from './types';
 import { getPaymentSummary, PAYMENT_STATUS_LABEL } from './utils/payments';
@@ -436,6 +437,12 @@ export default function App() {
   const [activeBranchLocation, setActiveBranchLocation] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
   const [isDataLoading, setIsDataLoading] = useState(false);
+  // Until the first load lands, db is empty rather than "no records": screens
+  // show skeletons, not empty states (see ui/States.tsx). A failed first load
+  // shows the error with a retry instead of an empty book.
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const firstLoad = !hasLoaded && !loadError;
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [signInError, setSignInError] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
@@ -476,6 +483,7 @@ export default function App() {
   const loadData = useCallback(async (sheetId: string) => {
     if (!sheetId) return;
     setIsDataLoading(true);
+    setLoadError(null);
     try {
       let resolvedProfiles = DEFAULT_PROFILES;
       try {
@@ -487,6 +495,7 @@ export default function App() {
       }
       const data = await fetchDataAll(sheetId, '', resolvedProfiles);
       setDb(data);
+      setHasLoaded(true);
       setActiveBranchLocation(prev => {
         // Keep the user's branch if it still exists; otherwise fall to the first.
         const stillThere = prev && resolvedProfiles.some(p => outletLabel(p) === prev);
@@ -495,6 +504,7 @@ export default function App() {
       triggerToast('Data loaded from Google Sheets.', 'success');
     } catch (err: any) {
       triggerToast(`Data load failed: ${err.message}`, 'error');
+      setLoadError(err.message || 'Could not reach the server.');
     } finally {
       setIsDataLoading(false);
     }
@@ -519,6 +529,7 @@ export default function App() {
     const onSignedOut = () => {
       setSession(null);
       setDb(EMPTY_DB);
+      setHasLoaded(false);
       setActiveView('hub');
       setAuthStatus('unauthenticated');
       triggerToast('Your session has expired. Please sign in again.', 'warning');
@@ -538,6 +549,7 @@ export default function App() {
     await endSession();
     setSession(null);
     setDb(EMPTY_DB);
+    setHasLoaded(false);
     setActiveView('hub');
     setAuthStatus('unauthenticated');
   };
@@ -865,6 +877,23 @@ export default function App() {
               <NotificationBell notifications={notifications} isDark={isDark} onOpenView={setActiveView} />
             </div>
 
+            {!hasLoaded && loadError && (
+              <div role="alert" className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-2xl border p-4 border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/40">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-rose-800 dark:text-rose-200">Couldn't load your records</p>
+                  <p className="text-xs text-rose-700 dark:text-rose-300 mt-0.5">Nothing has been changed. {loadError}</p>
+                </div>
+                <button
+                  onClick={() => loadData(spreadsheetId)}
+                  disabled={isDataLoading}
+                  className="tap inline-flex items-center justify-center gap-1.5 px-4 rounded-lg text-xs font-bold cursor-pointer bg-rose-700 hover:bg-rose-800 text-white disabled:opacity-60"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isDataLoading ? 'animate-spin' : ''}`} />
+                  {isDataLoading ? 'Trying again…' : 'Try again'}
+                </button>
+              </div>
+            )}
+
             {/* 4 stat cards */}
             <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
               {[
@@ -875,9 +904,13 @@ export default function App() {
               ].map((card, i) => (
                 <div key={i} className={`rounded-2xl p-3.5 sm:p-5 border transition-colors ${dm ? 'bg-[#0f1623] border-ink-800' : 'bg-white border-ink-200 shadow-sm'}`}>
                   <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center mb-2 sm:mb-3 ${card.bg} ${card.color}`}>{card.icon}</div>
-                  <p className={`text-lg sm:text-2xl font-black tracking-tight leading-none ${dm ? 'text-white' : 'text-ink-900'}`}>{card.value}</p>
+                  {firstLoad
+                    ? <Skeleton className="h-[1.125rem] sm:h-6 w-20 sm:w-28" />
+                    : <p className={`text-lg sm:text-2xl font-black tracking-tight leading-none ${dm ? 'text-white' : 'text-ink-900'}`}>{card.value}</p>}
                   <p className={`text-2xs font-bold uppercase tracking-wider mt-1 ${dm ? 'text-ink-500' : 'text-ink-500'}`}>{card.label}</p>
-                  <p className={`text-2xs font-semibold mt-0.5 ${dm ? 'text-ink-600' : 'text-ink-500'}`}>{card.sub}</p>
+                  {firstLoad
+                    ? <Skeleton className="h-2.5 w-16 mt-1.5" />
+                    : <p className={`text-2xs font-semibold mt-0.5 ${dm ? 'text-ink-600' : 'text-ink-500'}`}>{card.sub}</p>}
                 </div>
               ))}
             </div>
@@ -899,7 +932,9 @@ export default function App() {
                   <div className="grid grid-cols-2 gap-2">
                     {[{ label: mod.stat1Label, val: mod.stat1Val, warn: false }, { label: mod.stat2Label, val: mod.stat2Val, warn: mod.stat2Warn }].map((s, j) => (
                       <div key={j} className={`rounded-xl px-3 py-2.5 ${dm ? 'bg-ink-900' : 'bg-ink-50'}`}>
-                        <p className={`text-lg font-black leading-none ${s.warn ? 'text-amber-400' : (dm ? 'text-white' : 'text-ink-900')}`}>{s.val}</p>
+                        {firstLoad
+                          ? <Skeleton className="h-[1.125rem] w-8" />
+                          : <p className={`text-lg font-black leading-none ${s.warn ? 'text-amber-400' : (dm ? 'text-white' : 'text-ink-900')}`}>{s.val}</p>}
                         <p className={`text-2xs font-bold uppercase tracking-wider mt-0.5 ${dm ? 'text-ink-600' : 'text-ink-500'}`}>{s.label}</p>
                       </div>
                     ))}
@@ -921,8 +956,16 @@ export default function App() {
                   <button onClick={() => { setActiveView('invoicing'); triggerToast('Opening Invoicing...', 'success'); }} className={`text-2xs font-bold cursor-pointer transition-colors ${dm ? 'text-brand-400 hover:text-brand-300' : 'text-brand-600 hover:text-brand-800'}`}>View All →</button>
                 </div>
                 <div className="divide-y divide-ink-100 dark:divide-ink-800/60">
-                  {recentInvoicesHub.length === 0 ? (
-                    <div className="py-10 text-center"><p className={`text-xs ${dm ? 'text-ink-600' : 'text-ink-500'}`}>No invoices yet</p></div>
+                  {firstLoad ? (
+                    <SkeletonRows rows={5} />
+                  ) : recentInvoicesHub.length === 0 ? (
+                    <EmptyState
+                      compact
+                      icon={<FileText />}
+                      title="No invoices yet"
+                      body={`The latest invoices for ${activeOutletName || 'this branch'} will show here.`}
+                      action={allowed('invoicing') ? { label: 'Open Invoicing', onClick: () => setActiveView('invoicing') } : undefined}
+                    />
                   ) : recentInvoicesHub.map(inv => (
                     <div key={inv.Invoice_ID} className={`flex items-center justify-between px-5 py-3.5 transition-colors ${dm ? 'hover:bg-ink-800/50' : 'hover:bg-ink-50/80'}`}>
                       <div className="flex items-center gap-3 min-w-0">
@@ -965,8 +1008,16 @@ export default function App() {
                   <button onClick={() => { setActiveView('payroll'); triggerToast('Opening Payroll...', 'success'); }} className={`text-2xs font-bold cursor-pointer transition-colors ${dm ? 'text-brand-400 hover:text-brand-300' : 'text-brand-600 hover:text-brand-800'}`}>View All →</button>
                 </div>
                 <div className="divide-y divide-ink-100 dark:divide-ink-800/60">
-                  {recentPayslipsHub.length === 0 ? (
-                    <div className="py-10 text-center"><p className={`text-xs ${dm ? 'text-ink-600' : 'text-ink-500'}`}>No saved payslips yet</p></div>
+                  {firstLoad ? (
+                    <SkeletonRows rows={4} />
+                  ) : recentPayslipsHub.length === 0 ? (
+                    <EmptyState
+                      compact
+                      icon={<Users />}
+                      title="No payslips yet"
+                      body="Generate the month's payslips in Payroll. Saved ones show here."
+                      action={allowed('payroll') ? { label: 'Open Payroll', onClick: () => setActiveView('payroll') } : undefined}
+                    />
                   ) : recentPayslipsHub.map(ps => {
                     const emp = db.employees?.find(e => e.Employee_ID === ps.Employee_ID);
                     return (
@@ -1084,6 +1135,18 @@ export default function App() {
 
           {/* Module content */}
           <main className="flex-1 overflow-y-auto p-4 sm:p-6 pb-nav md:pb-6">
+            {firstLoad ? (
+              <ModuleSkeleton label={viewTitle[activeView]} />
+            ) : !hasLoaded ? (
+              <div className="rounded-xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900">
+                <EmptyState
+                  icon={<RefreshCw />}
+                  title="Couldn't load your records"
+                  body={<>Nothing has been changed. {loadError}</>}
+                  action={{ label: isDataLoading ? 'Trying again…' : 'Try again', onClick: () => loadData(spreadsheetId) }}
+                />
+              </div>
+            ) : (<>
             {activeView === 'invoicing' && (
               <InvoicingModule
                 db={db}
@@ -1149,6 +1212,7 @@ export default function App() {
                 setIsSyncing={setIsSyncing}
               />
             )}
+            </>)}
           </main>
         </div>
       </div>

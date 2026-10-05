@@ -12,6 +12,7 @@ import {
   activeOutlet as resolveActiveOutlet, outletLabel, outletColor, outletInitials,
 } from '../utils/outlets';
 import { Sheet } from './ui/Sheet';
+import { EmptyState } from './ui/States';
 import { generateInvoiceId } from './InvoicingModule';
 import { attachA4Scale } from '../utils/a4scale';
 
@@ -1275,12 +1276,21 @@ export default function QuotationModule({
       {/* Quotation table */}
       <div className="bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 rounded-xl overflow-hidden">
         {filtered.length === 0 ? (
-          <div className="py-16 text-center">
-            <FileText className="w-8 h-8 text-ink-200 dark:text-ink-400 mx-auto mb-3" />
-            <p className="text-xs font-bold text-ink-500 dark:text-ink-400">
-              {db.quotations.length === 0 ? 'No quotations yet — create your first one.' : 'No quotations match these filters.'}
-            </p>
-          </div>
+          db.quotations.length === 0 ? (
+            <EmptyState
+              icon={<FileText />}
+              title="No quotations yet"
+              body="Quote a catering job across one or more event days, then turn it into an invoice once it's confirmed."
+              action={{ label: 'New Quotation', icon: <Plus />, onClick: () => openModal() }}
+            />
+          ) : (
+            <EmptyState
+              icon={<Search />}
+              title="No quotations match"
+              body="Try a different search or branch."
+              action={{ label: 'Clear filters', onClick: () => { setSearch(''); setFilterOutlet('All'); } }}
+            />
+          )
         ) : (
           <>
           <div className="hidden md:block overflow-x-auto">

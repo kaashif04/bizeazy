@@ -12,6 +12,7 @@ import {
   parseLocalDate, monthLabel, epfEmployee, epfEmployer, residencyOf, residencyLabel, Residency, PayBasis,
 } from '../utils/payroll';
 import { Sheet, sheetBtn } from './ui/Sheet';
+import { EmptyState } from './ui/States';
 import { saveEmployeeExtras, savePayslipExtras } from '../sheetsService';
 
 interface PayrollDashboardProps {
@@ -935,12 +936,22 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
 
       {/* Roster Grid and Table */}
       {filteredEmployees.length === 0 ? (
-        <div className={`p-10 text-center rounded-2xl border border-dashed ${isDarkMode ? 'border-ink-800 bg-ink-900/30' : 'border-ink-300 bg-white shadow-sm'}`}>
-          <Users className="w-8 h-8 text-ink-900 dark:text-white mx-auto mb-3" />
-          <h3 className="text-xs font-bold text-ink-900 dark:text-white">No Employees Found</h3>
-          <p className="text-2xs text-ink-600 dark:text-ink-400 mt-1 max-w-sm mx-auto">
-            {searchTerm.trim() ? "Matches were not found. Try clearing your search parameters." : "Click the 'Add Employee' button to register staff on this branch."}
-          </p>
+        <div className="rounded-xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900">
+          {searchTerm.trim() ? (
+            <EmptyState
+              icon={<Search />}
+              title={`No one matches "${searchTerm.trim()}"`}
+              body="Search covers name, position and IC or passport number."
+              action={{ label: 'Clear search', onClick: () => setSearchTerm('') }}
+            />
+          ) : (
+            <EmptyState
+              icon={<Users />}
+              title={`No staff at ${activeBranchLocation} yet`}
+              body="Add an employee to start running payroll. EPF, SOCSO and EIS are worked out for you, and salary reminders follow."
+              action={isStaff ? undefined : { label: 'Add Employee', icon: <UserPlus />, onClick: () => handleOpenEmployeeModal() }}
+            />
+          )}
         </div>
       ) : (
         <div className={`rounded-xl border ${isDarkMode ? 'border-ink-800 bg-ink-900' : 'border-ink-200 bg-white shadow-sm'}`}>
@@ -1201,11 +1212,17 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               });
           if (filtered.length === 0) {
             return (
-              <div className="text-center py-6">
-                <p className="text-2xs text-ink-500 font-medium">
-                  No saved payslips found{archiveFilterMonth !== '__all__' ? ` for ${archiveFilterMonth}` : ''} in this branch.
-                </p>
-              </div>
+              <EmptyState
+                compact
+                icon={<FileText />}
+                title={archiveFilterMonth !== '__all__' ? `No payslips for ${archiveFilterMonth}` : 'No saved payslips yet'}
+                body={archiveFilterMonth !== '__all__'
+                  ? 'Nothing was saved for that month at this branch.'
+                  : 'Payslips you generate and save land here, ready to reprint.'}
+                action={archiveFilterMonth !== '__all__'
+                  ? { label: 'Show all months', onClick: () => setArchiveFilterMonth('__all__') }
+                  : undefined}
+              />
             );
           }
           return (

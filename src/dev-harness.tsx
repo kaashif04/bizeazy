@@ -8,6 +8,7 @@ import './index.css';
 import { PayrollDashboard } from './components/PayrollDashboard';
 import { Sheet, sheetBtn } from './components/ui/Sheet';
 import { BottomNav } from './components/ui/BottomNav';
+import { ModuleSkeleton } from './components/ui/States';
 import type { CompanyProfile, DatabaseState, Employee, Payslip } from './types';
 
 const employees: Employee[] = [
@@ -90,11 +91,11 @@ function SheetDemo() {
 }
 
 function Harness() {
-  const [db, setDb] = useState<DatabaseState>(initialDb);
+  const [db, setDb] = useState<DatabaseState>(view === 'empty' ? { ...initialDb, employees: [] } : initialDb);
   return (
     <div>
       <div className="min-h-screen bg-ink-50 dark:bg-ink-950 p-4 sm:p-6 pb-nav md:pb-6">
-        {view === 'sheet' ? <SheetDemo /> : (
+        {view === 'sheet' ? <SheetDemo /> : view === 'loading' ? <ModuleSkeleton label="Payroll" /> : (
           <PayrollDashboard
             db={db}
             setDb={setDb}
