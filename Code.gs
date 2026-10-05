@@ -390,7 +390,9 @@ function syncData(payload, spreadsheetId, session) {
           emp.Branch_Location || '', emp.Citizenship || 'Malaysian/PR',
           (emp.Age !== undefined && emp.Age !== null && emp.Age !== '') ? Number(emp.Age) : '',
           emp.Joining_Date || '',
-          emp.Employer_Bears_Statutory === true ? true : false
+          emp.Employer_Bears_Statutory === true ? true : false,
+          emp.Pay_Basis || '', emp.End_Date || '', emp.Registered_On || '',
+          emp.Advances_JSON || ''
         ];
       });
       employeesSheet.getRange(2, 1, empRows.length, empRows[0].length).setValues(empRows);
@@ -414,7 +416,8 @@ function syncData(payload, spreadsheetId, session) {
           p.Allowances_JSON || '', p.Deductions_JSON || '',
           p.Payment_Transferred ? true : false, p.Transfer_Date || '',
           Number(p.Employer_Statutory_Offset) || 0,
-          Number(p.Employee_SKBBK) || 0
+          Number(p.Employee_SKBBK) || 0,
+          p.Pay_Period || ''
         ];
       });
       payslipsSheet.getRange(2, 1, psRows.length, psRows[0].length).setValues(psRows);
@@ -573,9 +576,11 @@ function initializeDatabase(spreadsheetId) {
     enforceHeaders(employeesTab, [
       'Employee_ID','Employee_Name','IC_Passport','Position','Assigned_Outlet',
       'Basic_Salary','Bank_Details','Branch_Location','Citizenship','Age','Joining_Date',
-      'Employer_Bears_Statutory'
+      'Employer_Bears_Statutory','Pay_Basis','End_Date','Registered_On','Advances_JSON'
     ]);
     forceTextColumn(employeesTab, 11); // Joining_Date
+    forceTextColumn(employeesTab, 14); // End_Date
+    forceTextColumn(employeesTab, 15); // Registered_On
 
     // ── Payslips ──
     // Enforcing exact order fixes the two empty-header columns (S, T) that
@@ -593,7 +598,7 @@ function initializeDatabase(spreadsheetId) {
       'Employee_EIS','Employer_EIS','Total_Statutory_Deductions',
       'Custom_Deductions','Final_Net_Pay','Branch_Location','Is_Saved',
       'Allowances_JSON','Deductions_JSON','Payment_Transferred','Transfer_Date',
-      'Employer_Statutory_Offset','Employee_SKBBK'
+      'Employer_Statutory_Offset','Employee_SKBBK','Pay_Period'
     ]);
     forceTextColumn(payslipsTab, 3);  // Issue_Date
     forceTextColumn(payslipsTab, 22); // Transfer_Date (col 22 — SKBBK safely at end col 24)
@@ -646,8 +651,9 @@ function initializeDatabase(spreadsheetId) {
 
 // ─── Salary reminders (email) ─────────────────────────────────
 /**
- * ponytail: the salary rule below MIRRORS src/utils/notifications.ts — the
- * 7-day deadline, which month counts, and who is owed a payslip. Apps Script
+ * ponytail: the salary rule below MIRRORS src/utils/notifications.ts and
+ * src/utils/payroll.ts — the 7-day deadline, the wage period (calendar or
+ * anniversary basis, joining and end dates), and who a reminder chases. Apps Script
  * cannot import the TypeScript, so the two must be edited together. If they
  * ever need to diverge, move this scan to a Supabase function that shares the
  * frontend's code instead of re-deriving it.
@@ -658,11 +664,6 @@ var NOTIFY_CONFIG_KEY = 'notifications';
 
 var GS_MONTHS = ['January','February','March','April','May','June',
                  'July','August','September','October','November','December'];
-
-/** Last day of the month `back` months before `today`. back=1 → last month. */
-function monthEndBack(today, back) {
-  return new Date(today.getFullYear(), today.getMonth() - back + 1, 0);
-}
 
 function monthLabelOf(date) {
   return GS_MONTHS[date.getMonth()] + ' ' + date.getFullYear();
@@ -683,16 +684,49 @@ function parseLocalDateGs(value) {
   return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
 }
 
-/** Joined on or before month end, and past their first full month of service. */
-function owedForMonthGs(emp, end, today) {
-  if (today <= end) return false;
+function startOfDayGs(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function daysInGs(y, m) { return new Date(y, m + 1, 0).getDate(); }
+
+/** Wage period paid under a month: calendar month, or from the joining day on the anniversary basis. */
+function periodBoundsGs(emp, year, month) {
   var joined = parseLocalDateGs(emp.Joining_Date);
-  if (joined) {
-    if (joined > end) return false;
-    var firstEligible = new Date(joined.getFullYear(), joined.getMonth() + 1, joined.getDate());
-    if (today < firstEligible) return false;
+  var day = String(emp.Pay_Basis) === 'anniversary' && joined ? joined.getDate() : 1;
+  function startOf(y, m) {
+    var first = new Date(y, m, 1);
+    return new Date(first.getFullYear(), first.getMonth(),
+                    Math.min(day, daysInGs(first.getFullYear(), first.getMonth())));
   }
-  return true;
+  var start = startOf(year, month);
+  var next = startOf(year, month + 1);
+  return { start: start, end: new Date(next.getFullYear(), next.getMonth(), next.getDate() - 1) };
+}
+
+/** The part of that period this employee worked, or null for none of it. */
+function payPeriodGs(emp, year, month) {
+  var b = periodBoundsGs(emp, year, month);
+  var joined = parseLocalDateGs(emp.Joining_Date);
+  var left = parseLocalDateGs(emp.End_Date);
+  var from = joined && joined > b.start ? joined : b.start;
+  var to = left && left < b.end ? left : b.end;
+  if (from > to) return null;
+  var count = function(x, y) { return Math.round((y.getTime() - x.getTime()) / 86400000) + 1; };
+  var daysInPeriod = count(b.start, b.end), daysWorked = count(from, to);
+  return { label: monthLabelOf(b.start), start: b.start, end: b.end, from: from, to: to,
+           daysWorked: daysWorked, daysInPeriod: daysInPeriod, fraction: daysWorked / daysInPeriod };
+}
+
+/** Most recent ended period, if a reminder should chase it (not before Registered_On). */
+function salaryDueGs(emp, today) {
+  var day = startOfDayGs(today);
+  for (var back = 1; back <= 2; back++) {
+    var month = new Date(day.getFullYear(), day.getMonth() - back, 1);
+    if (day <= periodBoundsGs(emp, month.getFullYear(), month.getMonth()).end) continue;
+    var period = payPeriodGs(emp, month.getFullYear(), month.getMonth());
+    if (!period) return null;
+    var registered = parseLocalDateGs(emp.Registered_On);
+    return !registered || period.end >= registered ? period : null;
+  }
+  return null;
 }
 
 function isTruthyCell(v) {
@@ -712,27 +746,32 @@ function unpaidSalaryForCompany(spreadsheetId, today) {
   var employees = getSheetRowsAsObjects(empTab).filter(function(e) { return String(e.Employee_ID || ''); });
   var payslips  = slipTab ? getSheetRowsAsObjects(slipTab) : [];
 
-  var end = monthEndBack(today, 1);
-  var label = monthLabelOf(end);
-  var deadline = new Date(end.getTime());
-  deadline.setDate(deadline.getDate() + SALARY_DEADLINE_DAYS);
-  var daysLeft = Math.ceil((deadline.getTime() - today.getTime()) / 86400000);
-
-  var owed = employees.filter(function(e) { return owedForMonthGs(e, end, today); });
-  var unpaid = owed.filter(function(e) {
-    return !payslips.some(function(p) {
+  var owedCount = 0, unpaid = [], labels = {}, soonest = null;
+  employees.forEach(function(e) {
+    var period = salaryDueGs(e, today);
+    if (!period) return;
+    owedCount++;
+    var paid = payslips.some(function(p) {
       return String(p.Employee_ID) === String(e.Employee_ID)
-        && normaliseMonthLabelGs(p.Month_Year) === label
+        && normaliseMonthLabelGs(p.Month_Year) === period.label
         && isTruthyCell(p.Payment_Transferred);
     });
+    if (paid) return;
+    unpaid.push(e);
+    labels[period.label] = true;
+    if (!soonest || period.end < soonest) soonest = period.end;
   });
   if (!unpaid.length) return null;
 
+  var deadline = new Date(soonest.getTime());
+  deadline.setDate(deadline.getDate() + SALARY_DEADLINE_DAYS);
+  var daysLeft = Math.ceil((deadline.getTime() - today.getTime()) / 86400000);
+
   return {
-    month: label,
+    month: Object.keys(labels).join(', '),
     daysLeft: daysLeft,
     overdue: daysLeft < 0,
-    owedCount: owed.length,
+    owedCount: owedCount,
     unpaid: unpaid.map(function(e) {
       return {
         name: String(e.Employee_Name || e.Employee_ID),
@@ -843,10 +882,6 @@ function runReminderSelfCheck() {
   function ok(cond, msg) { if (!cond) throw new Error('SELF-CHECK FAILED: ' + msg); }
 
   var sepEnd = new Date(2026, 8, 30);
-  ok(monthEndBack(new Date(2026, 9, 3), 1).getTime() === sepEnd.getTime(),
-     'on 3 Oct, one month back must end 30 Sep');
-  ok(monthEndBack(new Date(2026, 8, 30), 1).getMonth() === 7,
-     'on 30 Sep, one month back must still be August');
   ok(monthLabelOf(sepEnd) === 'September 2026', 'month label must read "September 2026"');
 
   ok(normaliseMonthLabelGs('2026-09-01') === 'September 2026', 'an ISO month must normalise to a label');
@@ -857,13 +892,18 @@ function runReminderSelfCheck() {
   ok(parseLocalDateGs('rubbish') === null, 'nonsense must not parse');
 
   var oct5 = new Date(2026, 9, 5);
-  ok(owedForMonthGs({}, sepEnd, oct5), 'an employee with no joining date is owed');
-  ok(!owedForMonthGs({}, new Date(2026, 9, 31), oct5), 'the current month is not owed');
-  ok(!owedForMonthGs({ Joining_Date: '2026-10-02' }, sepEnd, oct5), 'joined after month end is not owed');
-  ok(owedForMonthGs({ Joining_Date: '2026-09-15' }, sepEnd, new Date(2026, 9, 20)),
-     'a mid-month joiner is owed after a full month');
-  ok(!owedForMonthGs({ Joining_Date: '2026-09-15' }, sepEnd, new Date(2026, 9, 10)),
-     'a mid-month joiner is not owed before a full month');
+  ok(salaryDueGs({}, oct5).label === 'September 2026', 'with no dates, last month is due');
+  ok(!salaryDueGs({ Joining_Date: '2026-10-02' }, oct5), 'joined after the period is not due');
+  var part = salaryDueGs({ Joining_Date: '2026-09-15' }, oct5);
+  ok(part && part.daysWorked === 16 && part.daysInPeriod === 30, 'a mid-month joiner is due 16 of 30 days');
+  ok(!salaryDueGs({ Joining_Date: '2026-09-15', Pay_Basis: 'anniversary' }, oct5),
+     'an anniversary period 15 Sep–14 Oct has not ended on 5 Oct');
+  ok(salaryDueGs({ Joining_Date: '2026-09-15', Pay_Basis: 'anniversary' }, new Date(2026, 9, 20)).fraction === 1,
+     'and is due in full once it has');
+  ok(!salaryDueGs({ Joining_Date: '2020-01-01', Registered_On: '2026-10-02' }, oct5),
+     'nothing before the period they were registered in is chased');
+  ok(!salaryDueGs({ Joining_Date: '2020-01-01', End_Date: '2026-08-31' }, oct5),
+     'nothing after the last working day is due');
 
   ok(isTruthyCell(true) && isTruthyCell('TRUE') && isTruthyCell('true'),
      'a checked cell must read as paid however Sheets returns it');

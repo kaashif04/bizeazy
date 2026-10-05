@@ -2,11 +2,16 @@ import React, { useState, useMemo } from 'react';
 import { 
   Users, UserPlus, Trash2, Edit, Printer, Download, CheckCircle, 
   Calendar, Coins, CreditCard, Plus, Search, ShieldAlert, X, 
-  Briefcase, FileText, Check, DollarSign, HelpCircle, Save 
+  Briefcase, FileText, Check, DollarSign, HelpCircle, Save, HandCoins
 } from 'lucide-react';
-import { DatabaseState, Employee, Payslip, CompanyProfile } from '../types';
+import { DatabaseState, Employee, Payslip, CompanyProfile, SalaryAdvance } from '../types';
 import { activeOutlet as resolveActiveOutlet, outletLabel } from '../utils/outlets';
-import { salaryDeadline, owedForMonth } from '../utils/notifications';
+import { salaryDeadline, salaryDue, normaliseMonthLabel } from '../utils/notifications';
+import {
+  payPeriodForLabel, periodLabelFor, isRemindable, describePeriod, round2, isoDate,
+  parseLocalDate, monthLabel, epfEmployee, epfEmployer, residencyOf, residencyLabel, Residency, PayBasis,
+} from '../utils/payroll';
+import { Sheet, sheetBtn } from './ui/Sheet';
 import { saveEmployeeExtras, savePayslipExtras } from '../sheetsService';
 
 interface PayrollDashboardProps {
@@ -55,10 +60,18 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
   const [empPosition, setEmpPosition] = useState('');
   const [empBank, setEmpBank] = useState('');
   const [empSalary, setEmpSalary] = useState<number>(1700);
-  const [empCitizenship, setEmpCitizenship] = useState<'Malaysian/PR' | 'Foreigner'>('Malaysian/PR');
+  const [empCitizenship, setEmpCitizenship] = useState<Residency>('Malaysian');
   const [empAge, setEmpAge] = useState<number>(30);
   const [empJoiningDate, setEmpJoiningDate] = useState<string>('');
   const [empBearsStatutory, setEmpBearsStatutory] = useState<boolean>(false);
+  const [empPayBasis, setEmpPayBasis] = useState<PayBasis>('calendar');
+  const [empEndDate, setEmpEndDate] = useState<string>('');
+
+  // Salary advances sheet
+  const [advancesFor, setAdvancesFor] = useState<Employee | null>(null);
+  const [advDate, setAdvDate] = useState('');
+  const [advAmount, setAdvAmount] = useState<number>(0);
+  const [advNote, setAdvNote] = useState('');
 
   // Payslip Generator Workspace State
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
@@ -76,6 +89,8 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
   interface ItemizedItem {
     description: string;
     amount: number;
+    /** Set on a deduction that recovers a salary advance, so it is never added twice. */
+    advance_id?: string;
   }
   const [allowancesMap, setAllowancesMap] = useState<Record<string, ItemizedItem[]>>({});
   const [deductionsMap, setDeductionsMap] = useState<Record<string, ItemizedItem[]>>({});
@@ -118,123 +133,33 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
   }, [profiles, activeBranchLocation]);
 
   // --- PAYROLL COMPLIANCE REMINDERS (Malaysian Employment Act: 7-day rule) ---
+  // Same rule as the bell (utils/notifications.ts salaryDue): the latest ended
+  // wage period, from the period each employee was registered in.
   const getPayrollReminders = () => {
     const today = new Date();
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth(); // 0-indexed
-    const reminders: {
-      employee: Employee;
-      monthLabel: string;
-      daysUntilDeadline: number;
-      isOverdue: boolean;
-      payslipExists: boolean;
-      payslipSaved: boolean;
-      paymentDone: boolean;
-    }[] = [];
-
-    activeBranchEmployees.forEach(emp => {
-      if (!emp.Joining_Date) return;
-      const joining = new Date(emp.Joining_Date);
-
-      // Check last 2 months (current and previous) for unpaid
-      [-1, 0].forEach(offset => {
-        const checkMonth = currentMonth + offset;
-        const checkYear = checkMonth < 0 ? currentYear - 1 : currentYear;
-        const normalizedMonth = checkMonth < 0 ? checkMonth + 12 : checkMonth;
-
-        // Employee must have joined by the start of this month
-        const monthStart = new Date(checkYear, normalizedMonth, 1);
-        if (joining > monthStart) return; // not yet eligible
-
-        // Month must have ended
-        const monthEnd = new Date(checkYear, normalizedMonth + 1, 0); // last day
-        if (today <= monthEnd) return; // month not over yet
-
-        // 7-day payment deadline
-        const deadline = new Date(monthEnd);
-        deadline.setDate(deadline.getDate() + 7);
-        const daysUntilDeadline = Math.ceil(
-          (deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-        );
-
-        const months = ["January","February","March","April","May",
-          "June","July","August","September","October","November","December"];
-        const monthLabel = `${months[normalizedMonth]} ${checkYear}`;
-
-        // Check if payslip exists and is saved
-        const existingPayslip = activeBranchPayslips.find(
-          p => p.Employee_ID === emp.Employee_ID &&
-          (() => {
-            const raw = p.Month_Year || '';
-            if (raw.includes('T') || /^\d{4}-\d{2}/.test(raw)) {
-              const d = new Date(raw);
-              if (!isNaN(d.getTime())) {
-                return d.getMonth() === normalizedMonth &&
-                       d.getFullYear() === checkYear;
-              }
-            }
-            return raw === monthLabel;
-          })()
-        );
-
-        reminders.push({
-          employee: emp,
-          monthLabel,
-          daysUntilDeadline,
-          isOverdue: daysUntilDeadline < 0,
-          payslipExists: !!existingPayslip,
-          payslipSaved: existingPayslip?.Is_Saved || false,
-          paymentDone: existingPayslip?.Payment_Transferred || false,
-        });
-      });
-    });
-
-    return reminders.sort((a, b) => a.daysUntilDeadline - b.daysUntilDeadline);
+    return activeBranchEmployees.flatMap(emp => {
+      const period = salaryDue(emp, today);
+      if (!period) return [];
+      const { daysLeft, overdue } = salaryDeadline(period.end, today);
+      const slip = activeBranchPayslips.find(p =>
+        p.Employee_ID === emp.Employee_ID && normaliseMonthLabel(p.Month_Year) === period.label);
+      return [{
+        employee: emp,
+        monthLabel: period.label,
+        daysUntilDeadline: daysLeft,
+        isOverdue: overdue,
+        payslipExists: !!slip,
+        payslipSaved: slip?.Is_Saved || false,
+        paymentDone: slip?.Payment_Transferred || false,
+      }];
+    }).sort((a, b) => a.daysUntilDeadline - b.daysUntilDeadline);
   };
 
   // --- STATUTORY MALAYSIAN CALCULATOR FUNCTIONS (2026 update) ---
-  /**
-   * Employee EPF contribution (2026 — mandatory Oct 2025 for foreigners)
-   * Malaysian citizen below 60: 11%
-   * Malaysian citizen 60+:      0% (employer pays 4% only — EPF Act Third Schedule)
-   * PR 60+ technically pays 5.5% but this app uses the combined "Malaysian/PR"
-   * category where citizens are the overwhelmingly common case in restaurant settings.
-   * Foreigner under 75:         2% (mandatory since Oct 2025)
-   */
-  const calculateEmployeeEPF = (
-    grossPay: number,
-    citizenship: 'Malaysian/PR' | 'Foreigner',
-    age = 30
-  ): number => {
-    if (citizenship === 'Foreigner') {
-      if (age >= 75) return 0;
-      return Number((grossPay * 0.02).toFixed(2));
-    }
-    // Malaysian/PR — citizen rates apply (most common in practice)
-    if (age >= 60) return 0; // citizen 60+: 0% employee, employer pays 4% flat
-    return Number((grossPay * 0.11).toFixed(2)); // 11%
-  };
-
-  /**
-   * Employer EPF contribution (2026)
-   * Malaysian citizen below 60:  13% (≤RM5k) / 12% (>RM5k)
-   * Malaysian citizen 60+:       4% flat (regardless of salary band)
-   * Foreigner under 75:          2% flat
-   */
-  const calculateEmployerEPF = (
-    grossPay: number,
-    citizenship: 'Malaysian/PR' | 'Foreigner',
-    age = 30
-  ): number => {
-    if (citizenship === 'Foreigner') {
-      if (age >= 75) return 0;
-      return Number((grossPay * 0.02).toFixed(2));
-    }
-    // Malaysian/PR — citizen rates apply
-    if (age >= 60) return Number((grossPay * 0.04).toFixed(2)); // 4% flat
-    const rate = grossPay <= 5000 ? 0.13 : 0.12;
-    return Number((grossPay * rate).toFixed(2));
-  };
+  // EPF lives in utils/payroll.ts: it is the one rate that differs between a
+  // citizen and a permanent resident (at 60+), so it carries a self-check.
+  const calculateEmployeeEPF = epfEmployee;
+  const calculateEmployerEPF = epfEmployer;
 
   /**
    * Employee SOCSO contribution (wage ceiling RM6,000 since Oct 2024)
@@ -245,7 +170,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
    */
   const calculateEmployeeSOCSO = (
     grossPay: number,
-    citizenship: 'Malaysian/PR' | 'Foreigner',
+    citizenship?: string,
     age = 30
   ): number => {
     if (age >= 60) return 0; // Cat 2: employer-only scheme
@@ -260,7 +185,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
    */
   const calculateEmployerSOCSO = (
     grossPay: number,
-    citizenship: 'Malaysian/PR' | 'Foreigner',
+    citizenship?: string,
     age = 30
   ): number => {
     const capped = Math.min(grossPay, 6000);
@@ -278,7 +203,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
    */
   const calculateEmployeeEIS = (
     grossPay: number,
-    citizenship: 'Malaysian/PR' | 'Foreigner' = 'Malaysian/PR',
+    citizenship?: string,
     age = 30
   ): number => {
     if (citizenship === 'Foreigner') return 0;
@@ -293,7 +218,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
    */
   const calculateEmployerEIS = (
     grossPay: number,
-    citizenship: 'Malaysian/PR' | 'Foreigner' = 'Malaysian/PR',
+    citizenship?: string,
     age = 30
   ): number => {
     if (citizenship === 'Foreigner') return 0;
@@ -312,10 +237,10 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
    */
   const calculateSKBBK = (
     grossPay: number,
-    citizenship: 'Malaysian/PR' | 'Foreigner',
+    citizenship?: string,
     age = 30
   ): number => {
-    if (citizenship !== 'Foreigner') return 0; // voluntary for Malaysians — not auto-deducted
+    if (citizenship !== 'Foreigner') return 0; // voluntary for Malaysians and PRs — not auto-deducted
     if (age >= 60) return 0; // Category 2 employees: employment injury only, no SKBBK
     const capped = Math.min(grossPay, 6000);
     return Number((capped * 0.0075).toFixed(2)); // Phase 1: 0.75%
@@ -334,10 +259,12 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       setEmpPosition(employee.Position);
       setEmpBank(employee.Bank_Details);
       setEmpSalary(employee.Basic_Salary);
-      setEmpCitizenship(employee.Citizenship || 'Malaysian/PR');
+      setEmpCitizenship(residencyOf(employee.Citizenship));
       setEmpAge(Number((employee as any).Age) || 30);
       setEmpJoiningDate(employee.Joining_Date || '');
       setEmpBearsStatutory(employee.Employer_Bears_Statutory === true);
+      setEmpPayBasis(employee.Pay_Basis === 'anniversary' ? 'anniversary' : 'calendar');
+      setEmpEndDate(employee.End_Date || '');
     } else {
       setEditingEmployee(null);
       setEmpName('');
@@ -345,10 +272,12 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       setEmpPosition('');
       setEmpBank('');
       setEmpSalary(1700);
-      setEmpCitizenship('Malaysian/PR');
+      setEmpCitizenship('Malaysian');
       setEmpAge(30);
       setEmpJoiningDate('');
       setEmpBearsStatutory(false);
+      setEmpPayBasis('calendar');
+      setEmpEndDate('');
     }
     setIsEmployeeModalOpen(true);
   };
@@ -370,6 +299,11 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       return;
     }
 
+    if (empEndDate && empJoiningDate && empEndDate < empJoiningDate) {
+      triggerToast("The last working day cannot be before the joining date.", "error");
+      return;
+    }
+
     let updatedEmployees = [...db.employees];
 
     if (editingEmployee) {
@@ -387,6 +321,8 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               Age: empAge,
               Joining_Date: empJoiningDate,
               Employer_Bears_Statutory: empBearsStatutory,
+              Pay_Basis: empPayBasis,
+              End_Date: empEndDate || undefined,
             }
           : emp
       );
@@ -407,6 +343,10 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
         Age: empAge,
         Joining_Date: empJoiningDate,
         Employer_Bears_Statutory: empBearsStatutory,
+        Pay_Basis: empPayBasis,
+        End_Date: empEndDate || undefined,
+        // Reminders start from today's period; earlier months stay generatable.
+        Registered_On: isoDate(new Date()),
       };
       updatedEmployees.push(newEmp);
       triggerToast("Adding new Employee to the roster...", "info");
@@ -446,7 +386,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       triggerToast("Access Denied: Restricted read-only view.", "error");
       return;
     }
-    if (!window.confirm("Are you sure you want to remove this employee?")) return;
+    if (!window.confirm("Remove this employee permanently?\n\nIf they have resigned, Edit them and set a last working day instead: their records stay and no further salary falls due.")) return;
 
     const nextDb = {
       ...db,
@@ -464,6 +404,73 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
     } finally {
       setIsSyncing(false);
     }
+  };
+
+  // --- SALARY ADVANCES ---
+  // Stored on the employee; each is recovered as a deduction on the payslip of
+  // the wage period it was taken in (see handleOpenGenerator).
+  const openAdvances = (employee: Employee) => {
+    setAdvancesFor(employee);
+    setAdvDate(isoDate(new Date()));
+    setAdvAmount(0);
+    setAdvNote('');
+  };
+
+  /** Saved payslips already recovering this advance — it cannot be deleted under them. */
+  const advanceOnPayslip = (advanceId: string) =>
+    db.payslips.find(p => p.Is_Saved && (p.Deductions_JSON || '').includes(advanceId));
+
+  const saveAdvances = async (employee: Employee, advances: SalaryAdvance[], message: string) => {
+    const nextDb = {
+      ...db,
+      employees: db.employees.map(e => e.Employee_ID === employee.Employee_ID ? { ...e, Advances: advances } : e),
+    };
+    setDb(nextDb);
+    setAdvancesFor({ ...employee, Advances: advances });
+    try {
+      setIsSyncing(true);
+      await syncStateToSheets(spreadsheetId, accessToken, nextDb, profiles, activeBranchLocation);
+      triggerToast(message, "success");
+    } catch (err: any) {
+      triggerToast(`Saved locally but Sheets Sync failed: ${err.message}`, "error");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleAddAdvance = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!advancesFor) return;
+    const taken = parseLocalDate(advDate);
+    if (!taken || !(advAmount > 0)) {
+      triggerToast("Enter the date and an amount above zero.", "warning");
+      return;
+    }
+    if (!payPeriodForLabel(advancesFor, periodLabelFor(advancesFor, taken))) {
+      triggerToast(`${advancesFor.Employee_Name} was not employed on ${advDate}.`, "warning");
+      return;
+    }
+    const advance: SalaryAdvance = {
+      id: `ADV-${Date.now().toString(36)}`,
+      date: advDate,
+      amount: round2(advAmount),
+      note: advNote.trim() || undefined,
+    };
+    saveAdvances(advancesFor, [...(advancesFor.Advances || []), advance],
+      `Advance recorded. It will be deducted from the ${periodLabelFor(advancesFor, taken)} payslip.`);
+    setAdvAmount(0);
+    setAdvNote('');
+  };
+
+  const handleRemoveAdvance = (advance: SalaryAdvance) => {
+    if (!advancesFor) return;
+    const slip = advanceOnPayslip(advance.id);
+    if (slip) {
+      triggerToast(`Already deducted on payslip ${slip.Payslip_ID}. Remove it from that payslip first.`, "error");
+      return;
+    }
+    if (!window.confirm(`Delete the RM ${advance.amount.toFixed(2)} advance of ${advance.date}?`)) return;
+    saveAdvances(advancesFor, (advancesFor.Advances || []).filter(a => a.id !== advance.id), "Advance deleted.");
   };
 
   // Open multi-step Payslip Generation workspace.
@@ -514,8 +521,19 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       } else if (savedSlip && savedSlip.Custom_Deductions > 0) {
         freshDeductions[e.Employee_ID] = [{ description: 'Custom Deduction', amount: savedSlip.Custom_Deductions }];
       } else {
-        freshDeductions[e.Employee_ID] = [{ description: '', amount: 0 }];
+        freshDeductions[e.Employee_ID] = [];
       }
+
+      // Recover any advance taken in this period that the list does not carry yet.
+      const saved = freshDeductions[e.Employee_ID];
+      const list = (Array.isArray(saved) ? saved : []).filter(d => d.description?.trim() || d.amount > 0);
+      (e.Advances || []).forEach(a => {
+        const taken = parseLocalDate(a.date);
+        if (!taken || periodLabelFor(e, taken) !== monthForLookup) return;
+        if (list.some(d => d.advance_id === a.id)) return;
+        list.push({ description: `Salary advance ${a.date}${a.note ? ` (${a.note})` : ''}`, amount: a.amount, advance_id: a.id });
+      });
+      freshDeductions[e.Employee_ID] = list.length ? list : [{ description: '', amount: 0 }];
     });
     setAllowancesMap(freshAllowances);
     setDeductionsMap(freshDeductions);
@@ -525,13 +543,21 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
 
   // Create payslips and generate previews inside local states
   const processCalculateSelectedPayslip = (emp: Employee) => {
+    const period = payPeriodForLabel(emp, selectedMonthYear);
+    if (!period) {
+      triggerToast(`${emp.Employee_Name} was not employed in ${selectedMonthYear}.`, "warning");
+      return;
+    }
+    const basicPay = round2(emp.Basic_Salary * period.fraction);
     const allowancesList = allowancesMap[emp.Employee_ID] || [];
     const deductionsList = deductionsMap[emp.Employee_ID] || [];
     const allowanceSum = allowancesList.reduce((acc, curr) => acc + (curr.amount || 0), 0);
     const customDeductionSum = deductionsList.reduce((acc, curr) => acc + (curr.amount || 0), 0);
     
-    const grossPay = emp.Basic_Salary + allowanceSum;
-    const citizenship = emp.Citizenship || 'Malaysian/PR';
+    // Statutory contributions are on wages actually paid, so a part month's
+    // prorated basic is what they are calculated on.
+    const grossPay = basicPay + allowanceSum;
+    const citizenship = emp.Citizenship;
 
     const empAge = Number(emp.Age) || 30;
     const epfEmployee = calculateEmployeeEPF(grossPay, citizenship, empAge);
@@ -553,13 +579,18 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
     // pay minus only the non-statutory deductions. See Employee.Employer_Bears_Statutory.
     const statutoryOffset = emp.Employer_Bears_Statutory ? totalStatutory : 0;
     const finalNet = Number((grossPay - totalStatutory - customDeductionSum + statutoryOffset).toFixed(2));
+    if (finalNet < 0) {
+      // Usually an advance bigger than a part month's pay: recover the rest next month.
+      triggerToast(`Deductions exceed ${emp.Employee_Name}'s pay by RM ${Math.abs(finalNet).toFixed(2)}. Reduce the deduction and carry the rest to next month.`, "warning");
+    }
 
     const freshPayslip: Payslip = {
       Payslip_ID: `PAY-${emp.Employee_ID}-${selectedMonthYear.replace(' ', '-')}`,
       Employee_ID: emp.Employee_ID,
       Issue_Date: new Date().toISOString().substring(0, 10),
       Month_Year: selectedMonthYear,
-      Basic_Pay: emp.Basic_Salary,
+      Basic_Pay: basicPay,
+      Pay_Period: period.fraction < 1 || emp.Pay_Basis === 'anniversary' ? describePeriod(period) : '',
       Custom_Allowances: allowanceSum,
       Total_Allowances: allowanceSum,
       Employee_EPF: epfEmployee,
@@ -927,8 +958,13 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                         {employee.Position}
                       </span>
                       <span className={`px-1.5 py-0.5 rounded-full text-2xs font-bold ${employee.Citizenship === 'Foreigner' ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300' : 'bg-ink-100 dark:bg-ink-800 text-ink-600 dark:text-ink-300'}`}>
-                        {employee.Citizenship || 'Malaysian/PR'}
+                        {residencyLabel(employee.Citizenship)}
                       </span>
+                      {employee.End_Date && (
+                        <span className="px-1.5 py-0.5 rounded-full text-2xs font-bold bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300">
+                          Left {employee.End_Date}
+                        </span>
+                      )}
                       {employee.Employer_Bears_Statutory && (
                         <span className="px-1.5 py-0.5 rounded-full text-2xs font-bold bg-brand-100 dark:bg-brand-900/50 text-brand-700 dark:text-brand-300">
                           Statutory borne
@@ -945,7 +981,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                     {employee.Bank_Details}
                   </p>
                 )}
-                <div className={`grid gap-2 mt-3 ${isStaff ? 'grid-cols-1' : 'grid-cols-3'}`}>
+                <div className={`grid gap-2 mt-3 ${isStaff ? 'grid-cols-1' : 'grid-cols-4'}`}>
                   <button
                     onClick={() => processCalculateSelectedPayslip(employee)}
                     className="tap flex items-center justify-center gap-1.5 rounded-lg text-2xs font-bold cursor-pointer transition-colors bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-950/70"
@@ -953,6 +989,15 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                     <FileText className="w-3.5 h-3.5" />
                     Payslip
                   </button>
+                  {!isStaff && (
+                    <button
+                      onClick={() => openAdvances(employee)}
+                      className="tap flex items-center justify-center gap-1.5 rounded-lg text-2xs font-bold cursor-pointer transition-colors bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950/70"
+                    >
+                      <HandCoins className="w-3.5 h-3.5" />
+                      Advance
+                    </button>
+                  )}
                   {!isStaff && (
                     <button
                       onClick={() => handleOpenEmployeeModal(employee)}
@@ -1005,8 +1050,13 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                           <span>{employee.Employee_ID}</span>
                           <span>•</span>
                           <span className={`px-1 rounded text-2xs font-bold ${employee.Citizenship === 'Foreigner' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400' : 'bg-ink-100 dark:bg-ink-800 text-ink-600 dark:text-ink-300'}`}>
-                            {employee.Citizenship || 'Malaysian/PR'}
+                            {residencyLabel(employee.Citizenship)}
                           </span>
+                          {employee.End_Date && (
+                            <span className="px-1 rounded text-2xs font-bold bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300">
+                              Left {employee.End_Date}
+                            </span>
+                          )}
                           {employee.Employer_Bears_Statutory && (
                             <span
                               className="px-1 rounded text-2xs font-bold bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-400"
@@ -1042,6 +1092,18 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                           <FileText className="w-3.5 h-3.5" />
                           <span>View Slip</span>
                         </button>
+
+                        {/* Salary advances */}
+                        {!isStaff && (
+                          <button
+                            onClick={() => openAdvances(employee)}
+                            className="p-1 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/20 rounded-md cursor-pointer transition-colors text-2xs font-bold flex items-center gap-1"
+                            title="Record a salary advance or emergency payment."
+                          >
+                            <HandCoins className="w-3.5 h-3.5" />
+                            <span>Advance</span>
+                          </button>
+                        )}
 
                         {/* Edit Roster */}
                         {!isStaff && (
@@ -1270,30 +1332,35 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
 
               <div>
                 <label className="block text-2xs font-bold uppercase text-ink-700 dark:text-ink-300 mb-2">Citizenship Status *</label>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2 text-xs text-ink-900 dark:text-white font-medium cursor-pointer">
-                    <input 
-                      type="radio" 
-                      name="citizenship" 
-                      value="Malaysian/PR"
-                      checked={empCitizenship === 'Malaysian/PR'}
-                      onChange={() => setEmpCitizenship('Malaysian/PR')}
-                      className="cursor-pointer accent-brand-600 font-black"
-                    />
-                    <span>Malaysian / PR</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-xs text-ink-900 dark:text-white font-medium cursor-pointer">
-                    <input 
-                      type="radio" 
-                      name="citizenship" 
-                      value="Foreigner"
-                      checked={empCitizenship === 'Foreigner'}
-                      onChange={() => setEmpCitizenship('Foreigner')}
-                      className="cursor-pointer accent-brand-600 font-black"
-                    />
-                    <span>Foreigner</span>
-                  </label>
+                <div className="grid grid-cols-3 gap-2" role="radiogroup">
+                  {([['Malaysian', 'Malaysian'], ['PR', 'Permanent Resident'], ['Foreigner', 'Foreigner']] as [Residency, string][]).map(([value, label]) => (
+                    <label
+                      key={value}
+                      className={`tap flex items-center justify-center text-center px-2 rounded-lg border text-xs font-bold cursor-pointer transition-colors ${
+                        empCitizenship === value
+                          ? 'bg-brand-600 border-brand-600 text-white'
+                          : 'border-ink-300 dark:border-ink-700 text-ink-700 dark:text-ink-200 hover:bg-ink-50 dark:hover:bg-ink-800'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="citizenship"
+                        value={value}
+                        checked={empCitizenship === value}
+                        onChange={() => setEmpCitizenship(value)}
+                        className="sr-only"
+                      />
+                      {label}
+                    </label>
+                  ))}
                 </div>
+                <p className="text-2xs text-ink-500 dark:text-ink-400 mt-1.5 leading-relaxed">
+                  {empCitizenship === 'PR'
+                    ? 'Charged as a local for EPF, SOCSO and EIS. From age 60, EPF continues at 5.5% employee and 6.5% employer (citizens stop at 0% and 4%).'
+                    : empCitizenship === 'Foreigner'
+                    ? 'EPF 2% each side, SOCSO, and SKBBK. No EIS.'
+                    : 'EPF, SOCSO and EIS at local rates.'}
+                </p>
               </div>
 
               <div className={`p-3 rounded-xl border ${
@@ -1370,9 +1437,70 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       : 'bg-white border-ink-200 text-ink-800 [color-scheme:light]'}`}
                 />
                 <p className="text-2xs text-ink-500 mt-0.5">
-                  Used to calculate first payslip eligibility
+                  An earlier date is fine: past months can still be generated, but reminders start from this month.
                 </p>
               </div>
+
+              <div>
+                <label className="block text-2xs font-bold uppercase text-ink-700 dark:text-ink-300 mb-2">Salary basis</label>
+                <div className="space-y-2" role="radiogroup">
+                  {([
+                    ['calendar', 'Calendar month', 'Paid per calendar month. A part month (joining or leaving mid-month) is paid for the days worked.'],
+                    ['anniversary', 'Full month from start date', 'Each month runs from the joining day, e.g. 15th to 14th, paid in full. Due 7 days after each period ends.'],
+                  ] as [PayBasis, string, string][]).map(([value, label, hint]) => (
+                    <label
+                      key={value}
+                      className={`flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition-colors ${
+                        empPayBasis === value
+                          ? 'border-brand-500 bg-brand-50 dark:bg-brand-950/40'
+                          : 'border-ink-200 dark:border-ink-700 hover:bg-ink-50 dark:hover:bg-ink-800'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="pay-basis"
+                        value={value}
+                        checked={empPayBasis === value}
+                        onChange={() => setEmpPayBasis(value)}
+                        className="mt-0.5 accent-brand-600 shrink-0"
+                      />
+                      <span>
+                        <span className="block text-xs font-bold text-ink-900 dark:text-white">{label}</span>
+                        <span className="block text-2xs text-ink-500 dark:text-ink-400 mt-0.5 leading-relaxed">{hint}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {editingEmployee && (
+                <div>
+                  <label className="block text-2xs font-bold uppercase text-ink-700 dark:text-ink-300 mb-1">Last working day</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="date"
+                      value={empEndDate}
+                      min={empJoiningDate || undefined}
+                      onChange={e => setEmpEndDate(e.target.value)}
+                      className={`flex-1 min-w-0 px-2.5 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-brand-500 ${
+                        isDarkMode ? 'bg-ink-900 border-ink-700 text-ink-100 [color-scheme:dark]' : 'bg-white border-ink-200 text-ink-800 [color-scheme:light]'
+                      }`}
+                    />
+                    {empEndDate && (
+                      <button
+                        type="button"
+                        onClick={() => setEmpEndDate('')}
+                        className="tap px-3 text-2xs font-bold rounded-lg border border-ink-300 dark:border-ink-700 text-ink-700 dark:text-ink-200 hover:bg-ink-50 dark:hover:bg-ink-800 cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-2xs text-ink-500 mt-0.5">
+                    For a resignation. Their records stay; the final month is paid to this day and nothing falls due after it.
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-2xs font-bold uppercase text-ink-700 dark:text-ink-300 mb-1">Bank Name & Details *</label>
@@ -1432,27 +1560,26 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                 <div className="text-xs text-ink-800 dark:text-ink-400 font-semibold">Select target register month:</div>
                 <select
                   value={selectedMonthYear}
-                  onChange={(e) => setSelectedMonthYear(e.target.value)}
+                  // Reopen for the new month: each month carries its own saved
+                  // lines and advances, which a bare setState would leave stale.
+                  onChange={(e) => handleOpenGenerator(e.target.value)}
                   className={`p-2 rounded-lg border text-xs font-bold focus:ring-1 focus:ring-emerald-500 text-ink-900 dark:text-white ${
                     isDarkMode ? 'bg-ink-950 border-ink-800' : 'bg-white border-ink-300'
                   }`}
                 >
                   {(() => {
-                    const _mths = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-                    const _now = new Date();
-                    // Only show months that have fully ended (up to last month)
-                    const _lastMonth = _now.getMonth() === 0 ? 11 : _now.getMonth() - 1;
-                    const _lastYear = _now.getMonth() === 0 ? _now.getFullYear() - 1 : _now.getFullYear();
+                    // This month (for a leaver's final pay) back to the earliest
+                    // joining date, so back pay can be generated for anyone.
+                    const now = new Date();
+                    const earliest = activeBranchEmployees
+                      .map(e => parseLocalDate(e.Joining_Date))
+                      .reduce<Date>((min, d) => (d && d < min ? d : min), new Date(now.getFullYear() - 2, now.getMonth(), 1));
                     const opts: React.ReactElement[] = [];
-                    // Go back up to 24 months from the last ended month
-                    for (let i = 0; i < 24; i++) {
-                      let m = _lastMonth - i;
-                      let y = _lastYear;
-                      if (m < 0) { m += 12; y -= 1; }
-                      // Don't go before Jan 2026
-                      if (y < 2026 || (y === 2026 && m < 0)) break;
-                      const lbl = `${_mths[m]} ${y}`;
-                      opts.push(<option key={lbl} value={lbl}>{lbl}</option>);
+                    for (let i = 0; i < 120; i++) {
+                      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                      if (d < new Date(earliest.getFullYear(), earliest.getMonth(), 1)) break;
+                      const lbl = monthLabel(d);
+                      opts.push(<option key={lbl} value={lbl}>{lbl}{i === 0 ? ' (current)' : ''}</option>);
                     }
                     return opts;
                   })()}
@@ -1474,53 +1601,38 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                   </thead>
                   <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
                     {(() => {
-                      const _mths = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-                      const [_ms, _ys] = selectedMonthYear.split(' ');
-                      const _mi = _mths.indexOf(_ms);
-                      const _yr = parseInt(_ys, 10);
                       const _today = new Date();
-                      const _mEnd = new Date(_yr, _mi + 1, 0);
-                      // One definition of the 7-day statutory deadline, shared with
-                      // the notification bell and the email reminder.
-                      const _dl = salaryDeadline(_mEnd, _today);
-                      const _daysLeft = _dl.ended ? _dl.daysLeft : null;
-                      const _overdue = _dl.ended && _dl.overdue;
-
-                      const eligible = activeBranchEmployees.filter(emp => {
-                        // Rules 1-3 — month fully ended, joined on or before month end,
-                        // and past their first full month of service — live in
-                        // utils/notifications.ts so the generator, the bell and the
-                        // email reminder cannot disagree about who is owed.
-                        if (!owedForMonth(emp, _mEnd, _today)) return false;
-
-                        // Rule 4: No saved payslip already exists for this employee + month
-                        return !activeBranchPayslips.some(p => {
-                          if (!p.Is_Saved) return false;
-                          const raw = p.Month_Year || '';
-                          let lbl = raw;
-                          if (raw.includes('T') || /^\d{4}-\d{2}/.test(raw)) {
-                            const d = new Date(raw);
-                            if (!isNaN(d.getTime())) lbl = `${_mths[d.getMonth()]} ${d.getFullYear()}`;
-                          }
-                          return p.Employee_ID === emp.Employee_ID && lbl === selectedMonthYear;
-                        });
-                      });
+                      // Anyone employed for any of this month's wage period, whose
+                      // payslip is not saved yet. The period rules live in
+                      // utils/payroll.ts, shared with the bell and the email.
+                      const eligible = activeBranchEmployees.filter(emp =>
+                        payPeriodForLabel(emp, selectedMonthYear) &&
+                        !activeBranchPayslips.some(p =>
+                          p.Is_Saved && p.Employee_ID === emp.Employee_ID &&
+                          normaliseMonthLabel(p.Month_Year) === selectedMonthYear));
 
                       if (eligible.length === 0) return (
                         <tr><td colSpan={6} className="px-4 py-8 text-center text-2xs text-ink-500 font-medium">
-                          No employees are due for payment this month — all payslips are saved, or no employees have completed their first month yet.
+                          Nobody is left to pay for {selectedMonthYear}: every payslip is saved, or no one was employed that month.
                         </td></tr>
                       );
 
                       return eligible.map((emp) => {
+                      const period = payPeriodForLabel(emp, selectedMonthYear)!;
+                      const basicPay = round2(emp.Basic_Salary * period.fraction);
+                      // Countdown only once the period has ended, and only where a
+                      // reminder would chase it: years of back pay are not "overdue".
+                      const _dl = salaryDeadline(period.end, _today);
+                      const _daysLeft = _dl.ended && isRemindable(emp, period) ? _dl.daysLeft : null;
+                      const _overdue = _daysLeft !== null && _dl.overdue;
                       const allowancesList = allowancesMap[emp.Employee_ID] || [];
                       const deductionsList = deductionsMap[emp.Employee_ID] || [];
                       
                       const allowanceSum = allowancesList.reduce((acc, curr) => acc + (curr.amount || 0), 0);
                       const customDeductionSum = deductionsList.reduce((acc, curr) => acc + (curr.amount || 0), 0);
                       
-                      const grossPayBase = emp.Basic_Salary + allowanceSum;
-                      const citizenship = emp.Citizenship || 'Malaysian/PR';
+                      const grossPayBase = basicPay + allowanceSum;
+                      const citizenship = emp.Citizenship;
 
                       const empAge = Number(emp.Age) || 30;
                       const epf = calculateEmployeeEPF(grossPayBase, citizenship, empAge);
@@ -1539,7 +1651,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                             <div className="text-2xs text-ink-500 dark:text-ink-400 font-medium flex items-center gap-1 mt-0.5">
                               <span>{emp.Position}</span>
                               <span>•</span>
-                              <span className="font-bold text-ink-500 dark:text-ink-400 text-2xs uppercase">{citizenship === 'Foreigner' ? 'Foreigner' : 'Malaysian'}</span>
+                              <span className="font-bold text-ink-500 dark:text-ink-400 text-2xs uppercase">{residencyLabel(citizenship)}</span>
                               {emp.Employer_Bears_Statutory && (
                                 <span className="font-bold text-brand-600 dark:text-brand-400 text-2xs uppercase" title="Employer bears this employee's EPF/SOCSO/EIS share">
                                   • Statutory Borne by Employer
@@ -1556,7 +1668,14 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                               </div>
                             )}
                           </td>
-                          <td className="px-4 py-3 font-mono text-ink-900 dark:text-white font-bold">RM {emp.Basic_Salary.toFixed(2)}</td>
+                          <td className="px-4 py-3 font-mono text-ink-900 dark:text-white font-bold">
+                            RM {basicPay.toFixed(2)}
+                            {(period.fraction < 1 || emp.Pay_Basis === 'anniversary') && (
+                              <div className="text-2xs font-sans font-semibold text-amber-700 dark:text-amber-400 mt-0.5 whitespace-nowrap">
+                                {describePeriod(period)}
+                              </div>
+                            )}
+                          </td>
                           <td className="px-4 py-3 min-w-[280px]">
                             <div className="space-y-1.5 max-h-[160px] overflow-y-auto">
                               {allowancesList.map((item, idx) => (
@@ -1893,7 +2012,12 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                   </div>
                   <div className="space-y-1.5 text-xs font-semibold">
                     <div className="flex justify-between text-ink-900 dark:text-ink-300">
-                      <span>Basic Pay</span>
+                      <span>
+                        Basic Pay
+                        {previewPayslip.Pay_Period && (
+                          <span className="block text-2xs font-medium text-ink-500">{previewPayslip.Pay_Period}</span>
+                        )}
+                      </span>
                       <span className="font-black text-ink-950 dark:text-white">RM {previewPayslip.Basic_Pay.toFixed(2)}</span>
                     </div>
                     {(() => {
@@ -2203,6 +2327,114 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* --- SALARY ADVANCES --- */}
+      {advancesFor && (
+        <Sheet
+          title="Salary advances"
+          subtitle={advancesFor.Employee_Name}
+          icon={<HandCoins className="w-4 h-4" />}
+          onClose={() => setAdvancesFor(null)}
+          maxWidth="md"
+          footer={
+            <div className="flex items-center justify-end gap-2">
+              <button type="button" onClick={() => setAdvancesFor(null)} className={sheetBtn.ghost}>Done</button>
+              <button type="submit" form="advance-form" disabled={isSyncing} className={sheetBtn.primary}>
+                {isSyncing ? 'Saving…' : 'Record advance'}
+              </button>
+            </div>
+          }
+        >
+          <form id="advance-form" onSubmit={handleAddAdvance} className="space-y-3">
+            <p className="text-xs text-ink-600 dark:text-ink-300 leading-relaxed">
+              Money paid ahead of payday: an advance, or emergency funds. It is deducted
+              automatically from the payslip for the period it was taken in.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="adv-date" className="block text-2xs font-bold uppercase tracking-wider text-ink-600 dark:text-ink-300 mb-1">Date paid</label>
+                <input
+                  id="adv-date"
+                  type="date"
+                  required
+                  value={advDate}
+                  min={advancesFor.Joining_Date || undefined}
+                  max={advancesFor.End_Date || undefined}
+                  onChange={e => setAdvDate(e.target.value)}
+                  className="w-full px-3 py-2.5 text-xs rounded-lg border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-950 text-ink-900 dark:text-ink-100 dark:[color-scheme:dark]"
+                />
+              </div>
+              <div>
+                <label htmlFor="adv-amount" className="block text-2xs font-bold uppercase tracking-wider text-ink-600 dark:text-ink-300 mb-1">Amount (RM)</label>
+                <input
+                  id="adv-amount"
+                  type="number"
+                  required
+                  min="0.01"
+                  step="0.01"
+                  inputMode="decimal"
+                  value={advAmount || ''}
+                  onChange={e => setAdvAmount(Number(e.target.value))}
+                  className="w-full px-3 py-2.5 text-xs font-mono rounded-lg border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-950 text-ink-900 dark:text-ink-100"
+                />
+              </div>
+            </div>
+            <div>
+              <label htmlFor="adv-note" className="block text-2xs font-bold uppercase tracking-wider text-ink-600 dark:text-ink-300 mb-1">Reason (optional)</label>
+              <input
+                id="adv-note"
+                type="text"
+                placeholder="e.g. Medical emergency"
+                value={advNote}
+                onChange={e => setAdvNote(e.target.value)}
+                className="w-full px-3 py-2.5 text-xs rounded-lg border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-950 text-ink-900 dark:text-ink-100"
+              />
+            </div>
+            {parseLocalDate(advDate) && (
+              <p className="text-2xs font-semibold text-amber-800 dark:text-amber-300">
+                Deducted from the {periodLabelFor(advancesFor, parseLocalDate(advDate)!)} payslip.
+              </p>
+            )}
+          </form>
+
+          <div className="mt-5">
+            <h4 className="text-2xs font-bold uppercase tracking-wider text-ink-600 dark:text-ink-300 mb-2">History</h4>
+            {(advancesFor.Advances || []).length === 0 ? (
+              <p className="text-xs text-ink-500 dark:text-ink-400 py-3">No advances recorded.</p>
+            ) : (
+              <ul className="divide-y divide-ink-100 dark:divide-ink-800 border border-ink-100 dark:border-ink-800 rounded-lg">
+                {[...(advancesFor.Advances || [])].sort((a, b) => b.date.localeCompare(a.date)).map(a => {
+                  const slip = advanceOnPayslip(a.id);
+                  const taken = parseLocalDate(a.date);
+                  return (
+                    <li key={a.id} className="flex items-center gap-3 px-3 py-2.5">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold font-mono text-ink-900 dark:text-white tabular">RM {a.amount.toFixed(2)}</p>
+                        <p className="text-2xs text-ink-500 dark:text-ink-400 truncate">
+                          {a.date}{a.note ? ` · ${a.note}` : ''}
+                        </p>
+                        <p className={`text-2xs font-semibold ${slip ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-800 dark:text-amber-300'}`}>
+                          {slip ? `Deducted · ${normaliseMonthLabel(slip.Month_Year)}` : `Pending · ${taken ? periodLabelFor(advancesFor, taken) : ''} payslip`}
+                        </p>
+                      </div>
+                      {!slip && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAdvance(a)}
+                          aria-label={`Delete advance of ${a.date}`}
+                          className="tap flex items-center justify-center rounded-lg text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </Sheet>
       )}
     </div>
   );

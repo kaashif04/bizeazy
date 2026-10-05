@@ -9,6 +9,9 @@
 import { DatabaseState, Employee, Payslip, CompanyProfile } from '../types';
 import { getPaymentSummary } from './payments';
 import { outletLabel } from './outlets';
+import { parseLocalDate, monthLabel, periodBounds, payPeriod, isRemindable, PayPeriod } from './payroll';
+
+export { parseLocalDate, monthLabel };
 
 /**
  * Malaysian Employment Act s.19: wages are payable within 7 days of the end of
@@ -17,23 +20,11 @@ import { outletLabel } from './outlets';
  */
 export const SALARY_DEADLINE_DAYS = 7;
 
-/** How many ended months back to check for unpaid salary. */
-// ponytail: just the most recent ended month. Looking further back nags a
-// company that simply was not using payroll yet about months it never ran, and
-// anyone more than a month behind is already being told about this month. The
-// loop below handles a larger value if a longer cycle ever turns up.
-const MONTHS_BACK = 1;
-
 /** Days after which an unsettled invoice counts as overdue. */
 const INVOICE_OVERDUE_DAYS = 30;
 
 /** Days of notice before a quotation's validity lapses. */
 const QUOTATION_NOTICE_DAYS = 3;
-
-const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
 
 export type NotificationKind =
   | 'salary-due' | 'salary-overdue' | 'invoice-overdue' | 'quotation-expiring' | 'quotation-expired';
@@ -47,22 +38,10 @@ export interface AppNotification {
   view: 'payroll' | 'invoicing' | 'quotations';
 }
 
-/** Parse "2026-05-15" as a LOCAL date; `new Date(str)` would read it as UTC. */
-export function parseLocalDate(value?: string): Date | null {
-  const m = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!m) return null;
-  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  return isNaN(d.getTime()) ? null : d;
-}
-
 const daysBetween = (from: Date, to: Date): number =>
   Math.ceil((to.getTime() - from.getTime()) / 86400000);
 
-/** Last day of the month that `monthsAgo` months back from `today` falls in. */
-const monthEnd = (today: Date, monthsAgo: number): Date =>
-  new Date(today.getFullYear(), today.getMonth() - monthsAgo + 1, 0);
-
-export const monthLabel = (d: Date): string => `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
+const startOfDay = (d: Date): Date => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
 /** Normalise whatever a Month_Year cell holds to "September 2026". */
 export function normaliseMonthLabel(raw?: string): string {
@@ -75,33 +54,36 @@ export function normaliseMonthLabel(raw?: string): string {
 }
 
 /**
- * When salary for a given month must be paid, and how that stands today.
- * Extracted from PayrollDashboard so the countdown, the bell and the email
- * reminder cannot drift apart.
+ * When salary for a wage period must be paid, and how that stands today.
+ * One definition shared by the generator's countdown, the bell and the email.
  */
-export function salaryDeadline(monthEndDate: Date, today: Date): {
+export function salaryDeadline(periodEnd: Date, today: Date): {
   ended: boolean; deadline: Date; daysLeft: number; overdue: boolean;
 } {
-  const deadline = new Date(monthEndDate.getTime());
+  const deadline = new Date(periodEnd.getTime());
   deadline.setDate(deadline.getDate() + SALARY_DEADLINE_DAYS);
   const daysLeft = daysBetween(today, deadline);
-  return { ended: today > monthEndDate, deadline, daysLeft, overdue: daysLeft < 0 };
+  // Day-level: the period's last day is still a working day, whatever the hour.
+  return { ended: startOfDay(today) > periodEnd, deadline, daysLeft, overdue: daysLeft < 0 };
 }
 
 /**
- * Is this employee owed a payslip for the month ending `end`?
- * Mirrors the eligibility rules shown in the payslip generator: joined on or
- * before month end, and past their first full month of service.
+ * The most recent ended wage period this employee is owed for, if a reminder
+ * should chase it. Only the latest one: anyone further behind is already being
+ * told about this one, and older months would nag a company about payroll it
+ * simply was not running in the app yet.
+ * On the anniversary basis last month's period may still be running, so this
+ * looks one month further back for the latest one that has ended.
  */
-export function owedForMonth(emp: Employee, end: Date, today: Date): boolean {
-  if (today <= end) return false;
-  const joined = parseLocalDate(emp.Joining_Date);
-  if (joined) {
-    if (joined > end) return false;
-    const firstEligible = new Date(joined.getFullYear(), joined.getMonth() + 1, joined.getDate());
-    if (today < firstEligible) return false;
+export function salaryDue(emp: Employee, today: Date): PayPeriod | null {
+  const day = startOfDay(today);
+  for (let back = 1; back <= 2; back++) {
+    const month = new Date(day.getFullYear(), day.getMonth() - back, 1);
+    if (day <= periodBounds(emp, month.getFullYear(), month.getMonth()).end) continue;
+    const period = payPeriod(emp, month.getFullYear(), month.getMonth());
+    return period && isRemindable(emp, period) ? period : null;
   }
-  return true;
+  return null;
 }
 
 const isPaid = (p: Payslip): boolean => p.Payment_Transferred === true;
@@ -119,24 +101,29 @@ export function buildNotifications(
   const out: AppNotification[] = [];
   const branches = profiles.length ? profiles : [];
 
-  // ── Salary, per branch per ended month ──
-  for (let back = 1; back <= MONTHS_BACK; back++) {
-    const end = monthEnd(today, back);
-    const { ended, daysLeft, overdue } = salaryDeadline(end, today);
-    if (!ended) continue;
-    const label = monthLabel(end);
+  // ── Salary, per branch per wage month ──
+  branches.forEach(profile => {
+    const branch = outletLabel(profile);
+    const groups = new Map<string, { owed: Employee[]; unpaid: Employee[]; end: Date | null }>();
+    db.employees
+      .filter(e => e.Assigned_Outlet === profile.id || e.Branch_Location === branch)
+      .forEach(e => {
+        const period = salaryDue(e, today);
+        if (!period) return;
+        const g = groups.get(period.label) || { owed: [], unpaid: [], end: null };
+        groups.set(period.label, g);
+        g.owed.push(e);
+        const paid = db.payslips.some(p =>
+          p.Employee_ID === e.Employee_ID && normaliseMonthLabel(p.Month_Year) === period.label && isPaid(p));
+        if (paid) return;
+        g.unpaid.push(e);
+        // Anniversary periods end on different days; chase the earliest deadline.
+        if (!g.end || period.end < g.end) g.end = period.end;
+      });
 
-    branches.forEach(profile => {
-      const branch = outletLabel(profile);
-      const staff = db.employees.filter(e =>
-        e.Assigned_Outlet === profile.id || e.Branch_Location === branch);
-      const owed = staff.filter(e => owedForMonth(e, end, today));
-      if (!owed.length) return;
-
-      const unpaid = owed.filter(e => !db.payslips.some(p =>
-        p.Employee_ID === e.Employee_ID && normaliseMonthLabel(p.Month_Year) === label && isPaid(p)));
-      if (!unpaid.length) return;
-
+    groups.forEach(({ owed, unpaid, end }, label) => {
+      if (!unpaid.length || !end) return;
+      const { daysLeft, overdue } = salaryDeadline(end, today);
       const who = unpaid.length === 1
         ? unpaid[0].Employee_Name
         : `${unpaid.length} of ${owed.length} staff`;
@@ -156,7 +143,7 @@ export function buildNotifications(
         view: 'payroll',
       });
     });
-  }
+  });
 
   // ── Invoices left unsettled ──
   const overdueInvoices = db.invoices.filter(inv => {

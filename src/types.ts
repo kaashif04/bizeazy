@@ -102,9 +102,18 @@ export interface Employee {
   Basic_Salary: number;
   Bank_Details: string;
   Branch_Location: string;
-  Citizenship?: 'Malaysian/PR' | 'Foreigner';
+  /** 'Malaysian/PR' is the old combined value, read as Malaysian — see utils/payroll.ts. */
+  Citizenship?: 'Malaysian' | 'PR' | 'Foreigner' | 'Malaysian/PR';
   Age?: number;
   Joining_Date?: string;        // ISO date string e.g. "2026-05-15"
+  /** Last working day. Kept on the roster for records; nothing is owed after it. */
+  End_Date?: string;
+  /** Day the employee was added to the app. Salary reminders start from this period. */
+  Registered_On?: string;
+  /** 'calendar' (default): prorate part months. 'anniversary': monthly cycles from the joining day. */
+  Pay_Basis?: 'calendar' | 'anniversary';
+  /** Salary advances, each recovered on the payslip of the period it was taken in. */
+  Advances?: SalaryAdvance[];
   /**
    * When true, the employer pays the employee's own EPF/SOCSO/EIS share on
    * top of statutory obligations, so the payslip's net pay equals gross pay
@@ -115,6 +124,13 @@ export interface Employee {
    * and what still needs confirming with a payroll/tax advisor.
    */
   Employer_Bears_Statutory?: boolean;
+}
+
+export interface SalaryAdvance {
+  id: string;
+  date: string;     // YYYY-MM-DD
+  amount: number;
+  note?: string;
 }
 
 export interface Payslip {
@@ -163,6 +179,8 @@ export interface Payslip {
   Payment_Transferred?: boolean;  // true once employer marks payment made
   Transfer_Date?: string;         // manually entered after payment e.g. "15 June 2026"
   Is_Payment_Due?: boolean;       // computed flag: month ended, payment not yet made
+  /** Dates covered, e.g. "15 Sep – 30 Sep 2026 · 16 of 30 days". Blank for a plain calendar month. */
+  Pay_Period?: string;
 }
 
 export type ServingStyle = 'Packed Bento Boxes' | 'Buffet Setup' | 'Dome Serving';

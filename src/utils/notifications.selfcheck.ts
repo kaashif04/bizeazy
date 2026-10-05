@@ -8,9 +8,10 @@
 import { readFileSync } from 'fs';
 import { DatabaseState, CompanyProfile, Employee, Payslip, Invoice, Quotation } from '../types';
 import {
-  buildNotifications, salaryDeadline, owedForMonth, parseLocalDate,
+  buildNotifications, salaryDeadline, salaryDue, parseLocalDate,
   normaliseMonthLabel, monthLabel, SALARY_DEADLINE_DAYS,
 } from './notifications';
+import { payPeriod, periodLabelFor, describePeriod, epfEmployee, epfEmployer, residencyOf } from './payroll';
 
 const ok = (cond: boolean, msg: string) => { if (!cond) throw new Error(`SELF-CHECK FAILED: ${msg}`); };
 
@@ -62,20 +63,61 @@ ok(dayAfter.overdue && dayAfter.daysLeft === -1, `the day after is overdue by 1 
 ok(salaryDeadline(sepEnd, new Date(2026, 9, 3)).daysLeft === 4, 'three days in leaves four to go');
 ok(SALARY_DEADLINE_DAYS === 7, 'the statutory window is 7 days');
 
-// ── Eligibility ──
+// ── Wage periods ──
 const oct5 = new Date(2026, 9, 5);
-ok(owedForMonth(emp({ Employee_ID: 'E1' }), sepEnd, oct5), 'a long-serving employee is owed');
-ok(!owedForMonth(emp({ Employee_ID: 'E2' }), new Date(2026, 9, 31), oct5), 'the current month is not owed yet');
-ok(!owedForMonth(emp({ Employee_ID: 'E3', Joining_Date: '2026-10-02' }), sepEnd, oct5),
-   'someone who joined after month end is not owed for it');
-ok(owedForMonth(emp({ Employee_ID: 'E4', Joining_Date: '2026-09-15' }), sepEnd, new Date(2026, 9, 20)),
-   'a mid-month joiner is owed once a full month has passed');
-ok(!owedForMonth(emp({ Employee_ID: 'E5', Joining_Date: '2026-09-15' }), sepEnd, new Date(2026, 9, 10)),
-   'a mid-month joiner is not owed before their first full month');
-ok(owedForMonth(emp({ Employee_ID: 'E6', Joining_Date: '2026-09-30' }), sepEnd, new Date(2026, 10, 1)),
-   'joining on the last day of the month is still owed for that month');
-ok(!owedForMonth(emp({ Employee_ID: 'E7', Joining_Date: '2026-10-01' }), sepEnd, new Date(2026, 10, 1)),
-   'joining the day after month end is not');
+const sepCal = payPeriod(emp({ Employee_ID: 'P1', Joining_Date: '2026-09-15' }), 2026, 8)!;
+ok(sepCal.daysWorked === 16 && sepCal.daysInPeriod === 30, `calendar: joined 15 Sep works 16 of 30 days (got ${sepCal.daysWorked}/${sepCal.daysInPeriod})`);
+ok(payPeriod(emp({ Employee_ID: 'P1', Joining_Date: '2026-09-15' }), 2026, 9)!.fraction === 1, 'calendar: the next month is paid in full');
+ok(payPeriod(emp({ Employee_ID: 'P1', Joining_Date: '2026-09-15' }), 2026, 7) === null, 'nothing is owed before joining');
+ok(describePeriod(sepCal) === '15 Sep – 30 Sep 2026 · 16 of 30 days', `period text, got "${describePeriod(sepCal)}"`);
+
+const anniv = emp({ Employee_ID: 'P2', Joining_Date: '2026-09-15', Pay_Basis: 'anniversary' });
+const sepAnn = payPeriod(anniv, 2026, 8)!;
+ok(sepAnn.fraction === 1 && sepAnn.end.getMonth() === 9 && sepAnn.end.getDate() === 14,
+   'anniversary: "September" runs 15 Sep – 14 Oct and is paid in full');
+ok(periodLabelFor(anniv, new Date(2026, 9, 3)) === 'September 2026', 'anniversary: 3 Oct falls in the September period');
+ok(periodLabelFor(anniv, new Date(2026, 9, 20)) === 'October 2026', 'anniversary: 20 Oct falls in October');
+ok(periodLabelFor(emp({ Employee_ID: 'P3' }), new Date(2026, 9, 3)) === 'October 2026', 'calendar: 3 Oct is October');
+
+const jan31 = emp({ Employee_ID: 'P4', Joining_Date: '2026-01-31', Pay_Basis: 'anniversary' });
+const feb = payPeriod(jan31, 2026, 1)!;
+ok(feb.start.getDate() === 28 && feb.end.getMonth() === 2 && feb.end.getDate() === 30,
+   'anniversary: a 31st joiner\'s February period clamps to 28 Feb – 30 Mar');
+
+const leaver = emp({ Employee_ID: 'P5', Joining_Date: '2020-01-01', End_Date: '2026-10-10' });
+ok(payPeriod(leaver, 2026, 9)!.daysWorked === 10, 'a leaver on 10 Oct is paid 10 of 31 days');
+ok(payPeriod(leaver, 2026, 10) === null, 'and nothing after');
+const annLeaver = emp({ Employee_ID: 'P6', Joining_Date: '2026-09-15', Pay_Basis: 'anniversary', End_Date: '2026-09-24' });
+ok(payPeriod(annLeaver, 2026, 8)!.daysWorked === 10, 'anniversary leaver is prorated over their final period');
+
+// ── Who a reminder chases ──
+ok(salaryDue(emp({ Employee_ID: 'E1' }), oct5)!.label === 'September 2026', 'long serving: last month is due');
+ok(!salaryDue(emp({ Employee_ID: 'E3', Joining_Date: '2026-10-02' }), oct5), 'joined after last month: nothing due');
+ok(salaryDue(emp({ Employee_ID: 'E4', Joining_Date: '2026-09-15' }), oct5)!.daysWorked === 16,
+   'calendar: a mid-month joiner is due their part month as soon as it ends');
+ok(!salaryDue(anniv, oct5), 'anniversary: 15 Sep – 14 Oct has not ended on 5 Oct');
+ok(salaryDue(anniv, new Date(2026, 9, 20))!.label === 'September 2026', 'and is due once it has');
+ok(salaryDue(emp({ Employee_ID: 'E5', Joining_Date: '2024-03-15', Pay_Basis: 'anniversary' }), oct5)!.label === 'August 2026',
+   'anniversary, long serving: on 5 Oct the latest ended period is August (15 Aug – 14 Sep)');
+ok(salaryDue(emp({ Employee_ID: 'E6' }), new Date(2026, 8, 30, 15))!.label === 'August 2026',
+   'on the last day of a month, at any hour, that month has not ended — August is still the latest');
+
+const backdated = emp({ Employee_ID: 'E7', Joining_Date: '2023-03-01', Registered_On: '2026-10-05' });
+ok(!salaryDue(backdated, new Date(2026, 9, 20)), 'registered 5 Oct: September back pay is never chased');
+ok(payPeriod(backdated, 2026, 8) !== null, 'but September can still be generated');
+ok(salaryDue(backdated, new Date(2026, 10, 3))!.label === 'October 2026', 'October, the month registered, is chased');
+ok(!salaryDue(leaver, new Date(2026, 11, 3)), 'nothing is chased after the last working day');
+ok(salaryDue(leaver, new Date(2026, 10, 3))!.daysWorked === 10, 'but the final part month is');
+
+// ── EPF: PR and citizen part ways only at 60 ──
+ok(epfEmployee(3000, 'PR', 30) === epfEmployee(3000, 'Malaysian', 30), 'below 60 a PR pays as a citizen');
+ok(epfEmployer(3000, 'PR', 30) === 390, 'employer 13% up to RM5,000');
+ok(epfEmployee(3000, 'Malaysian', 61) === 0 && epfEmployer(3000, 'Malaysian', 61) === 120, 'citizen 60+: 0% / 4%');
+ok(epfEmployee(3000, 'PR', 61) === 165 && epfEmployer(3000, 'PR', 61) === 195, 'PR 60+: 5.5% / 6.5%');
+ok(epfEmployer(6000, 'PR', 61) === 360, 'PR 60+ above RM5,000: employer 6%');
+ok(epfEmployee(3000, 'Malaysian/PR', 61) === 0, 'the old combined value is charged as a citizen, as it always was');
+ok(epfEmployee(3000, 'Foreigner', 30) === 60, 'foreign worker 2%');
+ok(residencyOf(undefined) === 'Malaysian', 'blank reads as Malaysian');
 
 // ── Salary notifications ──
 const profiles = [outlet('b1', 'Main Branch')];
@@ -189,27 +231,34 @@ ok(buildNotifications(empty(), profiles, new Date(2026, 9, 20)).length === 0, 'a
   // top-level `var`/`function` declarations; nothing in it runs at definition time.
   const gas = new Function('Logger', 'PropertiesService', `
     ${code}
-    return { owedForMonthGs, normaliseMonthLabelGs, parseLocalDateGs, SALARY_DEADLINE_DAYS, isTruthyCell };
+    return { salaryDueGs, payPeriodGs, normaliseMonthLabelGs, parseLocalDateGs, SALARY_DEADLINE_DAYS, isTruthyCell };
   `)({ log() {} }, { getScriptProperties: () => ({ getProperty: () => null }) });
 
   ok(gas.SALARY_DEADLINE_DAYS === SALARY_DEADLINE_DAYS,
      `the deadline must match: TS ${SALARY_DEADLINE_DAYS} vs GAS ${gas.SALARY_DEADLINE_DAYS}`);
 
-  const sep = new Date(2026, 8, 30);
-  const mirrorCases: [Partial<Employee>, Date, Date, string][] = [
-    [{}, sep, new Date(2026, 9, 5), 'no joining date'],
-    [{ Joining_Date: '2026-10-02' }, sep, new Date(2026, 9, 5), 'joined after month end'],
-    [{ Joining_Date: '2026-09-30' }, sep, new Date(2026, 10, 1), 'joined ON month end'],
-    [{ Joining_Date: '2026-10-01' }, sep, new Date(2026, 10, 1), 'joined the day after month end'],
-    [{ Joining_Date: '2026-09-15' }, sep, new Date(2026, 9, 20), 'mid-month joiner, full month passed'],
-    [{ Joining_Date: '2026-09-15' }, sep, new Date(2026, 9, 10), 'mid-month joiner, too early'],
-    [{ Joining_Date: '2020-01-01' }, sep, new Date(2026, 9, 5), 'long serving'],
-    [{}, new Date(2026, 9, 31), new Date(2026, 9, 5), 'current month'],
+  const same = (a: any, b: any) => (a === null || b === null)
+    ? a === b
+    : a.label === b.label && a.start.getTime() === b.start.getTime() && a.end.getTime() === b.end.getTime()
+      && a.daysWorked === b.daysWorked && a.daysInPeriod === b.daysInPeriod;
+  const mirrorCases: [Partial<Employee>, Date, string][] = [
+    [{}, new Date(2026, 9, 5), 'no dates'],
+    [{ Joining_Date: '2026-10-02' }, new Date(2026, 9, 5), 'joined after the period'],
+    [{ Joining_Date: '2026-09-30' }, new Date(2026, 10, 1), 'joined on the last day'],
+    [{ Joining_Date: '2026-09-15' }, new Date(2026, 9, 5), 'calendar part month'],
+    [{ Joining_Date: '2026-09-15', Pay_Basis: 'anniversary' }, new Date(2026, 9, 5), 'anniversary, running'],
+    [{ Joining_Date: '2026-09-15', Pay_Basis: 'anniversary' }, new Date(2026, 9, 20), 'anniversary, ended'],
+    [{ Joining_Date: '2024-03-15', Pay_Basis: 'anniversary' }, new Date(2026, 9, 5), 'anniversary, long serving, looks two months back'],
+    [{ Joining_Date: '2026-01-31', Pay_Basis: 'anniversary' }, new Date(2026, 2, 31), 'anniversary, 31st clamp'],
+    [{ Joining_Date: '2020-01-01', End_Date: '2026-09-10' }, new Date(2026, 9, 5), 'leaver, final part month'],
+    [{ Joining_Date: '2020-01-01', End_Date: '2026-08-10' }, new Date(2026, 9, 5), 'leaver, after'],
+    [{ Joining_Date: '2020-01-01', Registered_On: '2026-10-02' }, new Date(2026, 9, 5), 'registered after the period'],
+    [{ Joining_Date: '2020-01-01', Registered_On: '2026-09-02' }, new Date(2026, 9, 5), 'registered within it'],
+    [{}, new Date(2026, 8, 30, 15), 'last day of the month, afternoon'],
   ];
-  mirrorCases.forEach(([e, end, today, what]) => {
-    const ts = owedForMonth(e as Employee, end, today);
-    const g = gas.owedForMonthGs(e, end, today);
-    ok(ts === g, `mirror drift on "${what}": TS ${ts} vs GAS ${g}`);
+  mirrorCases.forEach(([e, today, what]) => {
+    ok(same(salaryDue(e as Employee, today), gas.salaryDueGs(e, today)), `mirror drift on "${what}"`);
+    ok(same(payPeriod(e as Employee, 2026, 8), gas.payPeriodGs(e, 2026, 8)), `mirror drift on the period for "${what}"`);
   });
 
   ['2026-09-01', 'September 2026', ''].forEach(raw => {

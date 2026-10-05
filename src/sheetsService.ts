@@ -17,7 +17,7 @@
 
 import {
   DatabaseState, Invoice, InvoiceItem, Payment,
-  Customer, CompanyProfile, Employee, Payslip,
+  Customer, CompanyProfile, Employee, Payslip, SalaryAdvance,
   Quotation, QuotationDay, QuotationItem, PricingMode, PackageSubMode, ServingStyle
 } from './types';
 import { gasGet, gasPost, getApiUrl, setApiUrl, DEFAULT_API_URL } from './auth';
@@ -253,20 +253,20 @@ export const fetchDataAll = async (
 
     // Prefer dedicated columns (new Apps Script writes them directly).
     // Fall back to ||bm: decoded values for rows written by the old encoding.
-    let citizenship: 'Malaysian/PR' | 'Foreigner' = 'Malaysian/PR';
+    let citizenship: Employee['Citizenship'] = 'Malaysian/PR';
     let age: number | undefined;
     let joiningDate: string | undefined;
 
     if (bmIdx >= 0) {
       const meta = rawBank.substring(bmIdx + 5).split('|');
-      if (meta[0]) citizenship = (meta[0] === 'F' ? 'Foreigner' : 'Malaysian/PR') as 'Malaysian/PR' | 'Foreigner';
+      if (meta[0]) citizenship = meta[0] === 'F' ? 'Foreigner' : 'Malaysian/PR';
       if (meta[1]) age = Number(meta[1]) || undefined;
       if (meta[2]) joiningDate = meta[2] || undefined;
     }
     // Dedicated columns win over the legacy encoding
     const rowCitizenship = String(row.Citizenship || '').trim();
-    if (rowCitizenship === 'Foreigner' || rowCitizenship === 'Malaysian/PR') {
-      citizenship = rowCitizenship as 'Malaysian/PR' | 'Foreigner';
+    if (['Malaysian', 'PR', 'Foreigner', 'Malaysian/PR'].includes(rowCitizenship)) {
+      citizenship = rowCitizenship as Employee['Citizenship'];
     }
     if (row.Age !== undefined && row.Age !== null && row.Age !== '') {
       age = Number(row.Age) || undefined;
@@ -290,7 +290,11 @@ export const fetchDataAll = async (
       Employer_Bears_Statutory:
         row.Employer_Bears_Statutory === true ||
         String(row.Employer_Bears_Statutory || '').toLowerCase() === 'true',
-    };
+      Pay_Basis:      row.Pay_Basis === 'anniversary' ? 'anniversary' : 'calendar',
+      End_Date:       row.End_Date ? String(row.End_Date) : undefined,
+      Registered_On:  row.Registered_On ? String(row.Registered_On) : undefined,
+      Advances:       parseAdvances(row.Advances_JSON),
+    } as Employee;
   }).filter((e: any) => e.Employee_ID);
 
   // ── Payslips ─────────────────────────────────────────────
@@ -348,6 +352,7 @@ export const fetchDataAll = async (
       Transfer_Date:            transferDate,
       Is_Payment_Due:      row.Is_Payment_Due === true || String(row.Is_Payment_Due || '').toLowerCase() === 'true',
       Employer_Statutory_Offset: Number(row.Employer_Statutory_Offset) || 0,
+      Pay_Period:               String(row.Pay_Period || ''),
     };
   }).filter((p: any) => p.Payslip_ID);
 
@@ -453,6 +458,19 @@ export const fetchDataAll = async (
   return { invoices, invoice_items, payments, customers, employees, payslips, quotations, quotation_days, quotation_items, profiles: [] };
 };
 
+/** Advances_JSON cell → advances. A malformed cell reads as none rather than breaking the roster. */
+function parseAdvances(raw: unknown): SalaryAdvance[] {
+  try {
+    const list = JSON.parse(String(raw || '[]'));
+    return Array.isArray(list)
+      ? list.filter(a => a && a.id && a.date && Number(a.amount) > 0)
+            .map(a => ({ id: String(a.id), date: String(a.date), amount: Number(a.amount), note: a.note ? String(a.note) : undefined }))
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 // ── localStorage helpers for fields not yet in the Apps Script schema ────────
 export const saveEmployeeExtras = (
   employeeId: string,
@@ -549,6 +567,10 @@ export const syncStateToSheets = async (
     Age: emp.Age !== undefined ? emp.Age : '',
     Joining_Date: emp.Joining_Date || '',
     Employer_Bears_Statutory: emp.Employer_Bears_Statutory || false,
+    Pay_Basis: emp.Pay_Basis || 'calendar',
+    End_Date: emp.End_Date || '',
+    Registered_On: emp.Registered_On || '',
+    Advances_JSON: emp.Advances?.length ? JSON.stringify(emp.Advances) : '',
   })) || [];
 
   const currentPayslipsFormatted = db.payslips?.map(ps => {
@@ -572,6 +594,7 @@ export const syncStateToSheets = async (
       Transfer_Date: ps.Transfer_Date || '',
       Is_Payment_Due: ps.Is_Payment_Due || false,
       Employer_Statutory_Offset: ps.Employer_Statutory_Offset || 0,
+      Pay_Period: ps.Pay_Period || '',
     };
   }) || [];
 
@@ -651,6 +674,10 @@ export const syncStateToSheets = async (
       Age: age,
       Joining_Date: joiningDate,
       Employer_Bears_Statutory: e.Employer_Bears_Statutory === true || String(e.Employer_Bears_Statutory || '').toLowerCase() === 'true',
+      // Passed through untouched: the sync rewrites the whole tab, so a column
+      // missing here is a column erased for every other branch.
+      Pay_Basis: e.Pay_Basis || '', End_Date: e.End_Date || '',
+      Registered_On: e.Registered_On || '', Advances_JSON: e.Advances_JSON || '',
     };
   });
 
@@ -686,6 +713,7 @@ export const syncStateToSheets = async (
       Payment_Transferred: isPaid,
       Transfer_Date: transferDate, Is_Payment_Due: false,
       Employer_Statutory_Offset: Number(p.Employer_Statutory_Offset) || 0,
+      Pay_Period: p.Pay_Period || '',
     };
   });
 
