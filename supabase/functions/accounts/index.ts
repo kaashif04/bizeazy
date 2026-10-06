@@ -95,6 +95,34 @@ async function activeAdmins(companyId: string): Promise<number> {
   return count ?? 0;
 }
 
+// ── Recovery codes ───────────────────────────────────────────────────────────
+// Logins have no real email, so "forgot password" cannot mail a link. An admin
+// instead keeps a one-time recovery code, written down somewhere safe. Only its
+// salted hash is stored, on the auth user's app_metadata (writable by the
+// service key alone). 20 characters from a 32-letter alphabet is 100 bits, so
+// guessing one through the public endpoint is not a realistic attack.
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // no 0/O or 1/I to misread
+
+function newRecoveryCode(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(20));
+  const chars = [...bytes].map(b => CODE_ALPHABET[b % 32]);
+  return [0, 5, 10, 15].map(i => chars.slice(i, i + 5).join('')).join('-');
+}
+
+const normaliseCode = (code: unknown) => String(code ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+async function sha256(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function sameText(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 // ── Actions ──────────────────────────────────────────────────────────────────
 
 async function checkUserId(p: any) {
@@ -154,6 +182,40 @@ async function registerCompany(p: any) {
     },
   });
   return { user_id: String(p.userId).trim() };
+}
+
+/** A fresh code for the calling admin; any earlier one stops working. Shown once. */
+async function createRecoveryCode(admin: Profile) {
+  const code = newRecoveryCode();
+  const salt = crypto.randomUUID();
+  const { error } = await db.auth.admin.updateUserById(admin.user_id, {
+    app_metadata: { recovery: { salt, hash: await sha256(salt + normaliseCode(code)), created_at: new Date().toISOString() } },
+  });
+  if (error) throw error;
+  return { code };
+}
+
+async function recoveryStatus(admin: Profile) {
+  const { data } = await db.auth.admin.getUserById(admin.user_id);
+  const rec = data.user?.app_metadata?.recovery;
+  return { exists: !!rec?.hash, created_at: rec?.created_at || null };
+}
+
+/** Public: a forgotten password, reset with the account's recovery code. The code is used up. */
+async function recoverAccount(p: any) {
+  const nope = new Refusal('That user ID and recovery code do not match.');
+  const code = userCode(p.userId);
+  const pw = password(p.newPassword);
+  const { data: profile } = await db.from('profiles').select('*').eq('user_code', code).maybeSingle();
+  if (!profile) throw nope;
+  const { data } = await db.auth.admin.getUserById(profile.user_id);
+  const rec = data.user?.app_metadata?.recovery;
+  if (!rec?.hash || !sameText(await sha256(rec.salt + normaliseCode(p.code)), rec.hash)) throw nope;
+  // Only after the code checks out, so the endpoint never reveals account state.
+  if (!profile.active) throw new Refusal('This account has been deactivated. Contact your administrator.');
+  const { error } = await db.auth.admin.updateUserById(profile.user_id, { password: pw, app_metadata: { recovery: null } });
+  if (error) throw error;
+  return {};
 }
 
 async function listUsers(admin: Profile) {
@@ -240,6 +302,9 @@ Deno.serve(async (req) => {
     switch (p?.action) {
       case 'checkUserId':       return reply({ success: true, data: await checkUserId(p) });
       case 'registerCompany':   return reply({ success: true, data: await registerCompany(p) });
+      case 'recoverAccount':    return reply({ success: true, data: await recoverAccount(p) });
+      case 'createRecoveryCode': return reply({ success: true, data: await createRecoveryCode(await signedInAdmin(req)) });
+      case 'recoveryStatus':    return reply({ success: true, data: await recoveryStatus(await signedInAdmin(req)) });
       case 'listUsers':         return reply({ success: true, data: await listUsers(await signedInAdmin(req)) });
       case 'createUser':        return reply({ success: true, data: await createUser(await signedInAdmin(req), p) });
       case 'updateUser':        return reply({ success: true, data: await updateUser(await signedInAdmin(req), p) });

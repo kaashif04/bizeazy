@@ -8,7 +8,7 @@
  * the move to Supabase silently drops data.
  */
 (globalThis as any).window = undefined;
-const { diffRecords, recordKey, EMPTY_DB, KINDS } = await import('./db');
+const { diffRecords, recordKey, EMPTY_DB, KINDS, backupJson, workbookSheets } = await import('./db');
 const { parseSheetExport } = await import('./sheetsImport');
 import type { DatabaseState, CompanyProfile } from './types';
 
@@ -119,5 +119,17 @@ ok(write.upserts.length === expected, `every imported record is written, ${write
 ok(write.upserts.every(u => u.id.length > 0), 'no record is written under a blank key');
 
 ok(parseSheetExport({}, profiles).invoices.length === 0, 'an empty export imports nothing without failing');
+
+// ── Backups ──
+const cfg = { Bistro: { store_name: 'A1 Bistro', logo_url: 'data:image/png;base64,AAAA', template: { x: 1 }, series_format: 'BIS-26-' } };
+const backup = JSON.parse(backupJson(got, cfg, 'Ya Barr'));
+ok(backup.format === 'bizeazy-backup' && backup.company === 'Ya Barr', 'a backup names its format and company');
+ok(KINDS.every(k => JSON.stringify(backup.data[k]) === JSON.stringify((got as any)[k])), 'a backup holds every record exactly');
+ok(backup.config.Bistro.logo_url === cfg.Bistro.logo_url, 'and the full settings, logo included');
+const sheets = workbookSheets(got, cfg);
+ok(sheets.length === KINDS.length + 1, 'one sheet per record type, plus branches');
+const branchRow = sheets[sheets.length - 1].rows[0] as any;
+ok(branchRow.Branch_ID === 'Bistro' && !('logo_url' in branchRow) && !('template' in branchRow),
+   'the Excel branches sheet leaves out logos and designs');
 
 console.log('All db and import self-checks passed.');

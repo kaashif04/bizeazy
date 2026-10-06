@@ -202,5 +202,17 @@ export const updateUser = (p: { userId: string; fullName?: string; email?: strin
 export const resetUserPassword = (userId: string, password: string) => accounts('resetUserPassword', { userId, password });
 export const deleteUser = (userId: string) => accounts('deleteUser', { userId });
 
+// ── Account recovery ──────────────────────────────────────────
+// Logins have no real email to send a reset link to, so an admin keeps a
+// one-time recovery code instead. Staff who forget a password ask an admin.
+export const createRecoveryCode = (): Promise<{ code: string }> => accounts('createRecoveryCode', {});
+export const recoveryStatus = (): Promise<{ exists: boolean; created_at: string | null }> => accounts('recoveryStatus', {});
+
+/** Reset a forgotten password with a recovery code, then sign in with the new one. The code is used up. */
+export async function recoverAccount(userId: string, code: string, newPassword: string): Promise<Session> {
+  await accounts('recoverAccount', { userId, code, newPassword });
+  return login(userId, newPassword, true);
+}
+
 export const can = (session: Session | null, mod: ModuleName): boolean =>
   !!session && (session.user.role === 'admin' || session.user.modules.indexOf(mod) !== -1);

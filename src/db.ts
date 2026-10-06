@@ -153,6 +153,17 @@ export async function importSheetExport(
 ): Promise<ImportResult> {
   let file: any;
   try { file = JSON.parse(text); } catch { throw new Error('That file is not a BizEazy export (it is not valid JSON).'); }
+
+  // A backup from this app: records are already in the app's shape.
+  if (file?.format === BACKUP_FORMAT && file.data && typeof file.data === 'object') {
+    const config = file.config && typeof file.config === 'object' ? file.config : {};
+    if (Object.keys(config).length) await saveConfig(config);
+    const db = { ...EMPTY_DB, ...Object.fromEntries(KINDS.map(k => [k, Array.isArray(file.data[k]) ? file.data[k] : []])) } as DatabaseState;
+    await apply(diffRecords(null, db));
+    const counts = Object.fromEntries(KINDS.map(k => [k, (db[k] as any[]).length])) as Record<Kind, number>;
+    return { counts, branches: toProfiles(config).length };
+  }
+
   if (!file || file.format !== 'bizeazy-sheets-export' || typeof file.data !== 'object') {
     throw new Error('That file is not a BizEazy export. Run exportForBizEazy() in Apps Script and choose the file it saves.');
   }
@@ -165,4 +176,55 @@ export async function importSheetExport(
 
   const counts = Object.fromEntries(KINDS.map(k => [k, (db[k] as any[]).length])) as Record<Kind, number>;
   return { counts, branches: toProfiles(config).length };
+}
+
+// ── Backups ───────────────────────────────────────────────────
+const BACKUP_FORMAT = 'bizeazy-backup';
+
+/**
+ * Everything this user can see, as one file. Restoring it (Data & Import)
+ * writes every record back under its own id: it puts back anything missing or
+ * changed since, and leaves records created after the backup alone.
+ */
+export const backupJson = (db: DatabaseState, config: Record<string, any>, companyName: string): string =>
+  JSON.stringify({ format: BACKUP_FORMAT, version: 1, exported_at: new Date().toISOString(), company: companyName, config, data: db });
+
+const SHEET_TITLES: Record<Kind, string> = {
+  invoices: 'Invoices', invoice_items: 'Invoice lines', payments: 'Payments', customers: 'Customers',
+  employees: 'Employees', payslips: 'Payslips', quotations: 'Quotations',
+  quotation_days: 'Quotation days', quotation_items: 'Quotation lines',
+};
+
+/** One worksheet per record type, plus the branches without their logos and designs. */
+export function workbookSheets(db: DatabaseState, config: Record<string, any>) {
+  const branches = Object.entries(config)
+    .filter(([, v]) => v && typeof v === 'object' && !Array.isArray(v))
+    .map(([id, v]: [string, any]) => {
+      const { logo_url, template, ...rest } = v;
+      return { Branch_ID: id, ...rest };
+    });
+  return [
+    ...KINDS.map(k => ({ name: SHEET_TITLES[k], rows: db[k] as any[] })),
+    { name: 'Branches', rows: branches },
+  ];
+}
+
+// ── Who changed what ──────────────────────────────────────────
+export interface Change { kind: Kind; id: string; at: string; by: string }
+
+/**
+ * The latest edits and additions, newest first, with who made them. Deletions
+ * leave no row behind, so they do not appear here.
+ */
+export async function recentChanges(limit = 30): Promise<Change[]> {
+  const [{ data: rows, error }, { data: people }] = await Promise.all([
+    supabase.from('records').select('kind, id, updated_at, updated_by').order('updated_at', { ascending: false }).limit(limit),
+    supabase.from('profiles').select('user_id, display_id, full_name'),
+  ]);
+  if (error) throw friendly(error);
+  const names = new Map((people || []).map(p => [p.user_id, p.full_name || p.display_id]));
+  return (rows || []).map(r => ({
+    kind: r.kind as Kind, id: r.id, at: r.updated_at,
+    by: r.updated_by ? names.get(r.updated_by) || 'A removed user' : 'Unknown',
+  }));
 }

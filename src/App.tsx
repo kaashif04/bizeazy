@@ -2,10 +2,12 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom';
 import {
   loadAll, saveChanges, loadConfig, saveConfig, importSheetExport, forgetLoaded, EMPTY_DB, KINDS,
+  backupJson, workbookSheets, recentChanges, Change,
 } from './db';
+import { buildXlsx, download, XLSX_TYPE } from './utils/xlsx';
 import {
   Session, SessionUser, ModuleName, can, loadSession, refreshSession,
-  logout as endSession, SIGNED_OUT_EVENT,
+  logout as endSession, SIGNED_OUT_EVENT, recoveryStatus,
 } from './auth';
 import { LoginScreen, RegisterScreen } from './components/AuthScreens';
 import { UsersModal } from './components/UsersModal';
@@ -172,17 +174,48 @@ const KIND_LABELS: Record<typeof KINDS[number], string> = {
 };
 
 /** Where the company's data lives, and the one-time move from Google Sheets. */
+const ago = (iso: string): string => {
+  const mins = Math.round((Date.now() - Date.parse(iso)) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min ago`;
+  if (mins < 60 * 24) return `${Math.round(mins / 60)} h ago`;
+  return new Date(iso).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
+/** Where the company's data lives: backups, restoring or importing, and who changed what. */
 function DataModal({
-  companyName, canImport, onClose, onImported,
+  companyName, canImport, db, onClose, onImported,
 }: {
   companyName: string;
   canImport: boolean;
+  db: DatabaseState;
   onClose: () => void;
   onImported: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Awaited<ReturnType<typeof importSheetExport>> | null>(null);
+  const [changes, setChanges] = useState<Change[] | null>(null);
+
+  useEffect(() => { recentChanges().then(setChanges).catch(() => setChanges([])); }, []);
+
+  const stamp = new Date().toISOString().slice(0, 10);
+  const fileBase = `${(companyName || 'bizeazy').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase()}-${stamp}`;
+
+  const downloadExcel = async () => {
+    setBusy(true); setError(null);
+    try {
+      download(`${fileBase}.xlsx`, buildXlsx(workbookSheets(db, await loadConfig())), XLSX_TYPE);
+    } catch (err: any) { setError(err.message || 'Could not build the Excel file.'); }
+    finally { setBusy(false); }
+  };
+  const downloadBackup = async () => {
+    setBusy(true); setError(null);
+    try {
+      download(`${fileBase}-backup.json`, backupJson(db, await loadConfig(), companyName), 'application/json');
+    } catch (err: any) { setError(err.message || 'Could not build the backup.'); }
+    finally { setBusy(false); }
+  };
 
   const onFile = async (file: File | undefined) => {
     if (!file) return;
@@ -214,24 +247,41 @@ function DataModal({
           </p>
         </div>
 
+        {canImport && (
+          <div>
+            <h4 className="text-2xs font-bold uppercase tracking-wider text-ink-600 dark:text-ink-300 mb-1.5">Back up</h4>
+            <p className="text-xs text-ink-600 dark:text-ink-300 leading-relaxed">
+              <span className="font-bold">Excel</span> has a sheet for each type of record, for your accountant or your own checks.
+              The <span className="font-bold">backup file</span> holds everything and can be restored below.
+            </p>
+            <div className="flex flex-wrap gap-2 mt-2.5">
+              <button type="button" onClick={downloadExcel} disabled={busy} className={sheetBtn.ghost}>Download Excel</button>
+              <button type="button" onClick={downloadBackup} disabled={busy} className={sheetBtn.ghost}>Download backup file</button>
+            </div>
+          </div>
+        )}
+
         <div>
-          <h4 className="text-2xs font-bold uppercase tracking-wider text-ink-600 dark:text-ink-300 mb-1.5">Import from Google Sheets</h4>
+          <h4 className="text-2xs font-bold uppercase tracking-wider text-ink-600 dark:text-ink-300 mb-1.5">Restore or import</h4>
           {!canImport ? (
             <p className="text-xs text-ink-500 dark:text-ink-400">Only an administrator can import data.</p>
           ) : (
             <>
+              <p className="text-xs text-ink-600 dark:text-ink-300 leading-relaxed mb-2">
+                Choose a <span className="font-bold">backup file</span> from above to restore it, or an export from the old Google Sheets version:
+              </p>
               <ol className="text-xs text-ink-600 dark:text-ink-300 space-y-1 list-decimal pl-4 leading-relaxed">
                 <li>In your Apps Script project, open <span className="font-mono">Code.gs</span>, paste your spreadsheet link into <span className="font-mono">exportForBizEazy()</span> and run it.</li>
                 <li>It saves <span className="font-mono">bizeazy-export-….json</span> to your Google Drive. Download it.</li>
                 <li>Choose that file below.</li>
               </ol>
               <p className="text-2xs text-ink-500 dark:text-ink-400 mt-2 leading-relaxed">
-                Your branches, invoices, payments, quotations, customers, employees and payslips are copied in.
-                The Google Sheet is not changed. Running it again updates records rather than duplicating them.
+                Branches and every record in the file are written back. Records created since are left alone,
+                and running it twice updates rather than duplicates.
               </p>
               <label className={`tap mt-3 inline-flex items-center justify-center gap-1.5 px-4 rounded-lg text-xs font-bold cursor-pointer transition-colors bg-brand-600 hover:bg-brand-700 text-white ${busy ? 'opacity-60 pointer-events-none' : ''}`}>
                 {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                {busy ? 'Importing…' : 'Choose export file'}
+                {busy ? 'Working…' : 'Choose file to restore or import'}
                 <input type="file" accept=".json,application/json" className="sr-only" disabled={busy}
                   onChange={e => { onFile(e.target.files?.[0]); e.target.value = ''; }} />
               </label>
@@ -252,6 +302,30 @@ function DataModal({
               </ul>
             </div>
           )}
+        </div>
+
+        <div>
+          <h4 className="text-2xs font-bold uppercase tracking-wider text-ink-600 dark:text-ink-300 mb-1.5">Recent changes</h4>
+          {changes === null ? (
+            <SkeletonRows rows={3} />
+          ) : changes.length === 0 ? (
+            <p className="text-xs text-ink-500 dark:text-ink-400">Nothing yet.</p>
+          ) : (
+            <ul className="divide-y divide-ink-100 dark:divide-ink-800 border border-ink-100 dark:border-ink-800 rounded-lg max-h-64 overflow-y-auto">
+              {changes.map(c => (
+                <li key={`${c.kind}|${c.id}`} className="flex items-baseline justify-between gap-3 px-3 py-2">
+                  <span className="min-w-0 text-xs text-ink-800 dark:text-ink-200 truncate">
+                    <span className="font-bold">{KIND_LABELS[c.kind]}</span>{' '}
+                    {/* Child rows are keyed under their parent; show the parent's number. */}
+                    <span className="font-mono">{c.id.split('|')[0]}</span>
+                    <span className="text-ink-500 dark:text-ink-400"> · {c.by}</span>
+                  </span>
+                  <span className="shrink-0 text-2xs text-ink-500 dark:text-ink-400 tabular-nums">{ago(c.at)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="text-2xs text-ink-500 dark:text-ink-400 mt-1.5">Edits and additions; a deleted record leaves no entry.</p>
         </div>
       </div>
     </Sheet>
@@ -467,6 +541,15 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isProfilesOpen, setIsProfilesOpen] = useState(false);
   const [isUsersOpen, setIsUsersOpen] = useState(false);
+
+  // An admin with no recovery code is one forgotten password away from a locked
+  // company: nag on the hub until there is one. Rechecked when Users & Access closes.
+  const [needsRecoveryCode, setNeedsRecoveryCode] = useState(false);
+  const isAdminSession = session?.user.role === 'admin';
+  useEffect(() => {
+    if (!isAdminSession || isUsersOpen) return;
+    recoveryStatus().then(r => setNeedsRecoveryCode(!r.exists)).catch(() => { /* offline: no nag */ });
+  }, [isAdminSession, isUsersOpen]);
   const [previewInvoiceId, setPreviewInvoiceId] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   // Design (colors/fonts/layout) now lives entirely on each CompanyProfile's `template`
@@ -888,6 +971,21 @@ export default function App() {
               <NotificationBell notifications={notifications} isDark={isDark} onOpenView={setActiveView} />
             </div>
 
+            {needsRecoveryCode && (
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-2xl border p-4 border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-amber-900 dark:text-amber-100">Create a recovery code</p>
+                  <p className="text-xs text-amber-800 dark:text-amber-200 mt-0.5">
+                    If you forget your password, it is the only way back in. Takes ten seconds.
+                  </p>
+                </div>
+                <button onClick={() => setIsUsersOpen(true)}
+                  className="tap inline-flex items-center justify-center px-4 rounded-lg text-xs font-bold cursor-pointer bg-amber-700 hover:bg-amber-800 text-white">
+                  Open Users &amp; Access
+                </button>
+              </div>
+            )}
+
             {!hasLoaded && loadError && (
               <div role="alert" className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-2xl border p-4 border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/40">
                 <div className="flex-1 min-w-0">
@@ -1068,12 +1166,13 @@ export default function App() {
           <DataModal
             companyName={session.company.company_name}
             canImport={session.user.role === 'admin'}
+            db={db}
             onClose={() => setIsSettingsOpen(false)}
             onImported={() => loadData(spreadsheetId)}
           />
         )}
         {isUsersOpen && (
-          <UsersModal session={session} isDark={isDark} onClose={() => setIsUsersOpen(false)} onToast={triggerToast} />
+          <UsersModal session={session} isDark={isDark} onClose={() => setIsUsersOpen(false)} onToast={triggerToast} initialTab={needsRecoveryCode ? 'password' : undefined} />
         )}
         <BottomNav
           activeView={activeView}
@@ -1245,12 +1344,13 @@ export default function App() {
         <DataModal
           companyName={session.company.company_name}
           canImport={session.user.role === 'admin'}
+          db={db}
           onClose={() => setIsSettingsOpen(false)}
           onImported={() => loadData(spreadsheetId)}
         />
       )}
       {isUsersOpen && (
-        <UsersModal session={session} isDark={isDark} onClose={() => setIsUsersOpen(false)} onToast={triggerToast} />
+        <UsersModal session={session} isDark={isDark} onClose={() => setIsUsersOpen(false)} onToast={triggerToast} initialTab={needsRecoveryCode ? 'password' : undefined} />
       )}
       <BottomNav
         activeView={activeView}

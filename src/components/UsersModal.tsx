@@ -12,6 +12,7 @@ import {
 import { Sheet } from './ui/Sheet';
 import {
   listUsers, createUser, updateUser, resetUserPassword, deleteUser, changePassword,
+  createRecoveryCode, recoveryStatus,
   ALL_MODULES, MODULE_LABELS, ModuleName, Session, SessionUser,
 } from '../auth';
 
@@ -55,15 +56,16 @@ function ModuleTicks({
 }
 
 export function UsersModal({
-  session, isDark, onClose, onToast,
+  session, isDark, onClose, onToast, initialTab,
 }: {
+  initialTab?: Tab;
   session: Session;
   isDark: boolean;
   onClose: () => void;
   onToast: (msg: string, type: 'success' | 'error' | 'info' | 'warning') => void;
 }) {
   const isAdmin = session.user.role === 'admin';
-  const [tab, setTab] = useState<Tab>(isAdmin ? 'users' : 'password');
+  const [tab, setTab] = useState<Tab>(initialTab || (isAdmin ? 'users' : 'password'));
   const [users, setUsers] = useState<SessionUser[]>([]);
   const [loading, setLoading] = useState(isAdmin);
   const [error, setError] = useState('');
@@ -78,6 +80,28 @@ export function UsersModal({
   const [edit, setEdit] = useState<{ fullName: string; email: string; role: 'admin' | 'member'; modules: ModuleName[]; active: boolean } | null>(null);
 
   const [pw, setPw] = useState({ old: '', next: '', confirm: '' });
+  const [recovery, setRecovery] = useState<{ exists: boolean; created_at: string | null } | null>(null);
+  const [newCode, setNewCode] = useState<string | null>(null);
+
+  // An admin with no recovery code is one forgotten password from a locked company.
+  useEffect(() => {
+    if (!isAdmin) return;
+    recoveryStatus().then(setRecovery).catch(() => setRecovery(null));
+  }, [isAdmin]);
+
+  const handleNewCode = async () => {
+    if (recovery?.exists && !window.confirm('Replace your recovery code? The old one will stop working.')) return;
+    setBusy(true); setError('');
+    try {
+      const { code } = await createRecoveryCode();
+      setNewCode(code);
+      setRecovery({ exists: true, created_at: new Date().toISOString() });
+    } catch (err: any) {
+      setError(err.message || 'Could not create a recovery code.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const refresh = useCallback(async () => {
     if (!isAdmin) return;
@@ -375,6 +399,40 @@ export function UsersModal({
               <button onClick={handleChangePassword} disabled={busy} className={PRIMARY}>
                 {busy ? 'Updating…' : <span className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5" />Change Password</span>}
               </button>
+
+              {isAdmin && (
+                <div className="pt-4 mt-4 border-t border-ink-100 dark:border-ink-800">
+                  <h4 className="text-xs font-bold text-ink-900 dark:text-white flex items-center gap-1.5">
+                    <KeyRound className="w-3.5 h-3.5" /> Recovery code
+                  </h4>
+                  <p className="text-2xs text-ink-500 dark:text-ink-400 mt-1 leading-relaxed">
+                    If you forget your password, this code resets it from the sign-in screen (Forgot password?).
+                    It works once. Keep it somewhere safe and offline, not in this app.
+                  </p>
+                  {recovery && !recovery.exists && !newCode && (
+                    <p role="alert" className="mt-2 flex items-start gap-1.5 text-2xs font-bold text-amber-800 dark:text-amber-300">
+                      <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                      You have no recovery code. If you forget your password and no other admin can reset it, the company is locked out.
+                    </p>
+                  )}
+                  {recovery?.exists && !newCode && recovery.created_at && (
+                    <p className="mt-2 text-2xs text-ink-600 dark:text-ink-300">
+                      Created {new Date(recovery.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}.
+                    </p>
+                  )}
+                  {newCode && (
+                    <div className="mt-2 rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 p-3">
+                      <p className="text-2xs font-bold text-emerald-800 dark:text-emerald-200">Write this down now. It will not be shown again.</p>
+                      <p className="mt-1.5 font-mono text-sm font-bold tracking-wider text-ink-900 dark:text-white select-all break-all">{newCode}</p>
+                      <button type="button" onClick={() => navigator.clipboard?.writeText(newCode).then(() => onToast('Recovery code copied.', 'success'))}
+                        className={`${GHOST} mt-2`}>Copy</button>
+                    </div>
+                  )}
+                  <button type="button" onClick={handleNewCode} disabled={busy} className={`${GHOST} mt-3`}>
+                    {recovery?.exists ? 'Replace recovery code' : 'Create recovery code'}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

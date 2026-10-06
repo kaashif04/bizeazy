@@ -9,7 +9,7 @@ import {
   Building2, AlertTriangle, Loader2, Eye, EyeOff, Check, X, ArrowLeft,
 } from 'lucide-react';
 import {
-  login, registerCompany, checkUserId, Session,
+  login, registerCompany, checkUserId, recoverAccount, Session,
 } from '../auth';
 
 const CARD =
@@ -83,6 +83,67 @@ function PasswordField({
   );
 }
 
+// ─── Forgotten password ───────────────────────────────────────────────────────
+function RecoverForm({ onSignedIn, onBack }: { onSignedIn: (s: Session) => void; onBack: () => void }) {
+  const [userId, setUserId] = useState('');
+  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userId.trim() || !code.trim()) { setError('Enter your user ID and recovery code.'); return; }
+    if (password.length < 8) { setError('The new password must be at least 8 characters.'); return; }
+    if (password !== confirm) { setError('The two new passwords do not match.'); return; }
+    setBusy(true); setError('');
+    try {
+      onSignedIn(await recoverAccount(userId.trim(), code.trim(), password));
+    } catch (err: any) {
+      setError(err.message || 'That did not work.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className={CARD}>
+      <button type="button" onClick={onBack}
+        className="inline-flex items-center gap-1 min-h-11 -mt-2 mb-1 text-xs font-bold text-ink-600 dark:text-ink-300 hover:text-ink-900 dark:hover:text-white cursor-pointer">
+        <ArrowLeft className="w-3 h-3" /> Back to sign in
+      </button>
+      <h2 className="text-sm font-bold text-ink-900 dark:text-white">Reset a forgotten password</h2>
+      <p className="text-xs text-ink-500 dark:text-ink-400 mt-1 mb-4 leading-relaxed">
+        Admins: use the recovery code you saved from Users &amp; Access. It works once.
+        Staff: ask your administrator to reset your password instead.
+      </p>
+      {error && <ErrorNote message={error} />}
+      <form onSubmit={submit} className="space-y-3.5">
+        <div>
+          <label htmlFor="recover-user" className={LABEL}>User ID</label>
+          <input id="recover-user" type="text" value={userId} onChange={e => setUserId(e.target.value)}
+            autoComplete="username" autoCapitalize="none" spellCheck={false} className={INPUT} />
+        </div>
+        <div>
+          <label htmlFor="recover-code" className={LABEL}>Recovery code</label>
+          <input id="recover-code" type="text" value={code} onChange={e => setCode(e.target.value)}
+            autoComplete="one-time-code" autoCapitalize="characters" spellCheck={false}
+            placeholder="XXXXX-XXXXX-XXXXX-XXXXX" className={`${INPUT} font-mono tracking-wider`} />
+        </div>
+        <PasswordField id="recover-new" label="New password" value={password} onChange={setPassword}
+          autoComplete="new-password" placeholder="At least 8 characters" />
+        <PasswordField id="recover-confirm" label="Confirm new password" value={confirm} onChange={setConfirm}
+          autoComplete="new-password" />
+        <button type="submit" disabled={busy} className={BUTTON}>
+          {busy && <Loader2 className="w-4 h-4 animate-spin" />}
+          {busy ? 'Resetting…' : 'Reset password and sign in'}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 // ─── Login ────────────────────────────────────────────────────────────────────
 export function LoginScreen({
   onSignedIn, onRegister,
@@ -92,6 +153,7 @@ export function LoginScreen({
   const [remember, setRemember] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [recovering, setRecovering] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,6 +167,14 @@ export function LoginScreen({
       setBusy(false);
     }
   };
+
+  if (recovering) {
+    return (
+      <Shell title="BizEazy Hub" subtitle="Restaurant Operations Center">
+        <RecoverForm onSignedIn={onSignedIn} onBack={() => setRecovering(false)} />
+      </Shell>
+    );
+  }
 
   return (
     <Shell title="BizEazy Hub" subtitle="Restaurant Operations Center">
@@ -141,6 +211,10 @@ export function LoginScreen({
           <button type="submit" disabled={busy} className={BUTTON}>
             {busy && <Loader2 className="w-4 h-4 animate-spin" />}
             {busy ? 'Signing in…' : 'Sign In'}
+          </button>
+          <button type="button" onClick={() => setRecovering(true)}
+            className="block mx-auto min-h-11 px-2 text-xs font-semibold text-ink-600 dark:text-ink-300 hover:text-brand-700 dark:hover:text-brand-300 hover:underline cursor-pointer">
+            Forgot password?
           </button>
         </form>
 
