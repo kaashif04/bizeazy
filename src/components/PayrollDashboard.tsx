@@ -9,7 +9,7 @@ import { activeOutlet as resolveActiveOutlet, outletLabel } from '../utils/outle
 import { salaryDeadline, salaryDue, normaliseMonthLabel } from '../utils/notifications';
 import {
   payPeriodForLabel, periodLabelFor, isRemindable, describePeriod, round2, isoDate,
-  parseLocalDate, monthLabel, epfEmployee, epfEmployer, residencyOf, residencyLabel, Residency, PayBasis,
+  parseLocalDate, monthLabel, statutory, deductionLabels, residencyOf, residencyLabel, Residency, PayBasis,
 } from '../utils/payroll';
 import { Sheet, sheetBtn } from './ui/Sheet';
 import { EmptyState } from './ui/States';
@@ -64,6 +64,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
   const [empAge, setEmpAge] = useState<number>(30);
   const [empJoiningDate, setEmpJoiningDate] = useState<string>('');
   const [empBearsStatutory, setEmpBearsStatutory] = useState<boolean>(false);
+  const [empSkbbkOptedOut, setEmpSkbbkOptedOut] = useState<boolean>(false);
   const [empPayBasis, setEmpPayBasis] = useState<PayBasis>('calendar');
   const [empEndDate, setEmpEndDate] = useState<string>('');
 
@@ -155,96 +156,8 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
     }).sort((a, b) => a.daysUntilDeadline - b.daysUntilDeadline);
   };
 
-  // --- STATUTORY MALAYSIAN CALCULATOR FUNCTIONS (2026 update) ---
-  // EPF lives in utils/payroll.ts: it is the one rate that differs between a
-  // citizen and a permanent resident (at 60+), so it carries a self-check.
-  const calculateEmployeeEPF = epfEmployee;
-  const calculateEmployerEPF = epfEmployer;
-
-  /**
-   * Employee SOCSO contribution (wage ceiling RM6,000 since Oct 2024)
-   * Malaysian/PR below 60: 0.5% (Category 1 — both schemes)
-   * Malaysian/PR 60+:      0%   (Category 2 — Employment Injury only, employer-only)
-   * Foreigner below 60:    0.5% (Category 1 — mandatory invalidity from Jul 2024)
-   * Foreigner 60+:         0%   (Category 2 — Employment Injury only)
-   */
-  const calculateEmployeeSOCSO = (
-    grossPay: number,
-    citizenship?: string,
-    age = 30
-  ): number => {
-    if (age >= 60) return 0; // Cat 2: employer-only scheme
-    const capped = Math.min(grossPay, 6000);
-    return Number((capped * 0.005).toFixed(2)); // 0.5%
-  };
-
-  /**
-   * Employer SOCSO contribution (wage ceiling RM6,000 since Oct 2024)
-   * Below 60 (Cat 1):  1.75% — both Malaysian and Foreigner
-   * Age 60+ (Cat 2):   1.25% — Employment Injury scheme only
-   */
-  const calculateEmployerSOCSO = (
-    grossPay: number,
-    citizenship?: string,
-    age = 30
-  ): number => {
-    const capped = Math.min(grossPay, 6000);
-    if (age >= 60) {
-      return Number((capped * 0.0125).toFixed(2)); // Category 2: 1.25%
-    }
-    return Number((capped * 0.0175).toFixed(2)); // Category 1: 1.75%
-  };
-
-  /**
-   * Employee EIS contribution (wage ceiling RM6,000 since Oct 2024)
-   * Applies to: Malaysian/PR aged 18–60 ONLY
-   * Foreigners: NOT subject to EIS
-   * Age 60+: NOT eligible
-   */
-  const calculateEmployeeEIS = (
-    grossPay: number,
-    citizenship?: string,
-    age = 30
-  ): number => {
-    if (citizenship === 'Foreigner') return 0;
-    if (age >= 60) return 0;
-    const capped = Math.min(grossPay, 6000);
-    return Number((capped * 0.002).toFixed(2)); // 0.2%
-  };
-
-  /**
-   * Employer EIS contribution (wage ceiling RM6,000 since Oct 2024)
-   * Same rules as employee: Malaysian/PR aged 18–60 only
-   */
-  const calculateEmployerEIS = (
-    grossPay: number,
-    citizenship?: string,
-    age = 30
-  ): number => {
-    if (citizenship === 'Foreigner') return 0;
-    if (age >= 60) return 0;
-    const capped = Math.min(grossPay, 6000);
-    return Number((capped * 0.002).toFixed(2)); // 0.2%
-  };
-
-  /**
-   * SKBBK — Skim Keselamatan Bencana Bukan Kerja ("Lindung 24 Jam")
-   * Effective 1 June 2026. Employee-only PERKESO non-employment injury scheme.
-   * Phase 1 rate: 0.75% of wages, wage ceiling RM6,000 (max RM45/month).
-   *   Phase 2 (from 1 Jun 2028): 1.00%  |  Phase 3 (from 1 Jun 2030): 1.25%
-   * Mandatory for foreign workers; Cabinet ruled voluntary for Malaysians 8 Jul 2026.
-   * Not applicable to age 60+ (Category 2 — employment injury only, no SKBBK).
-   */
-  const calculateSKBBK = (
-    grossPay: number,
-    citizenship?: string,
-    age = 30
-  ): number => {
-    if (citizenship !== 'Foreigner') return 0; // voluntary for Malaysians and PRs — not auto-deducted
-    if (age >= 60) return 0; // Category 2 employees: employment injury only, no SKBBK
-    const capped = Math.min(grossPay, 6000);
-    return Number((capped * 0.0075).toFixed(2)); // Phase 1: 0.75%
-  };
+  // Statutory amounts come from utils/payroll.ts statutory(): the official
+  // KWSP and PERKESO band tables, checked against published rows.
 
   // --- WORKSPACE SAVES & EXPORTERS ---
   const handleOpenEmployeeModal = (employee?: Employee) => {
@@ -263,6 +176,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       setEmpAge(Number((employee as any).Age) || 30);
       setEmpJoiningDate(employee.Joining_Date || '');
       setEmpBearsStatutory(employee.Employer_Bears_Statutory === true);
+      setEmpSkbbkOptedOut(employee.SKBBK_Opted_Out === true);
       setEmpPayBasis(employee.Pay_Basis === 'anniversary' ? 'anniversary' : 'calendar');
       setEmpEndDate(employee.End_Date || '');
     } else {
@@ -276,6 +190,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       setEmpAge(30);
       setEmpJoiningDate('');
       setEmpBearsStatutory(false);
+      setEmpSkbbkOptedOut(false);
       setEmpPayBasis('calendar');
       setEmpEndDate('');
     }
@@ -329,6 +244,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               Age: empAge,
               Joining_Date: empJoiningDate,
               Employer_Bears_Statutory: empBearsStatutory,
+              SKBBK_Opted_Out: empCitizenship !== 'Foreigner' && empSkbbkOptedOut,
               Pay_Basis: empPayBasis,
               End_Date: empEndDate || undefined,
             }
@@ -350,6 +266,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
         Age: empAge,
         Joining_Date: empJoiningDate,
         Employer_Bears_Statutory: empBearsStatutory,
+        SKBBK_Opted_Out: empCitizenship !== 'Foreigner' && empSkbbkOptedOut,
         Pay_Basis: empPayBasis,
         End_Date: empEndDate || undefined,
         // Reminders start from today's period; earlier months stay generatable.
@@ -551,18 +468,9 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
     // Statutory contributions are on wages actually paid, so a part month's
     // prorated basic is what they are calculated on.
     const grossPay = basicPay + allowanceSum;
-    const citizenship = emp.Citizenship;
-
-    const empAge = Number(emp.Age) || 30;
-    const epfEmployee = calculateEmployeeEPF(grossPay, citizenship, empAge);
-    const epfEmployer = calculateEmployerEPF(grossPay, citizenship, empAge);
-    
-    const socsoEmployee = calculateEmployeeSOCSO(grossPay, citizenship, empAge);
-    const socsoEmployer = calculateEmployerSOCSO(grossPay, citizenship, empAge);
-
-    const eisEmployee = calculateEmployeeEIS(grossPay, citizenship, empAge);
-    const eisEmployer = calculateEmployerEIS(grossPay, citizenship, empAge);
-    const skbbk = calculateSKBBK(grossPay, citizenship, empAge);
+    const {
+      epfEmployee, epfEmployer, socsoEmployee, socsoEmployer, eisEmployee, eisEmployer, skbbk,
+    } = statutory(grossPay, emp);
 
     const totalStatutory = Number((epfEmployee + socsoEmployee + skbbk + eisEmployee).toFixed(2));
 
@@ -1361,10 +1269,29 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                   {empCitizenship === 'PR'
                     ? 'Charged as a local for EPF, SOCSO and EIS. From age 60, EPF continues at 5.5% employee and 6.5% employer (citizens stop at 0% and 4%).'
                     : empCitizenship === 'Foreigner'
-                    ? 'EPF 2% each side, SOCSO, and SKBBK. No EIS.'
+                    ? 'EPF 2% each side, SOCSO, and compulsory SKBBK. No EIS.'
                     : 'EPF, SOCSO and EIS at local rates.'}
                 </p>
               </div>
+
+              {empCitizenship !== 'Foreigner' && (
+                <label className="flex items-start gap-2.5 p-3 rounded-xl border border-ink-200 dark:border-ink-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={empSkbbkOptedOut}
+                    onChange={(e) => setEmpSkbbkOptedOut(e.target.checked)}
+                    className="mt-0.5 cursor-pointer accent-brand-600 w-3.5 h-3.5 shrink-0"
+                  />
+                  <span>
+                    <span className="block text-xs font-bold text-ink-900 dark:text-white leading-snug">
+                      Opted out of Lindung 24 Jam (SKBBK)
+                    </span>
+                    <span className="block text-2xs text-ink-500 dark:text-ink-400 mt-1 leading-relaxed">
+                      Tick only if this employee filed PERKESO's opt-out by 31 August 2026. Otherwise 0.75% is deducted, at any age.
+                    </span>
+                  </span>
+                </label>
+              )}
 
               <div className={`p-3 rounded-xl border ${
                 isDarkMode ? 'bg-ink-950/50 border-ink-800' : 'bg-brand-50/50 border-brand-200'
@@ -1401,7 +1328,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                   }`}
                 />
                 <p className="text-2xs text-ink-500 mt-0.5">
-                  Affects EPF bracket (60+), SOCSO category, and EIS eligibility (18–60 locals only)
+                  From 60: no employee SOCSO (employer pays 1.25% injury cover) and no EIS; EPF changes as above.
                 </p>
               </div>
 
@@ -1637,13 +1564,8 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       const grossPayBase = basicPay + allowanceSum;
                       const citizenship = emp.Citizenship;
 
-                      const empAge = Number(emp.Age) || 30;
-                      const epf = calculateEmployeeEPF(grossPayBase, citizenship, empAge);
-                      const socso = calculateEmployeeSOCSO(grossPayBase, citizenship, empAge);
-                      const eis = calculateEmployeeEIS(grossPayBase, citizenship, empAge);
-                      const skbbkRow = calculateSKBBK(grossPayBase, citizenship, empAge);
-
-                      const totalStatDeduc = epf + socso + skbbkRow + eis;
+                      const stat = statutory(grossPayBase, emp);
+                      const totalStatDeduc = stat.epfEmployee + stat.socsoEmployee + stat.skbbk + stat.eisEmployee;
                       const rowStatutoryOffset = emp.Employer_Bears_Statutory ? totalStatDeduc : 0;
                       const netPay = Math.max(0, grossPayBase - totalStatDeduc - customDeductionSum + rowStatutoryOffset);
 
@@ -2063,15 +1985,11 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                   </div>
                   <div className="space-y-1.5 text-xs font-semibold">
                     <div className="flex justify-between text-ink-900 dark:text-ink-300">
-                      <span>Employee EPF ({
-                        (previewEmployee.Citizenship || 'Malaysian/PR') === 'Foreigner'
-                          ? '2%'
-                          : (Number(previewEmployee.Age) || 30) >= 60 ? '0% (age 60+)' : '11%'
-                      })</span>
+                      <span>Employee EPF ({deductionLabels(previewEmployee).epf})</span>
                       <span className="font-extrabold text-ink-950 dark:text-white">RM {previewPayslip.Employee_EPF.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-ink-900 dark:text-ink-300">
-                      <span>Employee SOCSO (0.5%)</span>
+                      <span>Employee SOCSO ({deductionLabels(previewEmployee).socso})</span>
                       <span className="font-extrabold text-ink-950 dark:text-white">RM {previewPayslip.Employee_SOCSO.toFixed(2)}</span>
                     </div>
                     {(previewPayslip.Employee_SKBBK ?? 0) > 0 && (
@@ -2081,7 +1999,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       </div>
                     )}
                     <div className="flex justify-between text-ink-900 dark:text-ink-300">
-                      <span>Employee EIS / SIP (0.2%)</span>
+                      <span>Employee EIS / SIP ({deductionLabels(previewEmployee).eis})</span>
                       <span className="font-extrabold text-ink-950 dark:text-white">RM {previewPayslip.Employee_EIS.toFixed(2)}</span>
                     </div>
                     {(() => {

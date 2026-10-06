@@ -11,7 +11,7 @@ import {
   buildNotifications, salaryDeadline, salaryDue, parseLocalDate,
   normaliseMonthLabel, monthLabel, SALARY_DEADLINE_DAYS,
 } from './notifications';
-import { payPeriod, periodLabelFor, describePeriod, epfEmployee, epfEmployer, residencyOf } from './payroll';
+import { payPeriod, periodLabelFor, describePeriod, epfEmployee, epfEmployer, residencyOf, statutory } from './payroll';
 
 const ok = (cond: boolean, msg: string) => { if (!cond) throw new Error(`SELF-CHECK FAILED: ${msg}`); };
 
@@ -118,6 +118,55 @@ ok(epfEmployer(6000, 'PR', 61) === 360, 'PR 60+ above RM5,000: employer 6%');
 ok(epfEmployee(3000, 'Malaysian/PR', 61) === 0, 'the old combined value is charged as a citizen, as it always was');
 ok(epfEmployee(3000, 'Foreigner', 30) === 60, 'foreign worker 2%');
 ok(residencyOf(undefined) === 'Malaysian', 'blank reads as Malaysian');
+
+// ── Figures from the published schedules ──
+// EPF rows are copied from the KWSP Third Schedule. PERKESO rows at RM25, 1,800,
+// 3,000, 5,000, 6,000 and above are copied from the June 2026 table (SKBBK at
+// 2,000/3,000/6,000 and EIS at 2,000/5,000/6,000 from published examples); the
+// remaining cells follow the schedule's own band rule (midpoint, up to 5 sen).
+// KWSP Third Schedule, Part A (Malaysian / PR below 60): [wage, employer, employee]
+([
+  [10, 0, 0], [15, 3, 3], [50, 8, 7], [1790, 234, 198], [1800, 234, 198],
+  [2010, 263, 223], [3000, 390, 330], [5050, 612, 561], [12050, 1452, 1331], [15050, 1812, 1661],
+] as const).forEach(([wage, er, ee]) => {
+  ok(epfEmployer(wage, 'Malaysian', 30) === er, `EPF employer on RM${wage}: schedule ${er}, got ${epfEmployer(wage, 'Malaysian', 30)}`);
+  ok(epfEmployee(wage, 'Malaysian', 30) === ee, `EPF employee on RM${wage}: schedule ${ee}, got ${epfEmployee(wage, 'Malaysian', 30)}`);
+});
+ok(epfEmployee(25000, 'Malaysian', 30) === 2750 && epfEmployer(25000.5, 'Malaysian', 30) === 3001,
+   'above RM20,000 the wage itself is charged, rounded up to the ringgit');
+
+// PERKESO schedule (June 2026): [wage, SOCSO employer, SOCSO employee, injury-only employer (60+), SKBBK, EIS each]
+([
+  [25,   0.40,   0.10,  0.30,  0.20, 0.05],
+  [1800, 30.65,  8.75,  21.90, 13.15, 3.50],
+  [2000, 34.15,  9.75,  24.40, 14.65, 3.90],
+  [3000, 51.65,  14.75, 36.90, 22.15, 5.90],
+  [5000, 86.65,  24.75, 61.90, 37.15, 9.90],
+  [6000, 104.15, 29.75, 74.40, 44.65, 11.90],
+  [9000, 104.15, 29.75, 74.40, 44.65, 11.90],
+] as const).forEach(([wage, er, ee, injury, skbbk, eis]) => {
+  const young = statutory(wage, { Citizenship: 'Malaysian', Age: 30 });
+  ok(young.socsoEmployer === er && young.socsoEmployee === ee,
+     `SOCSO on RM${wage}: schedule ${er}/${ee}, got ${young.socsoEmployer}/${young.socsoEmployee}`);
+  ok(young.skbbk === skbbk, `SKBBK on RM${wage}: schedule ${skbbk}, got ${young.skbbk}`);
+  ok(young.eisEmployee === eis && young.eisEmployer === eis, `EIS on RM${wage}: schedule ${eis}, got ${young.eisEmployee}`);
+  const senior = statutory(wage, { Citizenship: 'Malaysian', Age: 61 });
+  ok(senior.socsoEmployer === injury && senior.socsoEmployee === 0,
+     `60+ SOCSO on RM${wage}: employer ${injury}, employee nothing; got ${senior.socsoEmployer}/${senior.socsoEmployee}`);
+});
+
+// Who pays what
+const at = (who: Parameters<typeof statutory>[1]) => statutory(3000, who);
+ok(at({ Citizenship: 'Malaysian', Age: 61 }).eisEmployee === 0, 'no EIS from 60');
+ok(at({ Citizenship: 'Malaysian', Age: 61 }).skbbk === 22.15, 'SKBBK continues at 60+ (no age limit)');
+ok(at({ Citizenship: 'Malaysian', Age: 30, SKBBK_Opted_Out: true }).skbbk === 0, 'a local who opted out pays no SKBBK');
+ok(at({ Citizenship: 'PR', Age: 30 }).skbbk === 22.15 && at({ Citizenship: 'PR', Age: 30 }).eisEmployee === 5.90,
+   'a PR is a local: SKBBK by default, EIS');
+ok(at({ Citizenship: 'Foreigner', Age: 30, SKBBK_Opted_Out: true }).skbbk === 22.15, 'a foreign worker cannot opt out of SKBBK');
+ok(at({ Citizenship: 'Foreigner', Age: 30 }).eisEmployee === 0, 'no EIS for foreign workers');
+ok(at({ Citizenship: 'Foreigner', Age: 30 }).socsoEmployee === 14.75, 'foreign workers pay First Category SOCSO like locals');
+ok(at({ Citizenship: 'Foreigner', Age: 30 }).epfEmployee === 60, 'foreign worker EPF 2%');
+ok(at({ Citizenship: 'PR', Age: 61 }).epfEmployee === 165 && at({ Citizenship: 'PR', Age: 61 }).epfEmployer === 195, 'PR 60+ EPF 5.5% / 6.5%');
 
 // ── Salary notifications ──
 const profiles = [outlet('b1', 'Main Branch')];

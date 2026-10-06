@@ -124,6 +124,12 @@ export interface Employee {
    * and what still needs confirming with a payroll/tax advisor.
    */
   Employer_Bears_Statutory?: boolean;
+  /**
+   * Lindung 24 Jam (SKBBK): a local employee who filed PERKESO's release to opt
+   * out. Unset means still contributing — that is the law's default.
+   * Ignored for foreign workers, for whom it is compulsory.
+   */
+  SKBBK_Opted_Out?: boolean;
 }
 
 export interface SalaryAdvance {

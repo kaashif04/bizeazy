@@ -135,18 +135,113 @@ export const residencyOf = (c?: string): Residency =>
 export const residencyLabel = (c?: string): string =>
   c === 'Malaysian/PR' || !c ? 'Malaysian/PR' : c === 'PR' ? 'Permanent Resident' : c;
 
-/** Employee EPF. Foreign workers 2% (mandatory since Oct 2025) until 75. */
-export function epfEmployee(gross: number, citizenship: string | undefined, age = 30): number {
-  const r = residencyOf(citizenship);
-  if (r === 'Foreigner') return age >= 75 ? 0 : round2(gross * 0.02);
-  if (age >= 60) return r === 'PR' ? round2(gross * 0.055) : 0;
-  return round2(gross * 0.11);
+// ── Statutory contributions, from the official schedules ─────────────────────
+// Every amount here comes from a published wage-band table, not a straight
+// percentage: the schedules round, and a straight percentage drifts from what
+// KWSP and PERKESO actually bill by up to a few ringgit a month. The table
+// rules below are reproduced exactly, and checked row by row in
+// notifications.selfcheck.ts against figures taken from the schedules.
+
+/** Kill float noise (0.13 × 3000 = 390.00000000000006) before rounding up. */
+const clean = (n: number) => Math.round(n * 10000) / 10000;
+
+/**
+ * EPF Third Schedule (Akta KWSP 1991, s.43). Up to RM10: nothing. To RM5,000:
+ * RM20 bands; RM5,000.01–20,000: RM100 bands; the rate applies to the band's
+ * top value and the result is rounded UP to the next ringgit. Above RM20,000
+ * the wage itself is used, still rounded up to the ringgit.
+ */
+export function epfAmount(wage: number, rate: number): number {
+  if (!(wage > 10) || rate <= 0) return 0;
+  const base = wage <= 5000 ? Math.ceil(clean(wage / 20)) * 20
+             : wage <= 20000 ? Math.ceil(clean(wage / 100)) * 100
+             : wage;
+  return Math.ceil(clean(base * rate));
 }
 
-/** Employer EPF. Below 60: 13% up to RM5,000, 12% above. */
+/** Employee EPF: 11% below 60; at 60+ citizens 0%, PRs 5.5%; foreign workers 2% (since Oct 2025) until 75. */
+export function epfEmployee(gross: number, citizenship: string | undefined, age = 30): number {
+  const r = residencyOf(citizenship);
+  if (r === 'Foreigner') return age >= 75 ? 0 : epfAmount(gross, 0.02);
+  if (age >= 60) return r === 'PR' ? epfAmount(gross, 0.055) : 0;
+  return epfAmount(gross, 0.11);
+}
+
+/** Employer EPF: 13% to RM5,000 and 12% above, below 60; at 60+ citizens 4%, PRs 6.5%/6%; foreign workers 2%. */
 export function epfEmployer(gross: number, citizenship: string | undefined, age = 30): number {
   const r = residencyOf(citizenship);
-  if (r === 'Foreigner') return age >= 75 ? 0 : round2(gross * 0.02);
-  if (age >= 60) return round2(gross * (r === 'PR' ? (gross <= 5000 ? 0.065 : 0.06) : 0.04));
-  return round2(gross * (gross <= 5000 ? 0.13 : 0.12));
+  if (r === 'Foreigner') return age >= 75 ? 0 : epfAmount(gross, 0.02);
+  if (age >= 60) return epfAmount(gross, r === 'PR' ? (gross <= 5000 ? 0.065 : 0.06) : 0.04);
+  return epfAmount(gross, gross <= 5000 ? 0.13 : 0.12);
+}
+
+/**
+ * PERKESO schedules (SOCSO, Act 4; EIS, Act 800; SKBBK). Wages above RM6,000
+ * are charged as RM6,000. Below RM300 the bands are irregular and the amounts
+ * are fixed in the schedule, so they are listed; from RM300 every RM100 band
+ * is charged on its midpoint and rounded up to the next 5 sen.
+ */
+const PERKESO_LOW_BANDS = [30, 50, 70, 100, 140, 200, 300];
+const PERKESO_LOW: Record<'socsoEmployer' | 'socsoEmployee' | 'socsoInjuryOnly' | 'skbbk' | 'eis', number[]> = {
+  socsoEmployer:   [0.40, 0.70, 1.10, 1.50, 2.10, 2.95, 4.35],
+  socsoEmployee:   [0.10, 0.20, 0.30, 0.40, 0.60, 0.85, 1.25],
+  socsoInjuryOnly: [0.30, 0.50, 0.80, 1.10, 1.50, 2.10, 3.10],
+  skbbk:           [0.20, 0.30, 0.50, 0.65, 0.90, 1.25, 1.85],
+  eis:             [0.05, 0.10, 0.15, 0.20, 0.25, 0.35, 0.50],
+};
+export const PERKESO_CEILING = 6000;
+
+function perkesoAmount(wage: number, rate: number, low: number[]): number {
+  if (!(wage > 0)) return 0;
+  const band = PERKESO_LOW_BANDS.findIndex(top => wage <= top);
+  if (band >= 0) return low[band];
+  const midpoint = Math.ceil(clean(Math.min(wage, PERKESO_CEILING) / 100)) * 100 - 50;
+  return Math.ceil(clean(midpoint * rate * 20)) / 20;
+}
+
+export interface Statutory {
+  epfEmployee: number; epfEmployer: number;
+  socsoEmployee: number; socsoEmployer: number;
+  eisEmployee: number; eisEmployer: number;
+  skbbk: number;
+}
+
+/**
+ * Everything statutory on one month's wages.
+ *  - SOCSO: below 60, First Category (employer 1.75%, employee 0.5%) — locals
+ *    and, since July 2024, foreign workers alike. From 60, Second Category:
+ *    employment injury only, employer 1.25%, nothing from the employee.
+ *  - EIS (SIP): 0.2% each side, citizens and PRs aged 18 to 59 only.
+ *  - SKBBK (Lindung 24 Jam, from 1 June 2026): employee-only 0.75%, at any age.
+ *    Compulsory for foreign workers; for locals it is opt-OUT — anyone who did
+ *    not file the release by 31 August 2026 still contributes.
+ */
+export function statutory(gross: number, emp: { Citizenship?: string; Age?: number; SKBBK_Opted_Out?: boolean }): Statutory {
+  const r = residencyOf(emp.Citizenship);
+  const age = Number(emp.Age) || 30;
+  const senior = age >= 60;
+  const local = r !== 'Foreigner';
+  const eisApplies = local && age >= 18 && !senior;
+  const skbbkApplies = r === 'Foreigner' || !emp.SKBBK_Opted_Out;
+  return {
+    epfEmployee:   epfEmployee(gross, emp.Citizenship, age),
+    epfEmployer:   epfEmployer(gross, emp.Citizenship, age),
+    socsoEmployee: senior ? 0 : perkesoAmount(gross, 0.005, PERKESO_LOW.socsoEmployee),
+    socsoEmployer: senior ? perkesoAmount(gross, 0.0125, PERKESO_LOW.socsoInjuryOnly)
+                          : perkesoAmount(gross, 0.0175, PERKESO_LOW.socsoEmployer),
+    eisEmployee:   eisApplies ? perkesoAmount(gross, 0.002, PERKESO_LOW.eis) : 0,
+    eisEmployer:   eisApplies ? perkesoAmount(gross, 0.002, PERKESO_LOW.eis) : 0,
+    skbbk:         skbbkApplies ? perkesoAmount(gross, 0.0075, PERKESO_LOW.skbbk) : 0,
+  };
+}
+
+/** What each deduction line on a payslip should say for this person. */
+export function deductionLabels(emp: { Citizenship?: string; Age?: number }) {
+  const r = residencyOf(emp.Citizenship);
+  const senior = (Number(emp.Age) || 30) >= 60;
+  return {
+    epf: r === 'Foreigner' ? '2%' : senior ? (r === 'PR' ? '5.5%, PR 60+' : 'none from age 60') : '11%',
+    socso: senior ? 'none from age 60, employer pays' : '0.5%',
+    eis: r === 'Foreigner' ? 'not for foreign workers' : senior ? 'none from age 60' : '0.2%',
+  };
 }
