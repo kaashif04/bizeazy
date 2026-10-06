@@ -1,13 +1,14 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import {
   Plus, Search, Download, FileText, CheckCircle, X, Trash2,
-  ShieldAlert, RefreshCw, Edit, Eye, Wallet,
+  ShieldAlert, RefreshCw, Edit, Eye, Wallet, ArrowRight,
 } from 'lucide-react';
 import { DatabaseState, Invoice, InvoiceItem, Customer, CompanyProfile, Payment } from '../types';
 import { getPaymentSummary, PAYMENT_METHODS, PAYMENT_STATUS_LABEL, newPaymentId, PaymentStatus } from '../utils/payments';
 import { Sheet } from './ui/Sheet';
+import { confirmMoment, Confirmation } from '../utils/confirm';
 import { EmptyState } from './ui/States';
 import {
   activeOutlet as resolveActiveOutlet, outletLabel, outletColor, hexToRgb,
@@ -50,7 +51,7 @@ function PaymentsModal({
   const inputCls = `w-full px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
     isDarkMode ? 'bg-ink-950 border-ink-700 text-ink-100' : 'bg-white border-ink-200 text-ink-900'
   }`;
-  const fmt = (n: number) => `${currency} ${n.toFixed(2)}`;
+  const fmt = (n: number) => `${currency} ${n.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const submit = () => {
     const amt = parseFloat(amount);
@@ -92,7 +93,7 @@ function PaymentsModal({
               <p className="text-sm font-black font-mono text-rose-600 dark:text-rose-400">{fmt(summary.balance)}</p>
             </div>
             <div className="col-span-3">
-              <span className={`px-2 py-0.5 rounded-full text-2xs font-bold uppercase inline-flex items-center gap-1 ${STATUS_BADGE[summary.status]}`}>
+              <span className={`px-2 py-0.5 rounded-full text-2xs font-bold inline-flex items-center gap-1 ${STATUS_BADGE[summary.status]}`}>
                 <span className={`w-1 h-1 rounded-full ${STATUS_DOT[summary.status]}`} />
                 {PAYMENT_STATUS_LABEL[summary.status]}
               </span>
@@ -203,6 +204,9 @@ interface InvoicingModuleProps {
   onPreviewInvoice?: (invoiceId: string) => void;
   onDownloadPDF?: (invoiceId: string) => void;
   onDeleteInvoice?: (invoiceId: string) => void;
+  /** Open straight into a new one (a quick action on the Hub). */
+  startNew?: boolean;
+  onStartedNew?: () => void;
 }
 
 interface LineItem {
@@ -632,7 +636,7 @@ function InvoicePreviewModal({
 export default function InvoicingModule({
   db, setDb, profiles, activeBranchLocation, isDarkMode,
   triggerToast, syncStateToSheets, spreadsheetId, accessToken,
-  isSyncing, setIsSyncing, isStaff, onPreviewInvoice, onDeleteInvoice,
+  isSyncing, setIsSyncing, isStaff, onPreviewInvoice, onDeleteInvoice, startNew, onStartedNew,
 }: InvoicingModuleProps) {
 
   // ── Filter state ─────────────────────────────────────────────────────────────
@@ -795,6 +799,14 @@ export default function InvoicingModule({
   };
 
   // ── Open modal (create OR edit) ───────────────────────────────────────────────
+  // A Hub quick action asked for a fresh one: open the form once, then clear the ask.
+  useEffect(() => {
+    if (!startNew) return;
+    openModal();
+    onStartedNew?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startNew]);
+
   const openModal = (invoice?: Invoice) => {
     if (isStaff) { triggerToast('Staff accounts cannot modify invoices.', 'error'); return; }
 
@@ -1005,13 +1017,14 @@ export default function InvoicingModule({
     spreadsheetId, accessToken, setDb, triggerToast, syncStateToSheets, setIsSyncing]);
 
   // ── Payments (partial payment tracking) ───────────────────────────────────────
-  const persistPayments = useCallback(async (nextPayments: Payment[], toastMsg: string) => {
+  const persistPayments = useCallback(async (nextPayments: Payment[], toastMsg: string, confirmation?: Confirmation) => {
     const nextDb: DatabaseState = { ...db, payments: nextPayments };
     setDb(nextDb);
     try {
       setIsSyncing(true);
       await syncStateToSheets(spreadsheetId, accessToken, nextDb, profiles, activeBranchLocation);
-      triggerToast(toastMsg, 'success');
+      // Money in gets the payment-confirmed moment, once the save has landed.
+      if (confirmation) confirmMoment(confirmation); else triggerToast(toastMsg, 'success');
     } catch (err: any) {
       triggerToast(`Not saved yet: ${err.message}`, 'error');
     } finally {
@@ -1033,8 +1046,10 @@ export default function InvoicingModule({
       Method: fields.method || '',
       Reference: fields.reference || '',
     };
-    persistPayments([...db.payments, payment], `Payment of RM ${payment.Amount.toFixed(2)} recorded.`);
-  }, [db.payments, isStaff, persistPayments, triggerToast]);
+    const inv = db.invoices.find(i => i.Invoice_ID === invoiceId);
+    persistPayments([...db.payments, payment], `Payment of RM ${payment.Amount.toFixed(2)} recorded.`,
+      { title: 'Payment received', amount: payment.Amount, note: inv ? `${inv.Invoice_ID} · ${inv.Customer_Name}` : invoiceId });
+  }, [db.payments, db.invoices, isStaff, persistPayments, triggerToast]);
 
   const deletePayment = useCallback((paymentId: string) => {
     if (isStaff) { triggerToast('Read-only mode.', 'error'); return; }
@@ -1057,38 +1072,21 @@ export default function InvoicingModule({
         </div>
       )}
 
-      {/* Stats row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: 'Total Invoiced', value: `${currency} ${fmt(stats.total)}`, sub: `${stats.count} invoices` },
-          { label: 'Collected', value: `${currency} ${fmt(stats.paid)}`, sub: `${stats.count - stats.pendingCount} paid` },
-          { label: 'Outstanding', value: `${currency} ${fmt(stats.pending)}`, sub: `${stats.pendingCount} pending` },
-        ].map(s => (
-          <div key={s.label} className="bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 rounded-xl px-4 py-3">
-            <div className="text-2xs font-bold text-ink-500 dark:text-ink-400 uppercase tracking-wider">{s.label}</div>
-            <div className="text-base font-black text-ink-900 dark:text-white font-mono mt-0.5">{s.value}</div>
-            <div className="text-2xs text-ink-500 dark:text-ink-400 mt-0.5">{s.sub}</div>
+      {/* Summary: one band in the Hub's figure language, not four stat tiles */}
+      <div className="rounded-2xl bg-white dark:bg-ink-900 shadow-sm px-4 sm:px-6 py-4 grid grid-cols-3 gap-3 sm:gap-6">
+        {([
+          ['Invoiced', stats.total, `${stats.count} invoice${stats.count === 1 ? '' : 's'}`, 'text-ink-900 dark:text-white'],
+          ['Collected', stats.paid, `${stats.count - stats.pendingCount} paid`, 'text-emerald-700 dark:text-emerald-400'],
+          ['Owed to you', stats.pending, `${stats.pendingCount} unpaid`, stats.pending > 0 ? 'text-rose-700 dark:text-rose-300' : 'text-ink-900 dark:text-white'],
+        ] as const).map(([label, value, sub, tone]) => (
+          <div key={label} className="min-w-0">
+            <p className="text-xs font-semibold text-ink-500 dark:text-ink-400">{label}</p>
+            <p className={`text-base sm:text-2xl font-extrabold tabular-nums tracking-tight truncate ${tone}`}>
+              <span className="text-[0.6em] font-bold mr-0.5 opacity-80">{currency}</span>{fmt(value)}
+            </p>
+            <p className="text-2xs text-ink-500 dark:text-ink-400">{sub}</p>
           </div>
         ))}
-        <div
-          className={`rounded-xl px-4 py-3 cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md border ${
-            isDarkMode
-              ? 'bg-ink-900 border-ink-800 hover:border-brand-700'
-              : 'bg-white border-ink-200 hover:border-brand-300 shadow-sm'
-          }`}
-          onClick={() => setIsCustomerDirOpen(true)}
-        >
-          <div className={`w-7 h-7 rounded-xl flex items-center justify-center mb-2 ${
-            isDarkMode ? 'bg-brand-500/10 text-brand-400' : 'bg-brand-50 text-brand-600'
-          }`}>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
-            </svg>
-          </div>
-          <div className="text-base font-black text-ink-900 dark:text-white font-mono mt-0.5">{db.customers?.length ?? 0}</div>
-          <div className={`text-2xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-ink-500' : 'text-ink-500'}`}>Saved Customers</div>
-          <div className={`text-2xs font-medium mt-0.5 ${isDarkMode ? 'text-brand-400' : 'text-brand-600'}`}>Click to manage →</div>
-        </div>
       </div>
 
       {/* Toolbar */}
@@ -1107,6 +1105,13 @@ export default function InvoicingModule({
               }`}
             />
           </div>
+          <button
+            type="button"
+            onClick={() => setIsCustomerDirOpen(true)}
+            className="tap shrink-0 inline-flex items-center justify-center gap-1.5 px-3 rounded-full border border-ink-200 dark:border-ink-700 text-xs font-bold text-ink-700 dark:text-ink-200 hover:bg-ink-50 dark:hover:bg-ink-800 cursor-pointer"
+          >
+            Customers <span className="tabular-nums text-ink-500 dark:text-ink-400">{db.customers?.length ?? 0}</span>
+          </button>
           {!isStaff && (
             <button
               onClick={() => openModal()}
@@ -1203,28 +1208,25 @@ export default function InvoicingModule({
                       <td className="px-5 py-3.5 font-mono font-bold text-ink-900 dark:text-white whitespace-nowrap">{inv.Invoice_ID}</td>
                       <td className="px-4 py-3.5 text-ink-500 dark:text-ink-400 whitespace-nowrap">{inv.Date}</td>
                       <td className="px-4 py-3.5">
-                        <span
-                          className="px-2 py-0.5 rounded-full text-2xs font-bold uppercase whitespace-nowrap"
-                          style={{
-                            color: outletColor(p, profiles.findIndex(pr => pr.id === inv.Company)),
-                            backgroundColor: outletColor(p, profiles.findIndex(pr => pr.id === inv.Company)) + '1f',
-                          }}
-                        >
+                        {/* Neutral chip, the branch's colour only as a dot: colour words are
+                            reserved for status (mint paid, amber waiting, coral late). */}
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-2xs font-bold whitespace-nowrap bg-ink-100 dark:bg-ink-800 text-ink-700 dark:text-ink-200">
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: outletColor(p, profiles.findIndex(pr => pr.id === inv.Company)) }} />
                           {p ? outletLabel(p) : inv.Company}
                         </span>
                       </td>
                       <td className="px-4 py-3.5 font-medium text-ink-700 dark:text-ink-300 max-w-[160px] truncate">{inv.Customer_Name}</td>
                       <td className="px-4 py-3.5 text-right font-black font-mono text-ink-900 dark:text-white whitespace-nowrap">
-                        {curr} {Number(inv.Total_Amount).toFixed(2)}
+                        {curr} {fmt(Number(inv.Total_Amount))}
                       </td>
                       <td className="px-4 py-3.5 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-2xs font-bold uppercase inline-flex items-center gap-1 ${STATUS_BADGE[pay.status]}`}>
-                          <span className={`w-1 h-1 rounded-full flex-shrink-0 ${STATUS_DOT[pay.status]}`} />
+                        <span className={`px-2 py-0.5 rounded-full text-2xs font-bold inline-flex items-center gap-1 ${STATUS_BADGE[pay.status]}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${STATUS_DOT[pay.status]}`} />
                           {PAYMENT_STATUS_LABEL[pay.status]}
                         </span>
                         {pay.status === 'Partial' && (
                           <div className="text-2xs font-mono text-ink-500 dark:text-ink-400 mt-1 whitespace-nowrap">
-                            {curr} {pay.paid.toFixed(2)} / {Number(inv.Total_Amount).toFixed(2)}
+                            {curr} {fmt(pay.paid)} / {fmt(Number(inv.Total_Amount))}
                           </div>
                         )}
                       </td>
@@ -1278,7 +1280,9 @@ export default function InvoicingModule({
                       <span className={`text-xs font-black font-mono whitespace-nowrap ${isDarkMode ? 'text-brand-400' : 'text-brand-700'}`}>
                         {inv.Invoice_ID}
                       </span>
-                      <span className={`text-2xs font-bold px-1.5 py-0.5 rounded-full ${STATUS_BADGE[pay.status]}`}>{PAYMENT_STATUS_LABEL[pay.status]}</span>
+                      <span className={`inline-flex items-center gap-1 text-2xs font-bold px-1.5 py-0.5 rounded-full ${STATUS_BADGE[pay.status]}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[pay.status]}`} />{PAYMENT_STATUS_LABEL[pay.status]}
+                      </span>
                     </div>
                     <p className={`text-sm font-semibold truncate mt-1 ${isDarkMode ? 'text-ink-200' : 'text-ink-800'}`}>
                       {inv.Customer_Name}
@@ -1289,11 +1293,11 @@ export default function InvoicingModule({
                   </div>
                   <div className="text-right shrink-0">
                     <p className={`text-base font-black font-mono ${isDarkMode ? 'text-white' : 'text-ink-900'}`}>
-                      RM {Number(inv.Total_Amount).toFixed(2)}
+                      RM {fmt(Number(inv.Total_Amount))}
                     </p>
                     {pay.status === 'Partial' && (
                       <p className="text-2xs font-mono text-amber-600 dark:text-amber-400 mt-0.5">
-                        Bal RM {pay.balance.toFixed(2)}
+                        Bal RM {fmt(pay.balance)}
                       </p>
                     )}
                   </div>

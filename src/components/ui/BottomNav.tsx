@@ -37,7 +37,7 @@ export function BottomNav({
     <nav
       data-chrome
       aria-label="Main"
-      className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-ink-200 dark:border-ink-800 bg-ink-50/95 dark:bg-ink-950/95 backdrop-blur-lg pb-safe"
+      className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-ink-100 dark:border-ink-800 bg-white dark:bg-ink-950 pb-safe"
     >
       <ul className="flex items-stretch">
         {tabs.map(({ view, label, Icon }) => {
@@ -49,24 +49,19 @@ export function BottomNav({
                 type="button"
                 onClick={() => onNavigate(view)}
                 aria-current={active ? 'page' : undefined}
-                className={`relative w-full h-14 flex flex-col items-center justify-center gap-0.5 transition-colors cursor-pointer ${
+                className={`relative w-full h-16 flex flex-col items-center justify-center gap-0.5 transition-colors cursor-pointer ${
                   active
                     ? 'text-brand-700 dark:text-brand-300'
                     : 'text-ink-500 dark:text-ink-400 active:bg-ink-100 dark:active:bg-ink-800'
                 }`}
               >
-                {/* The active marker sits on the top edge, against the border,
-                    so it reads as a tab rather than a floating dot. */}
-                <span
-                  aria-hidden="true"
-                  className={`absolute top-0 h-0.5 rounded-full bg-brand-600 dark:bg-brand-300 transition-all duration-200 ${
-                    active ? 'w-8 opacity-100' : 'w-0 opacity-0'
-                  }`}
-                />
-                <span className="relative">
+                {/* The active tab wears a pill behind its icon. */}
+                <span className={`relative flex items-center justify-center w-14 h-8 rounded-full transition-colors duration-200 ${
+                  active ? 'bg-brand-100 dark:bg-brand-900/80' : ''
+                }`}>
                   <Icon className="w-5 h-5" strokeWidth={active ? 2.4 : 1.9} />
                   {showBadge && (
-                    <span className="absolute -top-1 -right-1.5 min-w-[15px] h-[15px] px-1 rounded-full bg-rose-600 text-white text-[9px] font-black leading-none flex items-center justify-center">
+                    <span className="absolute -top-0.5 right-2 min-w-[16px] h-4 px-1 rounded-full bg-rose-600 text-white text-[11px] font-black leading-none flex items-center justify-center">
                       {badgeCount > 9 ? '9+' : badgeCount}
                     </span>
                   )}

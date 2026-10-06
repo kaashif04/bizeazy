@@ -183,6 +183,7 @@ ok(salary.length === 1,
 ok(salary[0].title.includes('September 2026'), 'and that month is September, not August or July');
 ok(salary[0].kind === 'salary-due' && salary[0].severity === 'warning', 'inside the window is a warning, not a danger');
 ok(salary[0].detail.includes('Aisha'), 'the names of the unpaid must be shown');
+ok(salary[0].due === '4 days left', `the pill says how long is left, got "${salary[0].due}"`);
 
 notes = buildNotifications(db, profiles, new Date(2026, 9, 20));      // 20 Oct, past it
 salary = notes.filter(n => n.kind === 'salary-overdue');
@@ -201,6 +202,7 @@ notes = buildNotifications(db, profiles, new Date(2026, 9, 20));
 const remaining = notes.find(n => n.kind === 'salary-overdue');
 ok(!!remaining && remaining.detail.includes('Ben'), 'the one still unpaid must be named');
 ok(!remaining!.detail.includes('Aisha'), 'the one already paid must not be');
+ok(remaining!.detail.split('Ben').length === 2, `one unpaid person is named once, not twice: "${remaining!.detail}"`);
 
 // Paying everyone clears it entirely.
 db.payslips.push(slip({ Employee_ID: 'E2', Month_Year: 'September 2026', Payment_Transferred: true }));

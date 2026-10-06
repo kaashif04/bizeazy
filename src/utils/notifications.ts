@@ -35,8 +35,15 @@ export interface AppNotification {
   severity: 'info' | 'warning' | 'danger';
   title: string;
   detail: string;
+  /** A few words for a pill: "Today", "2 days left", "3 days late". */
+  due: string;
   view: 'payroll' | 'invoicing' | 'quotations';
 }
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+/** Days until a deadline as pill text. */
+const dueText = (daysLeft: number): string =>
+  daysLeft === 0 ? 'Today' : daysLeft > 0 ? `${plural(daysLeft, 'day')} left` : `${plural(-daysLeft, 'day')} late`;
 
 const daysBetween = (from: Date, to: Date): number =>
   Math.ceil((to.getTime() - from.getTime()) / 86400000);
@@ -127,8 +134,10 @@ export function buildNotifications(
       const who = unpaid.length === 1
         ? unpaid[0].Employee_Name
         : `${unpaid.length} of ${owed.length} staff`;
-      const names = unpaid.slice(0, 3).map(e => e.Employee_Name).join(', ');
-      const more = unpaid.length > 3 ? ` +${unpaid.length - 3} more` : '';
+      // With one person, `who` already names them; list names only for a group.
+      const names = unpaid.length > 1
+        ? ` ${unpaid.slice(0, 3).map(e => e.Employee_Name).join(', ')}${unpaid.length > 3 ? ` +${unpaid.length - 3} more` : ''}`
+        : '';
 
       out.push({
         id: `salary:${profile.id}:${label}`,
@@ -136,10 +145,11 @@ export function buildNotifications(
         severity: overdue ? 'danger' : 'warning',
         title: overdue
           ? `Salary overdue — ${label}`
-          : `Salary due in ${daysLeft} day${daysLeft === 1 ? '' : 's'} — ${label}`,
+          : daysLeft === 0 ? `Salary due today — ${label}` : `Salary due in ${daysLeft} day${daysLeft === 1 ? '' : 's'} — ${label}`,
         detail: overdue
-          ? `${who} unpaid at ${branch}, ${Math.abs(daysLeft)} day${Math.abs(daysLeft) === 1 ? '' : 's'} past the 7-day deadline. ${names}${more}`
-          : `${who} still to be paid at ${branch}. ${names}${more}`,
+          ? `${who} unpaid at ${branch}, ${Math.abs(daysLeft)} day${Math.abs(daysLeft) === 1 ? '' : 's'} past the 7-day deadline.${names}`
+          : `${who} still to be paid at ${branch}.${names}`,
+        due: dueText(daysLeft),
         view: 'payroll',
       });
     });
@@ -150,7 +160,7 @@ export function buildNotifications(
     const issued = parseLocalDate(inv.Date);
     if (!issued || daysBetween(issued, today) < INVOICE_OVERDUE_DAYS) return false;
     return getPaymentSummary(inv, db.payments).balance > 0.005;
-  });
+  }).sort((a, b) => (a.Date || '').localeCompare(b.Date || ''));   // oldest first
   if (overdueInvoices.length) {
     const owed = overdueInvoices.reduce(
       (sum, inv) => sum + getPaymentSummary(inv, db.payments).balance, 0);
@@ -158,9 +168,10 @@ export function buildNotifications(
     out.push({
       id: `invoice-overdue:${overdueInvoices.length}`,
       kind: 'invoice-overdue',
-      severity: 'warning',
+      severity: 'danger',
       title: `${overdueInvoices.length} invoice${overdueInvoices.length === 1 ? '' : 's'} unpaid over ${INVOICE_OVERDUE_DAYS} days`,
       detail: `${currency} ${owed.toFixed(2)} outstanding. Oldest: ${overdueInvoices[0].Invoice_ID} (${overdueInvoices[0].Customer_Name}).`,
+      due: `${plural(daysBetween(parseLocalDate(overdueInvoices[0].Date)!, today), 'day')} old`,
       view: 'invoicing',
     });
   }
@@ -180,6 +191,7 @@ export function buildNotifications(
         ? `Quotation expired — ${q.Quotation_ID}`
         : `Quotation expires in ${left} day${left === 1 ? '' : 's'} — ${q.Quotation_ID}`,
       detail: `${q.Customer_Name}, valid until ${q.Valid_Until}. Not yet converted to an invoice.`,
+      due: left < 0 ? 'Expired' : dueText(left),
       view: 'quotations',
     });
   });

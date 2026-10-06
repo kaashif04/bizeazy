@@ -79,8 +79,7 @@ export function ReportsView({
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold tracking-tight text-ink-900 dark:text-white">Reports</h2>
-          <p className="text-xs text-ink-500 dark:text-ink-400">The last 12 months, in {currency}.</p>
+          <p className="text-sm text-ink-600 dark:text-ink-300">The last 12 months, in {currency}.</p>
         </div>
         {profiles.length > 1 && (
           <label className="flex items-center gap-2 text-2xs font-bold uppercase tracking-wider text-ink-600 dark:text-ink-300">

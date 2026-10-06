@@ -14,6 +14,7 @@ import {
 import { Sheet, sheetBtn } from './ui/Sheet';
 import { EmptyState } from './ui/States';
 import { PayslipArchive } from './PayslipArchive';
+import { confirmMoment } from '../utils/confirm';
 
 interface PayrollDashboardProps {
   db: DatabaseState;
@@ -664,14 +665,6 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       )}      {/* Roster Header and Trigger CTAs */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 
-            className="text-xl font-bold tracking-tight text-ink-900 dark:text-ink-100 flex items-center gap-2"
-          >
-            <Users 
-              className="w-5 h-5 text-brand-500" 
-            />
-            Payroll & Employee Management
-          </h2>
           <p className="text-xs text-ink-500 dark:text-ink-400 font-medium">
             {byBranch
               ? <><span className="text-ink-900 dark:text-white font-bold">{activeBranchLocation}</span> · {scopeEmployees.length} staff</>
@@ -758,10 +751,8 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                      1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34
                      16c-.77 1.333.192 3 1.732 3z"/>
               </svg>
-              <p className={`text-xs font-bold uppercase tracking-wider ${
-                isDarkMode ? 'text-amber-400' : 'text-amber-700'
-              }`}>
-                Payroll Compliance Reminders (Malaysian Employment Act)
+              <p className="text-sm font-extrabold text-ink-900 dark:text-white">
+                Salary deadlines
               </p>
             </div>
             {reminders.map((r, i) => (
@@ -794,7 +785,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       <span className="text-2xs font-bold px-2 py-0.5
                         rounded-full bg-emerald-100 text-emerald-700
                         dark:bg-emerald-900/40 dark:text-emerald-400">
-                        ✓ Payment Confirmed
+                        <Check className="inline w-3 h-3 -mt-px mr-0.5" aria-hidden="true" />Payment confirmed
                       </span>
                     )}
                   </div>
@@ -808,8 +799,10 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                     {r.paymentDone
                       ? 'Wages transferred — payslip archived.'
                       : r.isOverdue
-                      ? `⚠ OVERDUE by ${Math.abs(r.daysUntilDeadline)} day${Math.abs(r.daysUntilDeadline) !== 1 ? 's' : ''} — must pay immediately`
-                      : `Payment due in ${r.daysUntilDeadline} day${r.daysUntilDeadline !== 1 ? 's' : ''} (7-day rule)`}
+                      ? `Overdue by ${Math.abs(r.daysUntilDeadline)} day${Math.abs(r.daysUntilDeadline) !== 1 ? 's' : ''}: pay now`
+                      : r.daysUntilDeadline === 0
+                      ? 'Payment due today'
+                      : `Payment due in ${r.daysUntilDeadline} day${r.daysUntilDeadline !== 1 ? 's' : ''}`}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -851,7 +844,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                         cursor-pointer bg-emerald-600 hover:bg-emerald-700
                         text-white transition-colors"
                     >
-                      ✓ Mark Payment Made
+                      <Check className="inline w-3.5 h-3.5 -mt-px mr-1" aria-hidden="true" />Mark payment made
                     </button>
                   )}
                 </div>
@@ -922,7 +915,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                     </div>
                   </div>
                   <p className="text-sm font-black font-mono text-ink-900 dark:text-white tabular flex-shrink-0">
-                    RM {employee.Basic_Salary.toFixed(2)}
+                    RM {employee.Basic_Salary.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </div>
                 {employee.Bank_Details && (
@@ -974,12 +967,12 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
           <table className="min-w-full text-left text-xs">
             <thead className={`border-b text-2xs font-bold uppercase tracking-wider ${isDarkMode ? 'bg-ink-950/40 border-ink-800 text-ink-500' : 'bg-ink-50 border-ink-200 text-ink-700'}`}>
               <tr>
-                <th className="px-5 py-3">Employee Name</th>
-                <th className="px-5 py-3">IC / Passport</th>
-                <th className="px-5 py-3">Position</th>
-                <th className="px-5 py-3">Basic Monthly Salary</th>
-                <th className="px-5 py-3">Bank Details</th>
-                <th className="px-5 py-3 text-right">Actions</th>
+                <th className="px-5 py-3 whitespace-nowrap">Employee</th>
+                <th className="px-5 py-3 whitespace-nowrap hidden xl:table-cell">IC / Passport</th>
+                <th className="px-5 py-3 whitespace-nowrap">Position</th>
+                <th className="px-5 py-3 whitespace-nowrap text-right">Basic salary</th>
+                <th className="px-5 py-3 whitespace-nowrap">Bank</th>
+                <th className="px-5 py-3 whitespace-nowrap text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
@@ -995,14 +988,15 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       </div>
                       <div>
                         <div className="font-bold text-ink-900 dark:text-white">{employee.Employee_Name}</div>
-                        <div className="text-2xs text-ink-500 dark:text-ink-400 flex items-center gap-1.5 mt-0.5 font-medium">
-                          <span>{employee.Employee_ID}</span>
+                        <div className="text-2xs text-ink-500 dark:text-ink-400 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5 font-medium">
+                          <span className="whitespace-nowrap">{employee.Employee_ID}</span>
+                          <span className="xl:hidden whitespace-nowrap">· {employee.IC_Passport}</span>
                           <span>•</span>
                           <span className={`px-1 rounded text-2xs font-bold ${employee.Citizenship === 'Foreigner' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400' : 'bg-ink-100 dark:bg-ink-800 text-ink-600 dark:text-ink-300'}`}>
                             {residencyLabel(employee.Citizenship)}
                           </span>
                           {!byBranch && multiBranch && employee.Branch_Location && (
-                            <span className="px-1 rounded text-2xs font-bold bg-brand-50 dark:bg-brand-950/50 text-brand-800 dark:text-brand-300">
+                            <span className="px-1 rounded text-2xs font-bold whitespace-nowrap bg-brand-50 dark:bg-brand-950/50 text-brand-800 dark:text-brand-300">
                               {employee.Branch_Location}
                             </span>
                           )}
@@ -1022,15 +1016,15 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-4 text-ink-500 dark:text-ink-400 font-medium font-mono">{employee.IC_Passport}</td>
+                    <td className="px-5 py-4 text-ink-500 dark:text-ink-400 font-medium font-mono whitespace-nowrap hidden xl:table-cell">{employee.IC_Passport}</td>
                     <td className="px-5 py-4">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-bold bg-ink-50 border border-ink-300 dark:border-ink-800 dark:bg-ink-800 text-ink-900 dark:text-ink-300">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-bold whitespace-nowrap bg-ink-50 border border-ink-300 dark:border-ink-800 dark:bg-ink-800 text-ink-900 dark:text-ink-300">
                         <Briefcase className="w-3 h-3 text-ink-500" />
                         {employee.Position}
                       </span>
                     </td>
-                    <td className="px-5 py-4 font-black text-ink-900 dark:text-white">
-                      RM {employee.Basic_Salary.toFixed(2)}
+                    <td className="px-5 py-4 font-black text-ink-900 dark:text-white text-right tabular-nums whitespace-nowrap">
+                      RM {employee.Basic_Salary.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
                     <td className="px-5 py-4 text-ink-500 dark:text-ink-400 font-medium max-w-xs truncate" title={employee.Bank_Details}>
                       {employee.Bank_Details || '-'}
@@ -1044,7 +1038,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                           title="Calculate and View Payslip Document Details."
                         >
                           <FileText className="w-3.5 h-3.5" />
-                          <span>View Slip</span>
+                          <span className="whitespace-nowrap">View slip</span>
                         </button>
 
                         {/* Salary advances */}
@@ -1535,8 +1529,8 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                                 _overdue ? 'text-rose-500' : _daysLeft <= 2 ? 'text-amber-500' : 'text-ink-500 dark:text-ink-400'
                               }`}>
                                 {_overdue
-                                  ? `⚠ Payment overdue by ${Math.abs(_daysLeft)} day${Math.abs(_daysLeft) !== 1 ? 's' : ''}`
-                                  : `⏱ Pay within ${_daysLeft} day${_daysLeft !== 1 ? 's' : ''} (7-day rule)`}
+                                  ? `Payment overdue by ${Math.abs(_daysLeft)} day${Math.abs(_daysLeft) !== 1 ? 's' : ''}`
+                                  : _daysLeft === 0 ? 'Pay today' : `Pay within ${_daysLeft} day${_daysLeft !== 1 ? 's' : ''}`}
                               </div>
                             )}
                           </td>
@@ -2178,16 +2172,21 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                     )
                   };
                   setDb(nextDb);
-                  triggerToast('Payment confirmed and recorded.', 'success');
+                  const paid = markPaymentPayslip;
+                  const who = db.employees.find(e => e.Employee_ID === paid.Employee_ID)?.Employee_Name;
                   setMarkPaymentPayslip(null);
                   setTransferDateInput('');
                   syncStateToSheets(spreadsheetId, accessToken, nextDb, profiles, activeBranchLocation)
+                    .then(() => confirmMoment({
+                      title: 'Salary paid', amount: paid.Final_Net_Pay,
+                      note: [who, normaliseMonthLabel(paid.Month_Year)].filter(Boolean).join(' · '),
+                    }))
                     .catch((err: any) => triggerToast(`Not saved yet: ${err.message}`, 'error'));
                 }}
                 className="px-4 py-2 text-xs font-bold rounded-xl cursor-pointer
                   bg-emerald-600 hover:bg-emerald-700 text-white"
               >
-                ✓ Confirm Payment Made
+                <Check className="inline w-4 h-4 -mt-px mr-1" aria-hidden="true" />Confirm payment made
               </button>
             </div>
           </div>

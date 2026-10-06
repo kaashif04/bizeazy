@@ -4,10 +4,9 @@
 /* ─────────────────────────────────────────────────────────────────────────────
    BizEazy design tokens
 
-   The palette: warm ink neutrals, deep pine as the brand, saffron and clay for
-   warning and danger. Pine because this product is about money coming in and
-   wages going out, and because the previous indigo-on-slate was the stock
-   admin-panel look. Warm neutrals because the product lives in restaurants.
+   The palette ("Payment Confirmed", see DESIGN.md): payment blue #1463FF as
+   the brand, a cool navy ink ramp for neutrals, mint for paid, amber for
+   waiting, coral for late. Modelled on e-wallet payment-success screens.
 
    Two things to know before editing:
 
@@ -25,157 +24,148 @@
      One family carries headings, labels, buttons and body: a product UI does
      not need a display pairing. Mono is reserved for invoice IDs, money and
      dates, which are measurement rather than costume. */
-  --font-sans: Archivo, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: Manrope, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: Manrope, ui-sans-serif, system-ui, sans-serif;
 
   /* Raises the small-text floor. The old 9px and 10px labels are not readable
      on a phone at arm's length, and this is a phone-first product. */
   --text-2xs: 0.6875rem;
   --text-2xs--line-height: 1.09rem;
 
-  /* ── Ink: the one neutral ramp ── */
-  --color-ink-50:  #FAF8F6;
-  --color-ink-100: #F3EFEA;
-  --color-ink-200: #E6E0D8;
-  --color-ink-300: #D1C8BC;
-  --color-ink-400: #A79C8E;
-  --color-ink-500: #6E655B;
-  --color-ink-600: #574F47;
-  --color-ink-700: #443D37;
-  --color-ink-800: #2E2925;
-  --color-ink-900: #1C1815;
-  --color-ink-950: #120F0D;
+  /* ── Ink: cool paper to deep navy. Text is navy, never black. ── */
+  --color-ink-50: #F4F6FB;
+  --color-ink-100: #EAEEF6;
+  --color-ink-200: #D9E0EC;
+  --color-ink-300: #BCC6D8;
+  --color-ink-400: #8F9BB3;
+  --color-ink-500: #5B6B8C;
+  --color-ink-600: #45557A;
+  --color-ink-700: #33405F;
+  --color-ink-800: #1F2A45;
+  --color-ink-900: #0B1B3F;
+  --color-ink-950: #060F26;
 
-  /* ── Brand: deep pine. Primary actions, current selection, state only. ── */
-  --color-brand-50:  #EDF5F1;
-  --color-brand-100: #D3E8DF;
-  --color-brand-200: #A8D0C0;
-  --color-brand-300: #74B29C;
-  --color-brand-400: #449079;
-  --color-brand-500: #257561;
-  --color-brand-600: #195C4B;
-  --color-brand-700: #13493B;
-  --color-brand-800: #0E382D;
-  --color-brand-900: #092A21;
-  --color-brand-950: #051A14;
+  /* ── Brand: payment blue. The money field, primary actions, the active place. ── */
+  --color-brand-50: #EEF4FF;
+  --color-brand-100: #DCE7FF;
+  --color-brand-200: #B9CFFF;
+  --color-brand-300: #8BB0FF;
+  --color-brand-400: #5487FF;
+  --color-brand-500: #2C6BFF;
+  --color-brand-600: #1463FF;
+  --color-brand-700: #0A4FD6;
+  --color-brand-800: #0A3EA6;
+  --color-brand-900: #0B2F78;
+  --color-brand-950: #071D4C;
 
-  /* ── Legacy names, same values ──
-     Kept so a missed class renders correctly rather than reverting to stock
-     Tailwind and breaking the palette mid-component. */
-  --color-gray-50:  #FAF8F6;
-  --color-gray-100: #F3EFEA;
-  --color-gray-200: #E6E0D8;
-  --color-gray-300: #D1C8BC;
-  --color-gray-400: #A79C8E;
-  --color-gray-500: #6E655B;
-  --color-gray-600: #574F47;
-  --color-gray-700: #443D37;
-  --color-gray-800: #2E2925;
-  --color-gray-900: #1C1815;
-  --color-gray-950: #120F0D;
+  /* ── Legacy names resolve to the same two ramps, so a missed class still lands. ── */
+  --color-gray-50: #F4F6FB;
+  --color-gray-100: #EAEEF6;
+  --color-gray-200: #D9E0EC;
+  --color-gray-300: #BCC6D8;
+  --color-gray-400: #8F9BB3;
+  --color-gray-500: #5B6B8C;
+  --color-gray-600: #45557A;
+  --color-gray-700: #33405F;
+  --color-gray-800: #1F2A45;
+  --color-gray-900: #0B1B3F;
+  --color-gray-950: #060F26;
+  --color-slate-50: #F4F6FB;
+  --color-slate-100: #EAEEF6;
+  --color-slate-200: #D9E0EC;
+  --color-slate-300: #BCC6D8;
+  --color-slate-400: #8F9BB3;
+  --color-slate-500: #5B6B8C;
+  --color-slate-600: #45557A;
+  --color-slate-700: #33405F;
+  --color-slate-800: #1F2A45;
+  --color-slate-900: #0B1B3F;
+  --color-slate-950: #060F26;
+  --color-indigo-50: #EEF4FF;
+  --color-indigo-100: #DCE7FF;
+  --color-indigo-200: #B9CFFF;
+  --color-indigo-300: #8BB0FF;
+  --color-indigo-400: #5487FF;
+  --color-indigo-500: #2C6BFF;
+  --color-indigo-600: #1463FF;
+  --color-indigo-700: #0A4FD6;
+  --color-indigo-800: #0A3EA6;
+  --color-indigo-900: #0B2F78;
+  --color-indigo-950: #071D4C;
+  --color-purple-50: #EEF4FF;
+  --color-purple-100: #DCE7FF;
+  --color-purple-200: #B9CFFF;
+  --color-purple-300: #8BB0FF;
+  --color-purple-400: #5487FF;
+  --color-purple-500: #2C6BFF;
+  --color-purple-600: #1463FF;
+  --color-purple-700: #0A4FD6;
+  --color-purple-800: #0A3EA6;
+  --color-purple-900: #0B2F78;
+  --color-purple-950: #071D4C;
 
-  --color-slate-50:  #FAF8F6;
-  --color-slate-100: #F3EFEA;
-  --color-slate-200: #E6E0D8;
-  --color-slate-300: #D1C8BC;
-  --color-slate-400: #A79C8E;
-  --color-slate-500: #6E655B;
-  --color-slate-600: #574F47;
-  --color-slate-700: #443D37;
-  --color-slate-800: #2E2925;
-  --color-slate-900: #1C1815;
-  --color-slate-950: #120F0D;
+  /* ── Paid, done, confirmed: mint. ── */
+  --color-emerald-50: #E6FAF3;
+  --color-emerald-100: #C2F2E1;
+  --color-emerald-200: #8AE6C6;
+  --color-emerald-300: #4AD6A7;
+  --color-emerald-400: #12C48C;
+  --color-emerald-500: #00A877;
+  --color-emerald-600: #008A62;
+  --color-emerald-700: #006E4F;
+  --color-emerald-800: #055A42;
+  --color-emerald-900: #064A38;
+  --color-emerald-950: #032A20;
 
-  --color-indigo-50:  #EDF5F1;
-  --color-indigo-100: #D3E8DF;
-  --color-indigo-200: #A8D0C0;
-  --color-indigo-300: #74B29C;
-  --color-indigo-400: #449079;
-  --color-indigo-500: #257561;
-  --color-indigo-600: #195C4B;
-  --color-indigo-700: #13493B;
-  --color-indigo-800: #0E382D;
-  --color-indigo-900: #092A21;
-  --color-indigo-950: #051A14;
+  /* ── Waiting: amber. Text uses 700+ on light grounds. ── */
+  --color-amber-50: #FFF7E6;
+  --color-amber-100: #FFEBC2;
+  --color-amber-200: #FFD98A;
+  --color-amber-300: #FFC24D;
+  --color-amber-400: #FFB020;
+  --color-amber-500: #F09A00;
+  --color-amber-600: #C77A00;
+  --color-amber-700: #9A5C00;
+  --color-amber-800: #7A4800;
+  --color-amber-900: #5C3600;
+  --color-amber-950: #3A2100;
 
-  /* ── Success: a brighter sibling of the brand, so "paid" and "active nav"
-        read as related without being mistaken for each other. ── */
-  --color-emerald-50:  #E9F7EF;
-  --color-emerald-100: #CCEDDB;
-  --color-emerald-200: #9DDCBB;
-  --color-emerald-300: #64C494;
-  --color-emerald-400: #2EA771;
-  --color-emerald-500: #13885C;
-  --color-emerald-600: #0C7A52;
-  --color-emerald-700: #0A6243;
-  --color-emerald-800: #084E36;
-  --color-emerald-900: #063A28;
-  --color-emerald-950: #03241A;
-
-  /* ── Warning: saffron ── */
-  --color-amber-50:  #FDF6E7;
-  --color-amber-100: #F9E8C2;
-  --color-amber-200: #F2D28A;
-  --color-amber-300: #E6B54C;
-  --color-amber-400: #D29A1C;
-  --color-amber-500: #B9820B;
-  --color-amber-600: #976709;
-  --color-amber-700: #7A5308;
-  --color-amber-800: #5E4006;
-  --color-amber-900: #452F05;
-  --color-amber-950: #2A1D03;
-
-  /* ── Danger: clay, warmer and less shrill than stock red ── */
-  --color-rose-50:  #FDF1EF;
-  --color-rose-100: #FADFDA;
-  --color-rose-200: #F3BDB3;
-  --color-rose-300: #E79384;
-  --color-rose-400: #D86751;
-  --color-rose-500: #C44A33;
-  --color-rose-600: #A53A26;
-  --color-rose-700: #86301F;
-  --color-rose-800: #682518;
-  --color-rose-900: #4E1C12;
-  --color-rose-950: #2F110B;
-
-  --color-red-50:  #FDF1EF;
-  --color-red-100: #FADFDA;
-  --color-red-200: #F3BDB3;
-  --color-red-300: #E79384;
-  --color-red-400: #D86751;
-  --color-red-500: #C44A33;
-  --color-red-600: #A53A26;
-  --color-red-700: #86301F;
-  --color-red-800: #682518;
-  --color-red-900: #4E1C12;
-  --color-red-950: #2F110B;
-
-  /* Headcount and other neutral categories previously used purple; fold it
-     into the brand family rather than add a hue that means nothing. */
-  --color-purple-50:  #EDF5F1;
-  --color-purple-100: #D3E8DF;
-  --color-purple-200: #A8D0C0;
-  --color-purple-300: #74B29C;
-  --color-purple-400: #449079;
-  --color-purple-500: #257561;
-  --color-purple-600: #195C4B;
-  --color-purple-700: #13493B;
-  --color-purple-800: #0E382D;
-  --color-purple-900: #092A21;
-  --color-purple-950: #051A14;
+  /* ── Late, danger: coral red. ── */
+  --color-rose-50: #FFF1F0;
+  --color-rose-100: #FFDEDB;
+  --color-rose-200: #FFBCB6;
+  --color-rose-300: #FF8F86;
+  --color-rose-400: #FF6257;
+  --color-rose-500: #F04438;
+  --color-rose-600: #D92D20;
+  --color-rose-700: #B42318;
+  --color-rose-800: #912018;
+  --color-rose-900: #7A271A;
+  --color-rose-950: #451109;
+  --color-red-50: #FFF1F0;
+  --color-red-100: #FFDEDB;
+  --color-red-200: #FFBCB6;
+  --color-red-300: #FF8F86;
+  --color-red-400: #FF6257;
+  --color-red-500: #F04438;
+  --color-red-600: #D92D20;
+  --color-red-700: #B42318;
+  --color-red-800: #912018;
+  --color-red-900: #7A271A;
+  --color-red-950: #451109;
 
   /* ── Depth: every shadow carries an offset and a soft blur. ── */
-  --shadow-xs:    0 1px 2px -1px color-mix(in srgb, #120F0D 12%, transparent);
-  --shadow-sm:    0 1px 3px -1px color-mix(in srgb, #120F0D 10%, transparent),
-                  0 1px 2px -1px color-mix(in srgb, #120F0D 6%, transparent);
-  --shadow-md:    0 4px 12px -3px color-mix(in srgb, #120F0D 12%, transparent),
-                  0 2px 4px -2px color-mix(in srgb, #120F0D 8%, transparent);
-  --shadow-lg:    0 12px 28px -8px color-mix(in srgb, #120F0D 18%, transparent),
-                  0 4px 10px -4px color-mix(in srgb, #120F0D 10%, transparent);
-  --shadow-xl:    0 24px 56px -16px color-mix(in srgb, #120F0D 26%, transparent),
-                  0 8px 20px -8px color-mix(in srgb, #120F0D 14%, transparent);
+  --shadow-xs:    0 1px 2px -1px color-mix(in srgb, #0B1B3F 12%, transparent);
+  --shadow-sm:    0 1px 3px -1px color-mix(in srgb, #0B1B3F 10%, transparent),
+                  0 1px 2px -1px color-mix(in srgb, #0B1B3F 6%, transparent);
+  --shadow-md:    0 4px 12px -3px color-mix(in srgb, #0B1B3F 12%, transparent),
+                  0 2px 4px -2px color-mix(in srgb, #0B1B3F 8%, transparent);
+  --shadow-lg:    0 12px 28px -8px color-mix(in srgb, #0B1B3F 18%, transparent),
+                  0 4px 10px -4px color-mix(in srgb, #0B1B3F 10%, transparent);
+  --shadow-xl:    0 24px 56px -16px color-mix(in srgb, #0B1B3F 26%, transparent),
+                  0 8px 20px -8px color-mix(in srgb, #0B1B3F 14%, transparent);
   /* Offset upward: a bottom sheet is lit from the content it covers. */
-  --shadow-sheet: 0 -10px 40px -12px color-mix(in srgb, #120F0D 30%, transparent);
+  --shadow-sheet: 0 -10px 40px -12px color-mix(in srgb, #0B1B3F 30%, transparent);
 
   --radius-sheet: 1.25rem;
 
@@ -200,9 +190,9 @@
     color: var(--color-ink-900);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* Optical sizing and a touch of tracking: Archivo sets slightly wide by
-       default at UI sizes. */
-    letter-spacing: -0.006em;
+    /* Manrope sets a little wide at UI sizes; a hair of negative tracking. */
+    letter-spacing: -0.008em;
+    font-feature-settings: "cv11", "ss01";
   }
 
   .dark body {
@@ -287,7 +277,7 @@
   .pt-safe { padding-top: max(env(safe-area-inset-top), 0px); }
   .h-safe-nav { height: calc(3.5rem + max(env(safe-area-inset-bottom), 0px)); }
   /* Keeps content clear of the fixed mobile tab bar. */
-  .pb-nav { padding-bottom: calc(4rem + max(env(safe-area-inset-bottom), 0px)); }
+  .pb-nav { padding-bottom: calc(5rem + max(env(safe-area-inset-bottom), 0px)); }
 
   .tap { min-height: 44px; min-width: 44px; }
 
@@ -314,6 +304,32 @@
   .animate-sheet-up { animation: sheet-up 280ms var(--ease-out-quint) both; }
   .animate-sheet-in { animation: sheet-in 180ms var(--ease-out-quint) both; }
   .animate-fade-in  { animation: fade-in 160ms ease-out both; }
+
+  /* ── Payment Confirmed motion: quick, transform and opacity only, never
+        blocking input. Content is visible by default; motion only adds. ── */
+  @keyframes view-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @keyframes row-enter  { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @keyframes tick-draw  { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+  @keyframes grow-x     { from { transform: scaleX(0); } }
+
+  /* Every screen change rises into place; 180ms is felt, not waited for. */
+  .view-enter { animation: view-enter 180ms var(--ease-out-quint) both; }
+  .toast-in   { animation: row-enter 220ms var(--ease-out-quint) both; }
+  @keyframes confirm-in { from { opacity: 0; transform: scale(0.94); } 60% { opacity: 1; } to { opacity: 1; transform: none; } }
+  .confirm-in { animation: confirm-in 200ms var(--ease-out-quint) both; }
+  .row-enter  { animation: row-enter 260ms var(--ease-out-quint) both; }
+  .tick-draw  { stroke-dasharray: 1; stroke-dashoffset: 0; animation: tick-draw 300ms 60ms var(--ease-out-quint) both; }
+  .progress-grow { transition: transform 220ms var(--ease-out-quint); animation: grow-x 220ms var(--ease-out-quint) both; }
+
+  /* The receipt edge: the money field ends in a torn, scalloped line, the one
+     ornament this world allows. A mask, so it works on any colour beneath. */
+  .receipt-edge {
+    -webkit-mask: radial-gradient(circle 7px at 50% 100%, transparent 98%, #000) 0 0 / 18px 100% repeat-x;
+            mask: radial-gradient(circle 7px at 50% 100%, transparent 98%, #000) 0 0 / 18px 100% repeat-x;
+  }
+
+  /* Money uses Manrope's tabular figures everywhere the app shows it. */
+  .font-mono { font-variant-numeric: tabular-nums; }
 
   /* Skeletons, not spinners, for content that is loading. */
   .skeleton {
@@ -369,4 +385,127 @@
 @media print {
   .no-print, [data-chrome] { display: none !important; }
   body { background: #fff !important; color: #000 !important; }
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Documents keep their own design.
+   Invoices, quotations, kitchen sheets and payslips (anything marked
+   `data-document`) were designed in the previous palette and faces, and what a
+   customer or employee receives must not change when the app's look does. The
+   app's tokens are redefined above; inside a document they are set back.
+   ───────────────────────────────────────────────────────────────────────────── */
+[data-document] {
+  --font-sans: Archivo, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --color-ink-50: #FAF8F6;
+  --color-ink-100: #F3EFEA;
+  --color-ink-200: #E6E0D8;
+  --color-ink-300: #D1C8BC;
+  --color-ink-400: #A79C8E;
+  --color-ink-500: #6E655B;
+  --color-ink-600: #574F47;
+  --color-ink-700: #443D37;
+  --color-ink-800: #2E2925;
+  --color-ink-900: #1C1815;
+  --color-ink-950: #120F0D;
+  --color-brand-50: #EDF5F1;
+  --color-brand-100: #D3E8DF;
+  --color-brand-200: #A8D0C0;
+  --color-brand-300: #74B29C;
+  --color-brand-400: #449079;
+  --color-brand-500: #257561;
+  --color-brand-600: #195C4B;
+  --color-brand-700: #13493B;
+  --color-brand-800: #0E382D;
+  --color-brand-900: #092A21;
+  --color-brand-950: #051A14;
+  --color-gray-50: #FAF8F6;
+  --color-gray-100: #F3EFEA;
+  --color-gray-200: #E6E0D8;
+  --color-gray-300: #D1C8BC;
+  --color-gray-400: #A79C8E;
+  --color-gray-500: #6E655B;
+  --color-gray-600: #574F47;
+  --color-gray-700: #443D37;
+  --color-gray-800: #2E2925;
+  --color-gray-900: #1C1815;
+  --color-gray-950: #120F0D;
+  --color-slate-50: #FAF8F6;
+  --color-slate-100: #F3EFEA;
+  --color-slate-200: #E6E0D8;
+  --color-slate-300: #D1C8BC;
+  --color-slate-400: #A79C8E;
+  --color-slate-500: #6E655B;
+  --color-slate-600: #574F47;
+  --color-slate-700: #443D37;
+  --color-slate-800: #2E2925;
+  --color-slate-900: #1C1815;
+  --color-slate-950: #120F0D;
+  --color-indigo-50: #EDF5F1;
+  --color-indigo-100: #D3E8DF;
+  --color-indigo-200: #A8D0C0;
+  --color-indigo-300: #74B29C;
+  --color-indigo-400: #449079;
+  --color-indigo-500: #257561;
+  --color-indigo-600: #195C4B;
+  --color-indigo-700: #13493B;
+  --color-indigo-800: #0E382D;
+  --color-indigo-900: #092A21;
+  --color-indigo-950: #051A14;
+  --color-emerald-50: #E9F7EF;
+  --color-emerald-100: #CCEDDB;
+  --color-emerald-200: #9DDCBB;
+  --color-emerald-300: #64C494;
+  --color-emerald-400: #2EA771;
+  --color-emerald-500: #13885C;
+  --color-emerald-600: #0C7A52;
+  --color-emerald-700: #0A6243;
+  --color-emerald-800: #084E36;
+  --color-emerald-900: #063A28;
+  --color-emerald-950: #03241A;
+  --color-amber-50: #FDF6E7;
+  --color-amber-100: #F9E8C2;
+  --color-amber-200: #F2D28A;
+  --color-amber-300: #E6B54C;
+  --color-amber-400: #D29A1C;
+  --color-amber-500: #B9820B;
+  --color-amber-600: #976709;
+  --color-amber-700: #7A5308;
+  --color-amber-800: #5E4006;
+  --color-amber-900: #452F05;
+  --color-amber-950: #2A1D03;
+  --color-rose-50: #FDF1EF;
+  --color-rose-100: #FADFDA;
+  --color-rose-200: #F3BDB3;
+  --color-rose-300: #E79384;
+  --color-rose-400: #D86751;
+  --color-rose-500: #C44A33;
+  --color-rose-600: #A53A26;
+  --color-rose-700: #86301F;
+  --color-rose-800: #682518;
+  --color-rose-900: #4E1C12;
+  --color-rose-950: #2F110B;
+  --color-red-50: #FDF1EF;
+  --color-red-100: #FADFDA;
+  --color-red-200: #F3BDB3;
+  --color-red-300: #E79384;
+  --color-red-400: #D86751;
+  --color-red-500: #C44A33;
+  --color-red-600: #A53A26;
+  --color-red-700: #86301F;
+  --color-red-800: #682518;
+  --color-red-900: #4E1C12;
+  --color-red-950: #2F110B;
+  --color-purple-50: #EDF5F1;
+  --color-purple-100: #D3E8DF;
+  --color-purple-200: #A8D0C0;
+  --color-purple-300: #74B29C;
+  --color-purple-400: #449079;
+  --color-purple-500: #257561;
+  --color-purple-600: #195C4B;
+  --color-purple-700: #13493B;
+  --color-purple-800: #0E382D;
+  --color-purple-900: #092A21;
+  --color-purple-950: #051A14;
 }

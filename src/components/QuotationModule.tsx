@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Plus, Search, FileText, CheckCircle, X, Trash2,
@@ -34,6 +34,9 @@ interface QuotationModuleProps {
   accessToken: string;
   isSyncing: boolean;
   setIsSyncing: (val: boolean) => void;
+  /** Open straight into a new one (a quick action on the Hub). */
+  startNew?: boolean;
+  onStartedNew?: () => void;
 }
 
 interface DayItemForm {
@@ -742,7 +745,7 @@ function KitchenSheetModal({ data, onClose }: { data: PreviewData; onClose: () =
 export default function QuotationModule({
   db, setDb, profiles, activeBranchLocation, isDarkMode,
   triggerToast, syncStateToSheets, spreadsheetId, accessToken,
-  isSyncing, setIsSyncing,
+  isSyncing, setIsSyncing, startNew, onStartedNew,
 }: QuotationModuleProps) {
 
   const [search, setSearch] = useState('');
@@ -941,6 +944,14 @@ export default function QuotationModule({
   };
 
   // ── Open modal (create OR edit) ───────────────────────────────────────────
+  // A Hub quick action asked for a fresh one: open the form once, then clear the ask.
+  useEffect(() => {
+    if (!startNew) return;
+    openModal();
+    onStartedNew?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startNew]);
+
   const openModal = (quotation?: Quotation) => {
     if (quotation) {
       setEditingQuotation(quotation);
