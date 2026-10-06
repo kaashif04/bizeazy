@@ -9,6 +9,7 @@ import { PayrollDashboard } from './components/PayrollDashboard';
 import { Sheet, sheetBtn } from './components/ui/Sheet';
 import { BottomNav } from './components/ui/BottomNav';
 import { ModuleSkeleton } from './components/ui/States';
+import { ReportsView } from './components/ReportsView';
 import type { CompanyProfile, DatabaseState, Employee, Payslip } from './types';
 
 const employees: Employee[] = [
@@ -95,7 +96,22 @@ function Harness() {
   return (
     <div>
       <div className="min-h-screen bg-ink-50 dark:bg-ink-950 p-4 sm:p-6 pb-nav md:pb-6">
-        {view === 'sheet' ? <SheetDemo /> : view === 'loading' ? <ModuleSkeleton label="Payroll" /> : (
+        {view === 'sheet' ? <SheetDemo /> : view === 'loading' ? <ModuleSkeleton label="Payroll" /> : view === 'reports' ? (
+          <ReportsView canSales canPayroll profiles={[...profiles, { ...profiles[0], id: 'NK', name: "Kiya's Restaurant", store_name: "Kiya's Restaurant" }]} db={{
+            ...db,
+            invoices: [
+              { Invoice_ID: 'BIS-26-0012', Date: '2026-09-20', Company: 'Bistro', Customer_Name: 'Acme Catering Sdn Bhd', Status: 'Pending', Total_Amount: 7700, Customer_Type: 'Regular' },
+              { Invoice_ID: 'BIS-26-0009', Date: '2026-07-02', Company: 'Bistro', Customer_Name: 'Hotel Seri', Status: 'Pending', Total_Amount: 2450, Customer_Type: 'Regular' },
+              { Invoice_ID: 'NK-26-0004', Date: '2026-08-15', Company: 'NK', Customer_Name: 'Wedding — Aminah', Status: 'Paid', Total_Amount: 12800, Customer_Type: 'New' },
+            ] as any,
+            payments: [{ Payment_ID: 'p1', Invoice_ID: 'BIS-26-0012', Amount: 5000, Date: '2026-10-02' }] as any,
+            payslips: [
+              { Payslip_ID: 'x1', Employee_ID: 'EMP-74868', Month_Year: 'September 2026', Basic_Pay: 1700, Custom_Allowances: 0, Total_Allowances: 0, Employer_EPF: 221, Employer_SOCSO: 29.75, Employer_EIS: 3.30, Employer_Statutory_Offset: 205, Final_Net_Pay: 1700, Is_Saved: true, Branch_Location: 'A1 Bistro' },
+              { Payslip_ID: 'x2', Employee_ID: 'EMP-89690', Month_Year: 'September 2026', Basic_Pay: 6000, Custom_Allowances: 300, Total_Allowances: 300, Employer_EPF: 756, Employer_SOCSO: 104.15, Employer_EIS: 0, Employer_Statutory_Offset: 0, Final_Net_Pay: 6015, Is_Saved: true, Branch_Location: 'A1 Bistro' },
+              { Payslip_ID: 'x3', Employee_ID: 'EMP-89690', Month_Year: 'August 2026', Basic_Pay: 6000, Custom_Allowances: 0, Total_Allowances: 0, Employer_EPF: 720, Employer_SOCSO: 104.15, Employer_EIS: 0, Employer_Statutory_Offset: 0, Final_Net_Pay: 5715, Is_Saved: true, Branch_Location: 'A1 Bistro' },
+            ] as any,
+          }} />
+        ) : (
           <PayrollDashboard
             db={db}
             setDb={setDb}

@@ -30,11 +30,12 @@ import QuotationModule from './components/QuotationModule';
 import {
   LayoutDashboard, FileText, Users, LogOut, Moon, Sun, RefreshCw,
   Building2, TrendingUp, Clock, Loader2, X, AlertTriangle, ArrowRight,
-  CreditCard, Settings, Menu, Upload, CalendarRange, UserCog,
+  CreditCard, Settings, Menu, Upload, CalendarRange, UserCog, BarChart3,
 } from 'lucide-react';
+import { ReportsView } from './components/ReportsView';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type AppView = 'hub' | 'invoicing' | 'payroll' | 'quotations';
+type AppView = 'hub' | 'invoicing' | 'payroll' | 'quotations' | 'reports';
 type AuthStatus = 'loading' | 'unauthenticated' | 'authenticated';
 
 interface Toast {
@@ -338,6 +339,7 @@ const NAV_ITEMS: { view: AppView; Icon: React.FC<React.SVGProps<SVGSVGElement>>;
   { view: 'invoicing', Icon: FileText, label: 'Invoicing' },
   { view: 'quotations', Icon: CalendarRange, label: 'Quotations' },
   { view: 'payroll', Icon: Users, label: 'Payroll' },
+  { view: 'reports', Icon: BarChart3, label: 'Reports' },
 ];
 
 function Sidebar({
@@ -658,7 +660,9 @@ export default function App() {
 
   /** Hub is always open; every other view is a module the account must carry. */
   const allowed = useCallback(
-    (v: AppView | ModuleName): boolean => v === 'hub' || can(session, v as ModuleName),
+    (v: AppView | ModuleName): boolean => v === 'hub'
+      // Reports holds sales and payroll sections, each shown only to its module.
+      || (v === 'reports' ? can(session, 'invoicing') || can(session, 'payroll') : can(session, v as ModuleName)),
     [session],
   );
 
@@ -705,7 +709,7 @@ export default function App() {
 
   const viewTitle: Record<AppView, string> = {
     hub: 'Hub Overview', invoicing: 'Invoicing Module', payroll: 'Payroll Module',
-    quotations: 'Quotations Module',
+    quotations: 'Quotations Module', reports: 'Reports',
   };
 
   const wrapClass = isDark ? 'dark' : '';
@@ -1309,6 +1313,14 @@ export default function App() {
                 accessToken={accessToken}
                 isSyncing={isSyncing}
                 setIsSyncing={setIsSyncing}
+              />
+            )}
+            {activeView === 'reports' && (
+              <ReportsView
+                db={db}
+                profiles={profiles}
+                canSales={can(session, 'invoicing')}
+                canPayroll={can(session, 'payroll')}
               />
             )}
             {activeView === 'payroll' && (

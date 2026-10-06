@@ -161,6 +161,7 @@ The real work happens on a phone, so:
 | Row-level security: companies, modules, deactivation, signed-out access | `npx tsx supabase/rls.selfcheck.ts` |
 | What a save writes; the Google Sheets import parser | `npx tsx src/db.selfcheck.ts` |
 | Session / keep-me-signed-in rules | `npx tsx src/auth.selfcheck.ts` |
+| Report figures: sales, receivables aging, payroll cost | `npx tsx src/utils/reports.selfcheck.ts` |
 | Outlet resolution, incl. legacy rows | `npx tsx src/utils/outlets.selfcheck.ts` |
 | Wage periods, EPF, reminder rules | `npx tsx src/utils/notifications.selfcheck.ts` |
 | Types | `npm run lint` |

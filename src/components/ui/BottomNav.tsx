@@ -8,15 +8,16 @@
  * branch, refresh, settings, users, theme, sign out.
  */
 import React from 'react';
-import { LayoutDashboard, FileText, CalendarRange, Users } from 'lucide-react';
+import { LayoutDashboard, FileText, CalendarRange, Users, BarChart3 } from 'lucide-react';
 
-export type NavView = 'hub' | 'invoicing' | 'quotations' | 'payroll';
+export type NavView = 'hub' | 'invoicing' | 'quotations' | 'payroll' | 'reports';
 
 const TABS: { view: NavView; label: string; Icon: React.FC<React.SVGProps<SVGSVGElement>> }[] = [
   { view: 'hub', label: 'Hub', Icon: LayoutDashboard },
   { view: 'invoicing', label: 'Invoices', Icon: FileText },
   { view: 'quotations', label: 'Quotes', Icon: CalendarRange },
   { view: 'payroll', label: 'Payroll', Icon: Users },
+  { view: 'reports', label: 'Reports', Icon: BarChart3 },
 ];
 
 export function BottomNav({
