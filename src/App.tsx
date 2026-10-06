@@ -1293,7 +1293,7 @@ export default function App() {
           // Portal straight to <body> so printing isn't constrained by any ancestor in
           // the app's own layout (sidebar, page wrappers, etc.) — see print CSS below.
           return createPortal(
-            <div id="preview-studio-overlay" data-document className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-2 sm:p-4 overflow-y-auto w-full h-full">
+            <div id="preview-studio-overlay" data-document className="fixed inset-0 bg-black/60 z-[60] flex overlay-center justify-center p-2 sm:p-4 overflow-y-auto w-full h-full">
               <style dangerouslySetInnerHTML={{__html: `
                 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Playfair+Display:ital,wght@0,600;1,400&family=Space+Grotesk:wght@500;700&display=swap');
                 @media print {

@@ -291,6 +291,15 @@
 
   .tap { min-height: 44px; min-width: 44px; }
 
+  /* A scrolling overlay that centres its card only while the card fits. Plain
+     items-center pushes a taller card's top above the scroll origin, where it
+     can never be scrolled back into view. Browsers without "safe" alignment
+     get top alignment, which still scrolls to everything. */
+  .overlay-center { align-items: flex-start; }
+  @supports (align-items: safe center) {
+    .overlay-center { align-items: safe center; }
+  }
+
   @keyframes sheet-up {
     from { transform: translateY(100%); }
     to   { transform: translateY(0); }

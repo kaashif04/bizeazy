@@ -259,7 +259,7 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
   // Portal straight to <body> so printing isn't constrained by any ancestor in the
   // app's own layout (sidebar, page wrappers, etc.) — see print CSS below for why.
   return createPortal(
-    <div id="quotation-preview-overlay" data-document className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-2 sm:p-4 overflow-y-auto w-full h-full">
+    <div id="quotation-preview-overlay" data-document className="fixed inset-0 bg-black/60 z-[60] flex overlay-center justify-center p-2 sm:p-4 overflow-y-auto w-full h-full">
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
           @page { size: A4 portrait; margin: 0mm; }
@@ -561,7 +561,7 @@ function KitchenSheetModal({ data, onClose }: { data: PreviewData; onClose: () =
   const sortedDays = [...days].sort((a, b) => a.Event_Date.localeCompare(b.Event_Date));
 
   return createPortal(
-    <div id="kitchen-sheet-overlay" data-document className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-2 sm:p-4 overflow-y-auto w-full h-full">
+    <div id="kitchen-sheet-overlay" data-document className="fixed inset-0 bg-black/60 z-[60] flex overlay-center justify-center p-2 sm:p-4 overflow-y-auto w-full h-full">
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
           @page { size: A4 portrait; margin: 0mm; }

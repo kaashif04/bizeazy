@@ -1275,7 +1275,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
 
       {/* --- MODAL 1: ADD / EDIT EMPLOYEE --- */}
       {isEmployeeModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex overlay-center justify-center p-4 animate-fade-in">
           <div className={`w-full max-w-md p-6 rounded-2xl shadow-xl transition-all ${isDarkMode ? 'bg-ink-900 border border-ink-800 text-ink-100' : 'bg-white border border-ink-200 text-ink-900'}`}>
             <div className="flex items-center justify-between mb-4 border-b pb-3 dark:border-ink-800 border-ink-100">
               <h3 className="text-sm font-bold uppercase tracking-wider text-brand-500">
@@ -1540,7 +1540,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
 
       {/* --- MODAL 2: GENERATE MONTHLY PAYSLIPS (Admin Workspace) --- */}
       {isGeneratorOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex overlay-center justify-center p-4 animate-fade-in">
           <div className={`w-full max-w-4xl p-6 rounded-2xl shadow-xl transition-all ${isDarkMode ? 'bg-ink-900 border border-ink-800 text-ink-100' : 'bg-white border border-ink-200 text-ink-900'}`}>
             <div className="flex items-center justify-between mb-4 border-b pb-3 dark:border-ink-800 border-ink-100">
               <div className="flex items-center gap-2">
@@ -2243,7 +2243,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
 
       {/* ── Mark Payment Made modal ── */}
       {markPaymentPayslip && (
-        <div className="fixed inset-0 z-[60] bg-black/60 flex items-center
+        <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/60 flex overlay-center
                         justify-center p-4">
           <div className={`w-full max-w-sm rounded-2xl shadow-xl p-6 ${
             isDarkMode
