@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import {
   loadAll, saveChanges, loadConfig, saveConfig, importSheetExport, forgetLoaded, EMPTY_DB, KINDS,
   backupJson, workbookSheets, recentChanges, Change,
+  isBranchKey, payrollScopeOf, saveCompanySettings, PayrollScope,
 } from './db';
 import { buildXlsx, download, XLSX_TYPE } from './utils/xlsx';
 import {
@@ -116,7 +117,7 @@ function gasConfigToProfiles(gasConfig: any): CompanyProfile[] {
   const seen = new Set<string>();
   const profiles: CompanyProfile[] = [];
 
-  Object.keys(gasConfig).forEach(key => {
+  Object.keys(gasConfig).filter(isBranchKey).forEach(key => {
     const raw = gasConfig[key] || {};
     const id = LEGACY_KEY_ALIASES[key.toLowerCase()] || key;
     if (seen.has(id)) return;        // both spellings present — first wins
@@ -514,6 +515,7 @@ export default function App() {
   const accessToken = '';
   const [db, setDb] = useState<DatabaseState>(EMPTY_DB);
   const [profiles, setProfiles] = useState<CompanyProfile[]>(DEFAULT_PROFILES);
+  const [payrollScope, setPayrollScope] = useState<PayrollScope>('company');
   const [activeView, setActiveView] = useState<AppView>('hub');
   const [isDark, setIsDark] = useState(() => localStorage.getItem('bizeazy_dark') === 'true');
 
@@ -589,8 +591,10 @@ export default function App() {
     try {
       let resolvedProfiles = DEFAULT_PROFILES;
       try {
-        resolvedProfiles = gasConfigToProfiles(await loadConfig());
+        const config = await loadConfig();
+        resolvedProfiles = gasConfigToProfiles(config);
         setProfiles(resolvedProfiles);
+        setPayrollScope(payrollScopeOf(config));
       } catch {
         // Fall back to a neutral outlet; the records below still load.
       }
@@ -698,12 +702,27 @@ export default function App() {
         };
         return acc;
       }, {});
-      await saveConfig(gasConfig);
+      // Company settings live beside the branches; a branch save must keep them.
+      const current = await loadConfig();
+      const kept = Object.fromEntries(Object.entries(current).filter(([k]) => !isBranchKey(k)));
+      await saveConfig({ ...kept, ...gasConfig });
       setProfiles(updated);
       setIsProfilesOpen(false);
       triggerToast('Company profiles saved.', 'success');
     } catch (err: any) {
       triggerToast(`Profile save failed: ${err.message}`, 'error');
+    }
+  };
+
+  const handlePayrollScope = async (scope: PayrollScope) => {
+    const before = payrollScope;
+    setPayrollScope(scope);
+    try {
+      await saveCompanySettings({ payroll_scope: scope });
+      triggerToast(scope === 'company' ? 'Payroll now lists the whole company.' : 'Payroll now lists staff by branch.', 'success');
+    } catch (err: any) {
+      setPayrollScope(before);
+      triggerToast(`Not saved: ${err.message}`, 'error');
     }
   };
 
@@ -1337,6 +1356,8 @@ export default function App() {
                 profiles={profiles}
                 isSyncing={isSyncing}
                 setIsSyncing={setIsSyncing}
+                payrollScope={payrollScope}
+                onPayrollScopeChange={can(session, 'settings') ? handlePayrollScope : undefined}
               />
             )}
             </>)}

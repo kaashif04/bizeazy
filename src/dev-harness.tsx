@@ -35,7 +35,24 @@ const employees: Employee[] = [
   },
 ];
 
-const payslips: Payslip[] = [];
+const slipFor = (emp: Employee, month: string, paid: boolean, net: number): Payslip => ({
+  Payslip_ID: `PAY-${emp.Employee_ID}-${month.replace(' ', '-')}`, Employee_ID: emp.Employee_ID, Issue_Date: '2026-10-01',
+  Month_Year: month, Basic_Pay: emp.Basic_Salary, Custom_Allowances: 0, Total_Allowances: 0, Employee_EPF: 0, Employer_EPF: 0,
+  Employee_SOCSO: 0, Employer_SOCSO: 0, Employee_EIS: 0, Employer_EIS: 0, Employee_SKBBK: 0, Total_Statutory_Deductions: 0,
+  Custom_Deductions: 0, Employer_Statutory_Offset: 0, Final_Net_Pay: net, Branch_Location: emp.Branch_Location, Is_Saved: true,
+  Payment_Transferred: paid, Transfer_Date: paid ? '5 October 2026' : '',
+});
+employees.push({
+  Employee_ID: 'EMP-55501', Employee_Name: 'Siti Nurhaliza', IC_Passport: '010203141234', Position: 'Cashier',
+  Assigned_Outlet: 'NK', Basic_Salary: 1900, Bank_Details: 'CIMB 7001', Branch_Location: "Kiya's Restaurant",
+  Citizenship: 'Malaysian', Age: 24, Joining_Date: '2025-11-01',
+});
+const payslips: Payslip[] = [
+  ...['December 2025', 'January 2026', 'June 2026', 'July 2026', 'August 2026'].map(m => slipFor(employees[1], m, true, 5850)),
+  slipFor(employees[1], 'September 2026', false, 5850),
+  ...['August 2026', 'September 2026'].map(m => slipFor(employees[0], m, true, 1700)),
+  slipFor(employees[3], 'September 2026', false, 1900),
+];
 
 const initialDb: DatabaseState = {
   invoices: [], invoice_items: [], payments: [], customers: [],
@@ -50,6 +67,10 @@ const profiles: CompanyProfile[] = [{
   company_name: 'Ya Barr Solutions', address: '16g, Jalan PJU 5/20D, Kota Damansara',
   email: 'accounts@example.com', phone: '012-3456789', currency_symbol: 'RM',
   series_format: 'BIS-26-',
+}, {
+  id: 'NK', name: "Kiya's Restaurant", store_name: "Kiya's Restaurant",
+  company_name: 'Ya Barr Solutions', address: 'Jalan Tun Razak, KL',
+  email: 'kiya@example.com', phone: '03-1234567', currency_symbol: 'RM', series_format: 'NK-26-',
 }];
 
 const params = new URLSearchParams(location.search);
@@ -125,6 +146,8 @@ function Harness() {
             profiles={profiles}
             isSyncing={false}
             setIsSyncing={() => {}}
+            payrollScope={params.get('scope') === 'branch' ? 'branch' : 'company'}
+            onPayrollScopeChange={() => {}}
           />
         )}
         <BottomNav activeView="payroll" onNavigate={() => {}} allowed={() => true} badgeCount={3} />

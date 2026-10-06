@@ -13,6 +13,7 @@ import {
 } from '../utils/payroll';
 import { Sheet, sheetBtn } from './ui/Sheet';
 import { EmptyState } from './ui/States';
+import { PayslipArchive } from './PayslipArchive';
 
 interface PayrollDashboardProps {
   db: DatabaseState;
@@ -33,6 +34,10 @@ interface PayrollDashboardProps {
   profiles: CompanyProfile[];
   isSyncing: boolean;
   setIsSyncing: (val: boolean) => void;
+  /** 'company': all staff in one list, payslips under the company. 'branch': per branch, as selected. */
+  payrollScope?: 'company' | 'branch';
+  /** Present only for people allowed to change company settings. */
+  onPayrollScopeChange?: (scope: 'company' | 'branch') => void;
 }
 
 export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
@@ -47,7 +52,9 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
   accessToken,
   profiles,
   isSyncing,
-  setIsSyncing
+  setIsSyncing,
+  payrollScope = 'company',
+  onPayrollScopeChange,
 }) => {
   // --- STATE CONTROLS ---
   const [searchTerm, setSearchTerm] = useState('');
@@ -67,6 +74,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
   const [empSkbbkOptedOut, setEmpSkbbkOptedOut] = useState<boolean>(false);
   const [empPayBasis, setEmpPayBasis] = useState<PayBasis>('calendar');
   const [empEndDate, setEmpEndDate] = useState<string>('');
+  const [empBranch, setEmpBranch] = useState<string>('');
 
   // Salary advances sheet
   const [advancesFor, setAdvancesFor] = useState<Employee | null>(null);
@@ -104,45 +112,53 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
   const [markPaymentPayslip, setMarkPaymentPayslip] = useState<Payslip | null>(null);
   const [transferDateInput, setTransferDateInput] = useState<string>('');
 
-  // Archive filter — separate from the generator's selectedMonthYear so they don't interfere
-  const [archiveFilterMonth, setArchiveFilterMonth] = useState('__all__');
-
   // --- DERIVED RENDER STATES ---
-  // Only show employees whose Branch_Location matches our current active branch
-  const activeBranchEmployees = useMemo(() => {
-    return db.employees.filter(e => 
+  // Who payroll lists: the whole company, or (if the company chose it) only the
+  // branch selected in the sidebar.
+  const byBranch = payrollScope === 'branch';
+  const multiBranch = profiles.length > 1;
+  const scopeEmployees = useMemo(() => {
+    if (!byBranch) return db.employees;
+    return db.employees.filter(e =>
       (e.Branch_Location || '').toLowerCase() === activeBranchLocation.toLowerCase()
     );
-  }, [db.employees, activeBranchLocation]);
+  }, [db.employees, activeBranchLocation, byBranch]);
 
   const filteredEmployees = useMemo(() => {
-    return activeBranchEmployees.filter(e => 
+    return scopeEmployees.filter(e => 
       e.Employee_Name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       e.Position.toLowerCase().includes(searchTerm.toLowerCase()) ||
       e.IC_Passport.includes(searchTerm)
     );
-  }, [activeBranchEmployees, searchTerm]);
+  }, [scopeEmployees, searchTerm]);
 
-  const activeBranchPayslips = useMemo(() => {
-    return db.payslips.filter(p => 
-      (p.Branch_Location || '').toLowerCase() === activeBranchLocation.toLowerCase()
-    );
-  }, [db.payslips, activeBranchLocation]);
+  // A person's payslips follow the person, not the branch they were filed under:
+  // someone who moved branch keeps their history. Payslips of a removed employee
+  // stay visible in the branch (or company) they were filed under.
+  const scopePayslips = useMemo(() => {
+    const inScope = new Set(scopeEmployees.map(e => e.Employee_ID));
+    const known = new Set(db.employees.map(e => e.Employee_ID));
+    return db.payslips.filter(p => inScope.has(p.Employee_ID) || (!known.has(p.Employee_ID) &&
+      (!byBranch || (p.Branch_Location || '').toLowerCase() === activeBranchLocation.toLowerCase())));
+  }, [db.payslips, db.employees, scopeEmployees, byBranch, activeBranchLocation]);
 
-  const activeOutletProfile = useMemo(() => {
-    return resolveActiveOutlet(profiles, activeBranchLocation) || profiles[0];
-  }, [profiles, activeBranchLocation]);
+  /** The letterhead a payslip prints under: the employee's own branch, not whichever is selected. */
+  const profileFor = (branchLabel?: string) =>
+    resolveActiveOutlet(profiles, branchLabel || activeBranchLocation) || profiles[0];
+
+  // The open payslip prints under the branch it was filed at (or its employee's).
+  const letterhead = profileFor(previewPayslip?.Branch_Location || previewEmployee?.Branch_Location);
 
   // --- PAYROLL COMPLIANCE REMINDERS (Malaysian Employment Act: 7-day rule) ---
   // Same rule as the bell (utils/notifications.ts salaryDue): the latest ended
   // wage period, from the period each employee was registered in.
   const getPayrollReminders = () => {
     const today = new Date();
-    return activeBranchEmployees.flatMap(emp => {
+    return scopeEmployees.flatMap(emp => {
       const period = salaryDue(emp, today);
       if (!period) return [];
       const { daysLeft, overdue } = salaryDeadline(period.end, today);
-      const slip = activeBranchPayslips.find(p =>
+      const slip = scopePayslips.find(p =>
         p.Employee_ID === emp.Employee_ID && normaliseMonthLabel(p.Month_Year) === period.label);
       return [{
         employee: emp,
@@ -179,6 +195,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       setEmpSkbbkOptedOut(employee.SKBBK_Opted_Out === true);
       setEmpPayBasis(employee.Pay_Basis === 'anniversary' ? 'anniversary' : 'calendar');
       setEmpEndDate(employee.End_Date || '');
+      setEmpBranch(employee.Branch_Location || activeBranchLocation);
     } else {
       setEditingEmployee(null);
       setEmpName('');
@@ -193,6 +210,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       setEmpSkbbkOptedOut(false);
       setEmpPayBasis('calendar');
       setEmpEndDate('');
+      setEmpBranch(activeBranchLocation);
     }
     setIsEmployeeModalOpen(true);
   };
@@ -246,6 +264,10 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               Employer_Bears_Statutory: empBearsStatutory,
               SKBBK_Opted_Out: empCitizenship !== 'Foreigner' && empSkbbkOptedOut,
               Pay_Basis: empPayBasis,
+              // Moving branch changes where they work from now on; payslips
+              // already saved keep the branch they were earned at.
+              Branch_Location: empBranch || emp.Branch_Location,
+              Assigned_Outlet: resolveActiveOutlet(profiles, empBranch || emp.Branch_Location)?.id || emp.Assigned_Outlet,
               End_Date: empEndDate || undefined,
             }
           : emp
@@ -258,10 +280,10 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
         Employee_Name: empName,
         IC_Passport: empIC,
         Position: empPosition,
-        Assigned_Outlet: resolveActiveOutlet(profiles, activeBranchLocation)?.id || '',
+        Assigned_Outlet: resolveActiveOutlet(profiles, empBranch || activeBranchLocation)?.id || '',
         Basic_Salary: empSalary,
         Bank_Details: empBank,
-        Branch_Location: activeBranchLocation,
+        Branch_Location: empBranch || activeBranchLocation,
         Citizenship: empCitizenship,
         Age: empAge,
         Joining_Date: empJoiningDate,
@@ -398,7 +420,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       triggerToast("Access Denied: Staff accounts cannot generate payslips.", "error");
       return;
     }
-    if (activeBranchEmployees.length === 0) {
+    if (scopeEmployees.length === 0) {
       triggerToast("No active employees listed on this outlet. Please add an employee first.", "warning");
       return;
     }
@@ -406,8 +428,8 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
     // Initialize black inputs or load saved values with description-amount pairs
     const freshAllowances: Record<string, ItemizedItem[]> = {};
     const freshDeductions: Record<string, ItemizedItem[]> = {};
-    activeBranchEmployees.forEach(e => {
-      const savedSlip = activeBranchPayslips.find(p => p.Employee_ID === e.Employee_ID && normaliseMonthLabel(p.Month_Year) === monthForLookup);
+    scopeEmployees.forEach(e => {
+      const savedSlip = scopePayslips.find(p => p.Employee_ID === e.Employee_ID && normaliseMonthLabel(p.Month_Year) === monthForLookup);
       if (savedSlip && savedSlip.Allowances_JSON) {
         try {
           freshAllowances[e.Employee_ID] = JSON.parse(savedSlip.Allowances_JSON);
@@ -506,7 +528,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       Custom_Deductions: customDeductionSum,
       Employer_Statutory_Offset: statutoryOffset,
       Final_Net_Pay: finalNet,
-      Branch_Location: activeBranchLocation,
+      Branch_Location: emp.Branch_Location || activeBranchLocation,
       Is_Saved: false,
       Allowances_JSON: JSON.stringify(allowancesList),
       Deductions_JSON: JSON.stringify(deductionsList)
@@ -651,8 +673,25 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
             Payroll & Employee Management
           </h2>
           <p className="text-xs text-ink-500 dark:text-ink-400 font-medium">
-            Outlet Specific: <span className="text-ink-900 dark:text-white font-black">{activeBranchLocation}</span> | Total Registered Staff: {activeBranchEmployees.length}
+            {byBranch
+              ? <><span className="text-ink-900 dark:text-white font-bold">{activeBranchLocation}</span> · {scopeEmployees.length} staff</>
+              : <>Whole company · {scopeEmployees.length} staff</>}
           </p>
+          {multiBranch && onPayrollScopeChange && (
+            <div className="mt-2 inline-flex rounded-lg border border-ink-200 dark:border-ink-700 p-0.5" role="radiogroup" aria-label="How payroll lists staff">
+              {([['company', 'Whole company'], ['branch', 'By branch']] as const).map(([value, label]) => (
+                <button key={value} type="button" role="radio" aria-checked={payrollScope === value}
+                  onClick={() => payrollScope !== value && onPayrollScopeChange(value)}
+                  className={`px-3 min-h-9 rounded-md text-2xs font-bold cursor-pointer transition-colors ${
+                    payrollScope === value
+                      ? 'bg-brand-600 text-white'
+                      : 'text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800'
+                  }`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -787,7 +826,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                   {r.payslipSaved && !r.paymentDone && (
                     <button
                       onClick={() => {
-                        const ps = activeBranchPayslips.find(
+                        const ps = scopePayslips.find(
                           p => p.Employee_ID === r.employee.Employee_ID &&
                           (() => {
                             const raw = p.Month_Year || '';
@@ -835,7 +874,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
           ) : (
             <EmptyState
               icon={<Users />}
-              title={`No staff at ${activeBranchLocation} yet`}
+              title={byBranch ? `No staff at ${activeBranchLocation} yet` : 'No staff yet'}
               body="Add an employee to start running payroll. EPF, SOCSO and EIS are worked out for you, and salary reminders follow."
               action={isStaff ? undefined : { label: 'Add Employee', icon: <UserPlus />, onClick: () => handleOpenEmployeeModal() }}
             />
@@ -865,6 +904,11 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       <span className={`px-1.5 py-0.5 rounded-full text-2xs font-bold ${employee.Citizenship === 'Foreigner' ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300' : 'bg-ink-100 dark:bg-ink-800 text-ink-600 dark:text-ink-300'}`}>
                         {residencyLabel(employee.Citizenship)}
                       </span>
+                      {!byBranch && multiBranch && employee.Branch_Location && (
+                        <span className="px-1.5 py-0.5 rounded-full text-2xs font-bold bg-brand-50 dark:bg-brand-950/50 text-brand-800 dark:text-brand-300">
+                          {employee.Branch_Location}
+                        </span>
+                      )}
                       {employee.End_Date && (
                         <span className="px-1.5 py-0.5 rounded-full text-2xs font-bold bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300">
                           Left {employee.End_Date}
@@ -941,7 +985,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
             <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
               {filteredEmployees.map((employee) => {
                 const payslipIdPart = `${employee.Employee_ID}-${selectedMonthYear.replace(' ', '-')}`;
-                const savedSlipInMonth = activeBranchPayslips.find(p => p.Employee_ID === employee.Employee_ID && p.Month_Year === selectedMonthYear);
+                const savedSlipInMonth = scopePayslips.find(p => p.Employee_ID === employee.Employee_ID && p.Month_Year === selectedMonthYear);
 
                 return (
                   <tr key={employee.Employee_ID} className="hover:bg-ink-50/50 dark:hover:bg-ink-800/40 transition-colors">
@@ -957,6 +1001,11 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                           <span className={`px-1 rounded text-2xs font-bold ${employee.Citizenship === 'Foreigner' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400' : 'bg-ink-100 dark:bg-ink-800 text-ink-600 dark:text-ink-300'}`}>
                             {residencyLabel(employee.Citizenship)}
                           </span>
+                          {!byBranch && multiBranch && employee.Branch_Location && (
+                            <span className="px-1 rounded text-2xs font-bold bg-brand-50 dark:bg-brand-950/50 text-brand-800 dark:text-brand-300">
+                              {employee.Branch_Location}
+                            </span>
+                          )}
                           {employee.End_Date && (
                             <span className="px-1 rounded text-2xs font-bold bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300">
                               Left {employee.End_Date}
@@ -1042,144 +1091,22 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
         </div>
       )}
 
-      {/* Registry of History Month Payslips */}
-      <div className={`p-5 rounded-2xl border ${isDarkMode ? 'bg-ink-900/30 border-ink-800' : 'bg-ink-50/50 border-ink-200'}`}>
-        <div className="flex items-start justify-between mb-4 gap-3 flex-wrap">
-          <div>
-            <h3 className="text-xs font-bold text-ink-900 dark:text-ink-200 uppercase tracking-wider">
-              Past Payslip Archive
-            </h3>
-            <p className="text-2xs text-ink-500 dark:text-ink-400 mt-1 font-medium">
-              View and re-print previously saved payslips.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="text-2xs font-bold text-ink-500 uppercase tracking-wider">Filter Month:</label>
-            <select
-              value={archiveFilterMonth}
-              onChange={e => setArchiveFilterMonth(e.target.value)}
-              className={`text-xs font-semibold rounded-lg border px-2.5 py-1.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-brand-500 ${
-                isDarkMode ? 'bg-ink-800 border-ink-700 text-ink-200' : 'bg-white border-ink-200 text-ink-800'
-              }`}
-            >
-              <option value="__all__">All Months</option>
-              {Array.from(new Set(activeBranchPayslips.filter(p => p.Is_Saved).map(p => {
-                const raw = p.Month_Year || '';
-                if (raw.includes('T') || /^\d{4}-\d{2}/.test(raw)) {
-                  const d = new Date(raw);
-                  if (!isNaN(d.getTime())) {
-                    return d.toLocaleDateString('en-MY', { month: 'long', year: 'numeric' });
-                  }
-                }
-                return raw;
-              }).filter(Boolean)))
-              .sort((a, b) => {
-                const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-                const [aM, aY] = (a as string).split(' '); const [bM, bY] = (b as string).split(' ');
-                return Number(bY) - Number(aY) || months.indexOf(bM) - months.indexOf(aM);
-              })
-              .map(m => <option key={m} value={m}>{m}</option>)
-              }
-            </select>
-          </div>
-        </div>
-        {(() => {
-          const savedPayslips = activeBranchPayslips.filter(p => p.Is_Saved);
-          const filtered = archiveFilterMonth === '__all__'
-            ? savedPayslips
-            : savedPayslips.filter(p => {
-                const raw = p.Month_Year || '';
-                let label = raw;
-                if (raw.includes('T') || /^\d{4}-\d{2}/.test(raw)) {
-                  const d = new Date(raw);
-                  if (!isNaN(d.getTime())) {
-                    label = d.toLocaleDateString('en-MY', { month: 'long', year: 'numeric' });
-                  }
-                }
-                return label === archiveFilterMonth;
-              });
-          if (filtered.length === 0) {
-            return (
-              <EmptyState
-                compact
-                icon={<FileText />}
-                title={archiveFilterMonth !== '__all__' ? `No payslips for ${archiveFilterMonth}` : 'No saved payslips yet'}
-                body={archiveFilterMonth !== '__all__'
-                  ? 'Nothing was saved for that month at this branch.'
-                  : 'Payslips you generate and save land here, ready to reprint.'}
-                action={archiveFilterMonth !== '__all__'
-                  ? { label: 'Show all months', onClick: () => setArchiveFilterMonth('__all__') }
-                  : undefined}
-              />
-            );
-          }
-          return (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {filtered.map(slip => {
-                const matchedEmp = db.employees.find(e => e.Employee_ID === slip.Employee_ID);
-                return (
-                  <div key={slip.Payslip_ID} className={`p-3 rounded-lg border flex items-center justify-between gap-4 transition-all duration-150 ${isDarkMode ? 'bg-ink-900 border-ink-800' : 'bg-white border-ink-200 shadow-sm'}`}>
-                    <div className="min-w-0">
-                      <h4 className="text-2xs font-bold text-ink-900 dark:text-ink-100 truncate max-w-[150px]">
-                        {matchedEmp?.Employee_Name || "Unregistered Employee"}
-                      </h4>
-                      <p className="text-2xs font-semibold text-ink-500 mt-0.5">{(() => {
-                        const raw = slip.Month_Year || slip.Issue_Date || '';
-                        if (raw.includes('T') || /^\d{4}-\d{2}/.test(raw)) {
-                          const d = new Date(raw);
-                          if (!isNaN(d.getTime())) {
-                            return d.toLocaleDateString('en-MY', { month: 'long', year: 'numeric' });
-                          }
-                        }
-                        return raw || '-';
-                      })()}</p>
-                      <div className="text-2xs font-bold text-brand-500 mt-0.5">RM {slip.Final_Net_Pay.toFixed(2)}</div>
-                      {slip.Payment_Transferred ? (
-                        <span className="text-2xs font-bold text-emerald-600
-                          dark:text-emerald-400 flex items-center gap-1">
-                          ✓ Wages Transferred {slip.Transfer_Date ? `· ${slip.Transfer_Date}` : ''}
-                        </span>
-                      ) : (
-                        <span className="text-2xs font-bold text-amber-500
-                          dark:text-amber-400">
-                          ⏳ Payment Pending
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex flex-col items-end gap-1.5 shrink-0">
-                      <button
-                        onClick={() => {
-                          if (matchedEmp) {
-                            setPreviewEmployee(matchedEmp);
-                            setPreviewPayslip(slip);
-                          } else {
-                            triggerToast("Cannot find related roster registration.", "error");
-                          }
-                        }}
-                        className="flex p-1 bg-brand-50 hover:bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-400 rounded-md text-2xs font-bold items-center gap-1 transition-colors cursor-pointer"
-                      >
-                        <FileText className="w-3.5 h-3.5" />
-                        <span>View</span>
-                      </button>
-                      {!slip.Payment_Transferred && (
-                        <button
-                          onClick={() => {
-                            setMarkPaymentPayslip(slip);
-                            setTransferDateInput(new Date().toISOString().slice(0, 10));
-                          }}
-                          className="flex p-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 rounded-md text-2xs font-bold items-center gap-1 transition-colors cursor-pointer"
-                        >
-                          <span>✓ Mark Paid</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })()}
-      </div>
+      {/* Saved payslips, one record per person */}
+      <PayslipArchive
+        payslips={scopePayslips.filter(p => p.Is_Saved)}
+        employees={db.employees}
+        showBranch={multiBranch && !byBranch}
+        canMarkPaid={!isStaff}
+        onView={(slip, employee) => {
+          if (!employee) { triggerToast("This person is no longer on the roster, so their payslip can't be opened.", "error"); return; }
+          setPreviewEmployee(employee);
+          setPreviewPayslip(slip);
+        }}
+        onMarkPaid={(slip) => {
+          setMarkPaymentPayslip(slip);
+          setTransferDateInput(new Date().toISOString().slice(0, 10));
+        }}
+      />
 
       {/* --- MODAL 1: ADD / EDIT EMPLOYEE --- */}
       {isEmployeeModalOpen && (
@@ -1242,6 +1169,26 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               </div>
 
               <div>
+                {multiBranch && (
+                  <div className="mb-4">
+                    <label htmlFor="emp-branch" className="block text-2xs font-bold uppercase text-ink-700 dark:text-ink-300 mb-1">Branch</label>
+                    <select id="emp-branch" value={empBranch} onChange={e => setEmpBranch(e.target.value)}
+                      className={`w-full p-2.5 text-xs rounded-lg border cursor-pointer ${
+                        isDarkMode ? 'bg-ink-950 border-ink-800 text-ink-100' : 'bg-white border-ink-300 text-ink-900 font-semibold'
+                      }`}>
+                      {profiles.map(pr => <option key={pr.id} value={outletLabel(pr)}>{outletLabel(pr)}</option>)}
+                      {/* A branch since renamed or removed: keep it selectable, never silently re-file. */}
+                      {empBranch && !profiles.some(pr => outletLabel(pr) === empBranch) && (
+                        <option value={empBranch}>{empBranch} (no longer a branch)</option>
+                      )}
+                    </select>
+                    {editingEmployee && empBranch !== editingEmployee.Branch_Location && (
+                      <p className="text-2xs text-amber-800 dark:text-amber-300 mt-1">
+                        Moves {editingEmployee.Employee_Name} to {empBranch}. Payslips already saved stay with the branch they were earned at.
+                      </p>
+                    )}
+                  </div>
+                )}
                 <label className="block text-2xs font-bold uppercase text-ink-700 dark:text-ink-300 mb-2">Citizenship Status *</label>
                 <div className="grid grid-cols-3 gap-2" role="radiogroup">
                   {([['Malaysian', 'Malaysian'], ['PR', 'Permanent Resident'], ['Foreigner', 'Foreigner']] as [Residency, string][]).map(([value, label]) => (
@@ -1501,7 +1448,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                     // This month (for a leaver's final pay) back to the earliest
                     // joining date, so back pay can be generated for anyone.
                     const now = new Date();
-                    const earliest = activeBranchEmployees
+                    const earliest = scopeEmployees
                       .map(e => parseLocalDate(e.Joining_Date))
                       .reduce<Date>((min, d) => (d && d < min ? d : min), new Date(now.getFullYear() - 2, now.getMonth(), 1));
                     const opts: React.ReactElement[] = [];
@@ -1535,9 +1482,9 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       // Anyone employed for any of this month's wage period, whose
                       // payslip is not saved yet. The period rules live in
                       // utils/payroll.ts, shared with the bell and the email.
-                      const eligible = activeBranchEmployees.filter(emp =>
+                      const eligible = scopeEmployees.filter(emp =>
                         payPeriodForLabel(emp, selectedMonthYear) &&
-                        !activeBranchPayslips.some(p =>
+                        !scopePayslips.some(p =>
                           p.Is_Saved && p.Employee_ID === emp.Employee_ID &&
                           normaliseMonthLabel(p.Month_Year) === selectedMonthYear));
 
@@ -1828,14 +1775,15 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h1 className="text-lg font-black tracking-tight text-ink-900 dark:text-white uppercase">
-                    {activeOutletProfile.company_name || activeOutletProfile.name}
+                    {letterhead.company_name || letterhead.name}
                   </h1>
-                  <p className="text-2xs text-ink-500 font-bold uppercase">{activeOutletProfile.store_name || activeOutletProfile.name}</p>
+                  {/* By-branch companies name the branch; whole-company payroll is issued by the company alone. */}
+                  {byBranch && <p className="text-2xs text-ink-500 font-bold uppercase">{letterhead.store_name || letterhead.name}</p>}
                   <p className="text-xs text-ink-500 dark:text-ink-400 max-w-sm mt-1 leading-relaxed">
-                    {activeOutletProfile.address}
+                    {letterhead.address}
                   </p>
                   <p className="text-xs text-ink-500 dark:text-ink-400 mt-1">
-                    Phone: {activeOutletProfile.phone} | Email: {activeOutletProfile.email}
+                    Phone: {letterhead.phone} | Email: {letterhead.email}
                   </p>
                 </div>
 

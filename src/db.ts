@@ -127,6 +127,27 @@ export async function saveChanges(next: DatabaseState): Promise<void> {
 }
 
 // ── Settings (branch profiles and the like) ───────────────────
+/**
+ * Config keys that are company settings, not branches. Everything else in the
+ * config is a branch keyed by its outlet id, so these must be skipped wherever
+ * branches are listed and kept wherever branches are saved.
+ */
+export const RESERVED_CONFIG_KEYS = ['settings', 'notifications'];
+export const isBranchKey = (key: string) => !RESERVED_CONFIG_KEYS.includes(key);
+
+export type PayrollScope = 'company' | 'branch';
+/** Payroll lists the whole company's staff together unless the company chose branches. */
+export const payrollScopeOf = (config: Record<string, any>): PayrollScope =>
+  config?.settings?.payroll_scope === 'branch' ? 'branch' : 'company';
+
+/** Change company settings without touching the branches saved beside them. */
+export async function saveCompanySettings(patch: Record<string, any>): Promise<Record<string, any>> {
+  const current = await loadConfig();
+  const next = { ...current, settings: { ...(current.settings || {}), ...patch } };
+  await saveConfig(next);
+  return next;
+}
+
 export async function loadConfig(): Promise<Record<string, any>> {
   const { data, error } = await supabase.from('config').select('key, value');
   if (error) throw friendly(error);
@@ -198,7 +219,7 @@ const SHEET_TITLES: Record<Kind, string> = {
 /** One worksheet per record type, plus the branches without their logos and designs. */
 export function workbookSheets(db: DatabaseState, config: Record<string, any>) {
   const branches = Object.entries(config)
-    .filter(([, v]) => v && typeof v === 'object' && !Array.isArray(v))
+    .filter(([k, v]) => isBranchKey(k) && v && typeof v === 'object' && !Array.isArray(v))
     .map(([id, v]: [string, any]) => {
       const { logo_url, template, ...rest } = v;
       return { Branch_ID: id, ...rest };
