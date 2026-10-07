@@ -36,6 +36,11 @@ export function Sheet({
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
+  // Parents pass a fresh onClose arrow on every render. Read it through a ref so
+  // the effect below runs once, on open: re-running it on each keystroke moved
+  // focus back to the first control, so typing in any later field lost focus.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null;
@@ -56,7 +61,7 @@ export function Sheet({
     (first || panelRef.current)?.focus({ preventScroll: true });
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { e.stopPropagation(); onClose(); return; }
+      if (e.key === 'Escape') { e.stopPropagation(); onCloseRef.current(); return; }
       if (e.key !== 'Tab' || !focusables?.length) return;
       // Keep Tab inside the dialog; a dialog that lets focus wander behind the
       // backdrop is unusable with a keyboard or a screen reader.
@@ -79,7 +84,7 @@ export function Sheet({
       document.body.style.paddingRight = paddingRight;
       previouslyFocused?.focus?.({ preventScroll: true });
     };
-  }, [onClose]);
+  }, []);
 
   return createPortal(
     <div

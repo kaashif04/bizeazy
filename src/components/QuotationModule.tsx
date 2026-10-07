@@ -932,7 +932,17 @@ export default function QuotationModule({
   const handleCustomerInput = (val: string) => {
     setModalCustomer(val);
     if (!val.trim()) { setCustomerSuggestions([]); setShowSuggestions(false); return; }
-    const matches = db.customers.filter(c => c.Customer_Name.toLowerCase().includes(val.toLowerCase())).slice(0, 6);
+    // Saved customers first, then anyone already quoted or invoiced who was never saved as one.
+    const known = new Map<string, Customer>();
+    for (const c of db.customers) known.set(c.Customer_Name.trim().toLowerCase(), c);
+    for (const r of [...(db.quotations || []), ...db.invoices] as any[]) {
+      const name = String(r.Customer_Name || '').trim();
+      if (name && !known.has(name.toLowerCase())) {
+        known.set(name.toLowerCase(), { Customer_Name: name, Contact: r.Customer_Contact || '', Address: r.Customer_Address || '' } as Customer);
+      }
+    }
+    const q = val.toLowerCase();
+    const matches = [...known.values()].filter(c => c.Customer_Name.toLowerCase().includes(q)).slice(0, 6);
     setCustomerSuggestions(matches);
     setShowSuggestions(matches.length > 0);
   };
