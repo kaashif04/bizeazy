@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Users, UserPlus, Trash2, Edit, Printer, Download, CheckCircle, 
   Calendar, Coins, CreditCard, Plus, Search, ShieldAlert, X, 
@@ -10,7 +10,10 @@ import { salaryDeadline, salaryDue, normaliseMonthLabel } from '../utils/notific
 import {
   payPeriodForLabel, periodLabelFor, isRemindable, describePeriod, round2, isoDate,
   parseLocalDate, monthLabel, statutory, deductionLabels, residencyOf, residencyLabel, Residency, PayBasis,
+  isHourly, basicPayFor, hourlyLabel, payRateText, MIN_HOURLY_WAGE, MIN_MONTHLY_WAGE,
+  ageOn, statutoryAge, dobFromIC, payslipRate,
 } from '../utils/payroll';
+import { daysBetween } from '../team';
 import { Sheet, sheetBtn } from './ui/Sheet';
 import { EmptyState } from './ui/States';
 import { PayslipArchive } from './PayslipArchive';
@@ -76,10 +79,13 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
   const [empSalary, setEmpSalary] = useState<number>(1700);
   const [empCitizenship, setEmpCitizenship] = useState<Residency>('Malaysian');
   const [empAge, setEmpAge] = useState<number>(30);
+  const [empDob, setEmpDob] = useState('');
   const [empJoiningDate, setEmpJoiningDate] = useState<string>('');
   const [empBearsStatutory, setEmpBearsStatutory] = useState<boolean>(false);
   const [empSkbbkOptedOut, setEmpSkbbkOptedOut] = useState<boolean>(false);
   const [empPayBasis, setEmpPayBasis] = useState<PayBasis>('calendar');
+  const [empPayType, setEmpPayType] = useState<'monthly' | 'hourly'>('monthly');
+  const [empRate, setEmpRate] = useState<number>(MIN_HOURLY_WAGE);
   const [empEndDate, setEmpEndDate] = useState<string>('');
   const [empBranch, setEmpBranch] = useState<string>('');
 
@@ -91,6 +97,9 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
 
   // Payslip Generator Workspace State
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
+  /** Hourly staff: hours to pay this month, and where the figure came from. */
+  const [hoursMap, setHoursMap] = useState<Record<string, number>>({});
+  const [hoursFromClock, setHoursFromClock] = useState<Record<string, number | null>>({});
   const [selectedMonthYear, setSelectedMonthYear] = useState(() => {
     const d = new Date();
     const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -197,10 +206,13 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       setEmpSalary(employee.Basic_Salary);
       setEmpCitizenship(residencyOf(employee.Citizenship));
       setEmpAge(Number((employee as any).Age) || 30);
+      setEmpDob(employee.Date_Of_Birth || '');
       setEmpJoiningDate(employee.Joining_Date || '');
       setEmpBearsStatutory(employee.Employer_Bears_Statutory === true);
       setEmpSkbbkOptedOut(employee.SKBBK_Opted_Out === true);
       setEmpPayBasis(employee.Pay_Basis === 'anniversary' ? 'anniversary' : 'calendar');
+      setEmpPayType(isHourly(employee) ? 'hourly' : 'monthly');
+      setEmpRate(employee.Hourly_Rate || MIN_HOURLY_WAGE);
       setEmpEndDate(employee.End_Date || '');
       setEmpBranch(employee.Branch_Location || activeBranchLocation);
     } else {
@@ -212,10 +224,13 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       setEmpSalary(1700);
       setEmpCitizenship('Malaysian');
       setEmpAge(30);
+      setEmpDob('');
       setEmpJoiningDate('');
       setEmpBearsStatutory(false);
       setEmpSkbbkOptedOut(false);
       setEmpPayBasis('calendar');
+      setEmpPayType('monthly');
+      setEmpRate(MIN_HOURLY_WAGE);
       setEmpEndDate('');
       setEmpBranch(activeBranchLocation);
     }
@@ -234,8 +249,21 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       return;
     }
 
-    if (empSalary < 1700) {
+    if (empPayType === 'monthly' && empSalary < MIN_MONTHLY_WAGE) {
       triggerToast("Basic Salary cannot be lower than the Malaysian national minimum wage of RM1,700.", "error");
+      return;
+    }
+    if (empPayType === 'hourly' && !(empRate >= MIN_HOURLY_WAGE)) {
+      triggerToast(`The hourly rate cannot be lower than the minimum wage of RM ${MIN_HOURLY_WAGE.toFixed(2)} an hour.`, "error");
+      return;
+    }
+    // Hourly staff have no monthly salary; their pay is hours × rate on each payslip.
+    const payFields = empPayType === 'hourly'
+      ? { Pay_Type: 'hourly' as const, Hourly_Rate: empRate, Basic_Salary: 0, Pay_Basis: 'calendar' as PayBasis }
+      : { Pay_Type: 'monthly' as const, Hourly_Rate: undefined, Basic_Salary: empSalary, Pay_Basis: empPayBasis };
+
+    if (!empDob && !editingEmployee) {
+      triggerToast("Enter the date of birth: EPF, SOCSO and EIS rates depend on age.", "warning");
       return;
     }
 
@@ -266,11 +294,13 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               Basic_Salary: empSalary,
               Bank_Details: empBank,
               Citizenship: empCitizenship,
-              Age: empAge,
+              Age: empDob ? ageOn(empDob, new Date()) : empAge,
+              Date_Of_Birth: empDob || undefined,
               Joining_Date: empJoiningDate,
               Employer_Bears_Statutory: empBearsStatutory,
               SKBBK_Opted_Out: empCitizenship !== 'Foreigner' && empSkbbkOptedOut,
               Pay_Basis: empPayBasis,
+              ...payFields,
               // Moving branch changes where they work from now on; payslips
               // already saved keep the branch they were earned at.
               Branch_Location: empBranch || emp.Branch_Location,
@@ -292,11 +322,13 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
         Bank_Details: empBank,
         Branch_Location: empBranch || activeBranchLocation,
         Citizenship: empCitizenship,
-        Age: empAge,
+        Age: empDob ? ageOn(empDob, new Date()) : empAge,
+        Date_Of_Birth: empDob || undefined,
         Joining_Date: empJoiningDate,
         Employer_Bears_Statutory: empBearsStatutory,
         SKBBK_Opted_Out: empCitizenship !== 'Foreigner' && empSkbbkOptedOut,
         Pay_Basis: empPayBasis,
+        ...payFields,
         End_Date: empEndDate || undefined,
         // Reminders start from today's period; earlier months stay generatable.
         Registered_On: isoDate(new Date()),
@@ -422,7 +454,9 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
   // setSelectedMonthYear(month) immediately followed by handleOpenGenerator()
   // would still have this function close over the *old* selectedMonthYear
   // value below, and silently load the wrong month's saved allowances/deductions.
-  const handleOpenGenerator = (targetMonth?: string) => {
+  const handleOpenGenerator = (target?: unknown) => {
+    // Used straight as an onClick handler too, which passes the click event.
+    const targetMonth = typeof target === 'string' ? target : undefined;
     if (isStaff) {
       triggerToast("Access Denied: Staff accounts cannot generate payslips.", "error");
       return;
@@ -481,6 +515,26 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
     setIsGeneratorOpen(true);
   };
 
+  // Hourly staff: start each month from the hours their clock-ins add up to.
+  useEffect(() => {
+    if (!isGeneratorOpen) return;
+    let live = true;
+    const hourly = scopeEmployees.filter(e => isHourly(e) && payPeriodForLabel(e, selectedMonthYear));
+    setHoursMap({}); setHoursFromClock({});
+    Promise.all(hourly.map(async e => {
+      const p = payPeriodForLabel(e, selectedMonthYear)!;
+      try {
+        const days = await daysBetween(isoDate(p.from), isoDate(p.to), e.Employee_ID);
+        return [e.Employee_ID, round2(days.reduce((m, d) => m + d.worked_minutes, 0) / 60)] as const;
+      } catch { return [e.Employee_ID, null] as const; }   // attendance not set up: type the hours in
+    })).then(found => {
+      if (!live) return;
+      setHoursFromClock(Object.fromEntries(found));
+      setHoursMap(Object.fromEntries(found.map(([id, h]) => [id, h ?? 0])));
+    });
+    return () => { live = false; };
+  }, [isGeneratorOpen, selectedMonthYear, scopeEmployees]);
+
   // Create payslips and generate previews inside local states
   const processCalculateSelectedPayslip = (emp: Employee) => {
     const period = payPeriodForLabel(emp, selectedMonthYear);
@@ -488,7 +542,12 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       triggerToast(`${emp.Employee_Name} was not employed in ${selectedMonthYear}.`, "warning");
       return;
     }
-    const basicPay = round2(emp.Basic_Salary * period.fraction);
+    const hours = hoursMap[emp.Employee_ID] || 0;
+    if (isHourly(emp) && hours <= 0) {
+      triggerToast(`Enter the hours ${emp.Employee_Name} worked in ${selectedMonthYear}.`, "warning");
+      return;
+    }
+    const basicPay = basicPayFor(emp, period, hours);
     const allowancesList = allowancesMap[emp.Employee_ID] || [];
     const deductionsList = deductionsMap[emp.Employee_ID] || [];
     const allowanceSum = allowancesList.reduce((acc, curr) => acc + (curr.amount || 0), 0);
@@ -497,9 +556,10 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
     // Statutory contributions are on wages actually paid, so a part month's
     // prorated basic is what they are calculated on.
     const grossPay = basicPay + allowanceSum;
+    const age = statutoryAge(emp, period.start);
     const {
       epfEmployee, epfEmployer, socsoEmployee, socsoEmployer, eisEmployee, eisEmployer, skbbk,
-    } = statutory(grossPay, emp);
+    } = statutory(grossPay, { ...emp, Age: age });
 
     const totalStatutory = Number((epfEmployee + socsoEmployee + skbbk + eisEmployee).toFixed(2));
 
@@ -521,7 +581,10 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       Issue_Date: new Date().toISOString().substring(0, 10),
       Month_Year: selectedMonthYear,
       Basic_Pay: basicPay,
-      Pay_Period: period.fraction < 1 || emp.Pay_Basis === 'anniversary' ? describePeriod(period) : '',
+      Pay_Period: isHourly(emp) ? hourlyLabel(hours, emp.Hourly_Rate || 0)
+        : period.fraction < 1 || emp.Pay_Basis === 'anniversary' ? describePeriod(period) : '',
+      ...(isHourly(emp) ? { Hours_Worked: hours, Hourly_Rate: emp.Hourly_Rate || 0 } : {}),
+      Employee_Age: age,
       Custom_Allowances: allowanceSum,
       Total_Allowances: allowanceSum,
       Employee_EPF: epfEmployee,
@@ -930,7 +993,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                     </div>
                   </div>
                   <p className="text-sm font-black font-mono text-ink-900 dark:text-white tabular flex-shrink-0">
-                    RM {employee.Basic_Salary.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {payRateText(employee)}
                   </p>
                 </div>
                 {employee.Bank_Details && (
@@ -1039,7 +1102,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       </span>
                     </td>
                     <td className="px-5 py-4 font-black text-ink-900 dark:text-white text-right tabular-nums whitespace-nowrap">
-                      RM {employee.Basic_Salary.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {payRateText(employee)}
                     </td>
                     <td className="px-5 py-4 text-ink-500 dark:text-ink-400 font-medium max-w-xs truncate" title={employee.Bank_Details}>
                       {employee.Bank_Details || '-'}
@@ -1156,7 +1219,12 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                     required
                     placeholder="e.g. 960218-14-1234"
                     value={empIC}
-                    onChange={(e) => setEmpIC(e.target.value)}
+                    onChange={(e) => {
+                      setEmpIC(e.target.value);
+                      // A MyKad number starts with the birth date; fill it in once.
+                      const dob = empDob ? '' : dobFromIC(e.target.value);
+                      if (dob) setEmpDob(dob);
+                    }}
                     className={`w-full p-2.5 text-xs rounded-lg border ${
                       isDarkMode ? 'bg-ink-950 border-ink-800 text-ink-100 focus:border-brand-500' : 'bg-white border-ink-300 text-ink-900 font-semibold focus:border-brand-500'
                     }`}
@@ -1269,26 +1337,63 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               </div>
 
               <div>
-                <label className="block text-2xs font-bold text-ink-500 uppercase mb-1">Age (for statutory rates)</label>
+                <label className="block text-2xs font-bold text-ink-500 uppercase mb-1">Date of birth {!editingEmployee && '*'}</label>
                 <input
-                  type="number"
-                  min={18}
-                  max={80}
-                  value={empAge}
-                  onChange={(e) => setEmpAge(Number(e.target.value))}
-                  placeholder="e.g. 35"
+                  type="date"
+                  value={empDob}
+                  max={new Date().toISOString().split('T')[0]}
+                  onChange={(e) => setEmpDob(e.target.value)}
                   className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none ${
-                    isDarkMode
-                      ? 'bg-ink-950 border-ink-800 text-ink-100'
-                      : 'bg-ink-50 border-ink-200 text-ink-900'
+                    isDarkMode ? 'bg-ink-950 border-ink-800 text-ink-100 [color-scheme:dark]' : 'bg-ink-50 border-ink-200 text-ink-900 [color-scheme:light]'
                   }`}
                 />
                 <p className="text-2xs text-ink-500 mt-0.5">
-                  From 60: no employee SOCSO (employer pays 1.25% injury cover) and no EIS; EPF changes as above.
+                  {empDob && Number.isFinite(ageOn(empDob, new Date()))
+                    ? `Age ${ageOn(empDob, new Date())} today. `
+                    : editingEmployee ? `No date of birth yet: using the age typed before (${empAge}). ` : 'Filled in from a MyKad number. '}
+                  Each payslip uses the age at the start of its month, so the rates change by themselves the month after the 60th birthday.
                 </p>
               </div>
 
               <div>
+                <label className="block text-2xs font-bold uppercase text-ink-700 dark:text-ink-300 mb-2">Paid by</label>
+                <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Paid by">
+                  {([['monthly', 'Monthly salary', 'Full-time'], ['hourly', 'The hour', 'Part-time']] as const).map(([value, label, hint]) => (
+                    <label key={value} className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      empPayType === value ? 'border-brand-500 bg-brand-50 dark:bg-brand-950/40' : 'border-ink-200 dark:border-ink-700 hover:bg-ink-50 dark:hover:bg-ink-800'}`}>
+                      <input type="radio" name="pay-type" checked={empPayType === value} onChange={() => setEmpPayType(value)} className="accent-brand-600 shrink-0" />
+                      <span>
+                        <span className="block text-xs font-bold text-ink-900 dark:text-white">{label}</span>
+                        <span className="block text-2xs text-ink-500 dark:text-ink-400">{hint}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {empPayType === 'hourly' ? (
+                <div>
+                  <label className="block text-2xs font-bold uppercase text-ink-700 dark:text-ink-300 mb-1">Hourly Rate (RM) *</label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-ink-500 text-xs font-bold font-mono">RM</span>
+                    <input
+                      type="number"
+                      required
+                      min={MIN_HOURLY_WAGE}
+                      step="0.01"
+                      value={empRate}
+                      onChange={(e) => setEmpRate(Number(e.target.value))}
+                      className={`w-full pl-9 pr-3 py-2.5 text-xs rounded-lg border ${
+                        isDarkMode ? 'bg-ink-950 border-ink-800 text-ink-100 focus:border-brand-500 font-mono' : 'bg-white border-ink-300 text-ink-900 font-semibold focus:border-brand-500 font-mono'
+                      }`}
+                    />
+                  </div>
+                  <p className="text-2xs text-ink-500 dark:text-ink-400 font-semibold mt-1">
+                    Minimum wage is RM {MIN_HOURLY_WAGE.toFixed(2)} an hour. Each payslip pays the hours worked that month (filled in from their clock-ins, which you can change); EPF and SOCSO are worked out on that pay.
+                  </p>
+                </div>
+              ) : (
+                <div>
                 <label className="block text-2xs font-bold uppercase text-ink-700 dark:text-ink-300 mb-1">Basic Monthly Salary (RM) *</label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-ink-500 text-xs font-bold font-mono">RM</span>
@@ -1307,6 +1412,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                 </div>
                 <p className="text-2xs text-ink-500 dark:text-ink-400 font-semibold mt-1">Malaysian national minimum wage requirement is RM 1,700.</p>
               </div>
+              )}
 
               <div>
                 <label className="block text-2xs font-bold text-ink-500
@@ -1327,7 +1433,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                 </p>
               </div>
 
-              <div>
+              {empPayType === 'monthly' && <div>
                 <label className="block text-2xs font-bold uppercase text-ink-700 dark:text-ink-300 mb-2">Salary basis</label>
                 <div className="space-y-2" role="radiogroup">
                   {([
@@ -1357,7 +1463,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                     </label>
                   ))}
                 </div>
-              </div>
+              </div>}
 
               {editingEmployee && (
                 <div>
@@ -1478,7 +1584,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                   <thead className={`border-b text-2xs font-bold uppercase tracking-wider ${isDarkMode ? 'bg-ink-950/40 border-ink-800 text-ink-500' : 'bg-ink-100 border-ink-200 text-ink-700'}`}>
                     <tr>
                       <th className="px-4 py-2">Employee</th>
-                      <th className="px-4 py-2">Basic Salary (A)</th>
+                      <th className="px-4 py-2">Basic Pay (A)</th>
                       <th className="px-4 py-2">Custom Allowances * (B)</th>
                       <th className="px-4 py-2">Custom Deductions * (C)</th>
                       <th className="px-4 py-2 text-right">Estimated Net Pay (RM)</th>
@@ -1505,7 +1611,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
 
                       return eligible.map((emp) => {
                       const period = payPeriodForLabel(emp, selectedMonthYear)!;
-                      const basicPay = round2(emp.Basic_Salary * period.fraction);
+                      const basicPay = basicPayFor(emp, period, hoursMap[emp.Employee_ID] || 0);
                       // Countdown only once the period has ended, and only where a
                       // reminder would chase it: years of back pay are not "overdue".
                       const _dl = salaryDeadline(period.end, _today);
@@ -1520,7 +1626,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       const grossPayBase = basicPay + allowanceSum;
                       const citizenship = emp.Citizenship;
 
-                      const stat = statutory(grossPayBase, emp);
+                      const stat = statutory(grossPayBase, { ...emp, Age: statutoryAge(emp, period.start) });
                       const totalStatDeduc = stat.epfEmployee + stat.socsoEmployee + stat.skbbk + stat.eisEmployee;
                       const rowStatutoryOffset = emp.Employer_Bears_Statutory ? totalStatDeduc : 0;
                       const netPay = Math.max(0, grossPayBase - totalStatDeduc - customDeductionSum + rowStatutoryOffset);
@@ -1550,8 +1656,24 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                             )}
                           </td>
                           <td className="px-4 py-3 font-mono text-ink-900 dark:text-white font-bold">
+                            {isHourly(emp) && (
+                              <div className="font-sans mb-1">
+                                <label className="flex items-center gap-1 text-2xs font-semibold text-ink-600 dark:text-ink-300 whitespace-nowrap">
+                                  <input
+                                    type="number" min="0" step="0.25" aria-label={`Hours ${emp.Employee_Name} worked`}
+                                    value={hoursMap[emp.Employee_ID] ?? ''}
+                                    onChange={e => setHoursMap(m => ({ ...m, [emp.Employee_ID]: Number(e.target.value) }))}
+                                    className={`w-20 px-1.5 py-1 text-2xs font-mono font-bold rounded border ${isDarkMode ? 'bg-ink-950 border-ink-800 text-ink-100' : 'bg-white border-ink-300 text-ink-900'}`}
+                                  />
+                                  h × RM {(emp.Hourly_Rate || 0).toFixed(2)}
+                                </label>
+                                <div className="text-2xs font-medium text-ink-500 dark:text-ink-400 mt-0.5 whitespace-nowrap">
+                                  {hoursFromClock[emp.Employee_ID] == null ? 'Type the hours worked' : `Clock-ins: ${hoursFromClock[emp.Employee_ID]} h`}
+                                </div>
+                              </div>
+                            )}
                             RM {basicPay.toFixed(2)}
-                            {(period.fraction < 1 || emp.Pay_Basis === 'anniversary') && (
+                            {!isHourly(emp) && (period.fraction < 1 || emp.Pay_Basis === 'anniversary') && (
                               <div className="text-2xs font-sans font-semibold text-amber-700 dark:text-amber-400 mt-0.5 whitespace-nowrap">
                                 {describePeriod(period)}
                               </div>
@@ -1900,11 +2022,11 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                   </div>
                   <div className="space-y-1.5 text-xs font-semibold">
                     <div className="flex justify-between text-ink-900">
-                      <span>Employee EPF ({deductionLabels(previewEmployee).epf})</span>
+                      <span>Employee EPF{payslipRate(deductionLabels({ ...previewEmployee, Age: previewPayslip.Employee_Age ?? previewEmployee.Age }).epf)}</span>
                       <span className="font-extrabold text-ink-950">RM {previewPayslip.Employee_EPF.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-ink-900">
-                      <span>Employee SOCSO ({deductionLabels(previewEmployee).socso})</span>
+                      <span>Employee SOCSO{payslipRate(deductionLabels({ ...previewEmployee, Age: previewPayslip.Employee_Age ?? previewEmployee.Age }).socso)}</span>
                       <span className="font-extrabold text-ink-950">RM {previewPayslip.Employee_SOCSO.toFixed(2)}</span>
                     </div>
                     {(previewPayslip.Employee_SKBBK ?? 0) > 0 && (
@@ -1914,7 +2036,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       </div>
                     )}
                     <div className="flex justify-between text-ink-900">
-                      <span>Employee EIS / SIP ({deductionLabels(previewEmployee).eis})</span>
+                      <span>Employee EIS / SIP{payslipRate(deductionLabels({ ...previewEmployee, Age: previewPayslip.Employee_Age ?? previewEmployee.Age }).eis)}</span>
                       <span className="font-extrabold text-ink-950">RM {previewPayslip.Employee_EIS.toFixed(2)}</span>
                     </div>
                     {(() => {

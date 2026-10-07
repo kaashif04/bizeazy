@@ -121,6 +121,65 @@ export const describePeriod = (p: PayPeriod): string =>
 /** Same rounding the statutory calculators always used, so existing amounts do not move. */
 export const round2 = (n: number): number => Number(n.toFixed(2));
 
+/** Whole years old on a date. */
+export function ageOn(dob: string, on: Date): number {
+  const b = parseLocalDate(dob);
+  if (!b) return NaN;
+  let age = on.getFullYear() - b.getFullYear();
+  if (on.getMonth() < b.getMonth() || (on.getMonth() === b.getMonth() && on.getDate() < b.getDate())) age--;
+  return age;
+}
+
+/**
+ * The age statutory rates use for a wage period: as at its first day, so the
+ * 60-and-over rates start with the month after the 60th birthday (as KWSP
+ * applies them). Records without a date of birth use the age typed in.
+ */
+export function statutoryAge(emp: { Date_Of_Birth?: string; Age?: number }, periodStart: Date): number {
+  const fromDob = emp.Date_Of_Birth ? ageOn(emp.Date_Of_Birth, periodStart) : NaN;
+  return Number.isFinite(fromDob) ? fromDob : Number(emp.Age) || 30;
+}
+
+/**
+ * A Malaysian MyKad number starts with the birth date, YYMMDD. Returns
+ * YYYY-MM-DD, or '' if it does not look like one. A year ahead of this one
+ * belongs to the 1900s.
+ */
+export function dobFromIC(ic: string, today = new Date()): string {
+  const digits = ic.replace(/\D/g, '');
+  if (digits.length !== 12) return '';
+  const yy = Number(digits.slice(0, 2)), mm = Number(digits.slice(2, 4)), dd = Number(digits.slice(4, 6));
+  const year = yy + (yy > today.getFullYear() % 100 ? 1900 : 2000);
+  const d = new Date(year, mm - 1, dd);
+  if (d.getMonth() !== mm - 1 || d.getDate() !== dd) return '';
+  return isoDate(d);
+}
+
+/** The rate shown in brackets on a payslip; notes such as "none from age 60" are left off. */
+export const payslipRate = (label: string): string => (/%/.test(label) ? ` (${label})` : '');
+
+/** Minimum Wages Order 2024: RM1,700 a month or RM8.72 an hour, part-timers included. */
+export const MIN_MONTHLY_WAGE = 1700;
+export const MIN_HOURLY_WAGE = 8.72;
+
+export const isHourly = (emp: Pick<Employee, 'Pay_Type'>): boolean => emp.Pay_Type === 'hourly';
+
+/**
+ * Basic pay for a period. Monthly staff: salary × the share of the period they
+ * were employed. Hourly staff: the hours they worked × their rate.
+ */
+export const basicPayFor = (emp: Employee, period: { fraction: number }, hours = 0): number =>
+  isHourly(emp) ? round2(Math.max(0, hours) * (emp.Hourly_Rate || 0)) : round2(emp.Basic_Salary * period.fraction);
+
+/** "38.5 h × RM 9.00", the line under Basic Pay on an hourly payslip. */
+export const hourlyLabel = (hours: number, rate: number): string =>
+  `${Number(hours.toFixed(2))} h × RM ${rate.toFixed(2)}`;
+
+/** "RM 2,500.00" a month or "RM 9.00 / hour". */
+export const payRateText = (emp: Employee): string => isHourly(emp)
+  ? `RM ${(emp.Hourly_Rate || 0).toFixed(2)} / hour`
+  : `RM ${emp.Basic_Salary.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
 // ── Residency ────────────────────────────────────────────────────────────────
 // A permanent resident is a local for SOCSO, EIS and EPF below 60. The two only
 // part ways at 60+, under EPF (Third Schedule): a citizen contributes 0% and the

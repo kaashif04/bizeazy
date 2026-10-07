@@ -9,7 +9,7 @@
  */
 import type { Payslip, Employee, CompanyProfile, DatabaseState } from '../types';
 import { activeOutlet } from './outlets';
-import { deductionLabels } from './payroll';
+import { deductionLabels, payslipRate } from './payroll';
 import { normaliseMonthLabel } from './notifications';
 import { supabase } from '../supabase';
 
@@ -109,8 +109,8 @@ export async function payslipPdf(ps: Payslip, emp: Employee | undefined, letterh
     text(rm(total), x + colW - 2.5, cy + 5, { size: 8.5, bold: true, color, align: 'right' });
     return cy + 7.5;
   };
-  const labels = emp ? deductionLabels(emp) : { epf: '', socso: '', eis: '' };
-  const tag = (s: string) => (s ? ` (${s})` : '');
+  const labels = emp ? deductionLabels({ ...emp, Age: ps.Employee_Age ?? emp.Age }) : { epf: '', socso: '', eis: '' };
+  const tag = payslipRate;
   const earnings: [string, number][] = [
     [`Basic Pay${ps.Pay_Period ? ` · ${ps.Pay_Period}` : ''}`, ps.Basic_Pay],
     ...lines(ps.Allowances_JSON, 'Custom Allowances', ps.Custom_Allowances),

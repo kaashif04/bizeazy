@@ -100,11 +100,17 @@ export interface Employee {
   Position: string;
   Assigned_Outlet: OutletId;
   Basic_Salary: number;
+  /** 'monthly' (default): Basic_Salary a month. 'hourly': part-time, paid Hourly_Rate × hours worked. */
+  Pay_Type?: 'monthly' | 'hourly';
+  Hourly_Rate?: number;
   Bank_Details: string;
   Branch_Location: string;
   /** 'Malaysian/PR' is the old combined value, read as Malaysian — see utils/payroll.ts. */
   Citizenship?: 'Malaysian' | 'PR' | 'Foreigner' | 'Malaysian/PR';
+  /** Typed age, from before dates of birth were kept. Date_Of_Birth wins when present. */
   Age?: number;
+  /** YYYY-MM-DD. The age for statutory rates is worked out from this each month. */
+  Date_Of_Birth?: string;
   Joining_Date?: string;        // ISO date string e.g. "2026-05-15"
   /** Last working day. Kept on the roster for records; nothing is owed after it. */
   End_Date?: string;
@@ -187,6 +193,11 @@ export interface Payslip {
   Is_Payment_Due?: boolean;       // computed flag: month ended, payment not yet made
   /** Dates covered, e.g. "15 Sep – 30 Sep 2026 · 16 of 30 days". Blank for a plain calendar month. */
   Pay_Period?: string;
+  /** Hourly staff: the hours and rate Basic_Pay was worked out from. */
+  Hours_Worked?: number;
+  /** The age the statutory amounts were worked out at, so the payslip's labels match them. */
+  Employee_Age?: number;
+  Hourly_Rate?: number;
 }
 
 export type ServingStyle = 'Packed Bento Boxes' | 'Buffet Setup' | 'Dome Serving';
