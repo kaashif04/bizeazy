@@ -8,7 +8,7 @@
  * src/team.ts.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Clock, CalendarDays, Plane, Settings2, Plus, Check, X, Copy, Fingerprint, FileUp, RefreshCw } from 'lucide-react';
+import { Clock, CalendarDays, CalendarClock, Plane, Settings2, Plus, Check, X, Copy, Fingerprint, FileUp, RefreshCw } from 'lucide-react';
 import type { DatabaseState, CompanyProfile } from '../types';
 import { outletLabel } from '../utils/outlets';
 import { loadConfig, saveCompanySettings } from '../db';
@@ -20,12 +20,13 @@ import {
   onShiftNow, daysBetween, scansOn, addMissedScan, removeScan,
   leaveTypes, saveLeaveType, leaveRequests, leaveBalances, decideLeave,
   listKiosks, registerKiosk, revokeKiosk, KIOSK_ENDPOINT, watchTeam,
+  loadShifts, saveShift, shiftFor, describeWeek, hhmm, type ShiftDay,
   type AttendanceDay, type ScanEvent, type LeaveType, type LeaveRequest,
   type LeaveBalance, type Kiosk, type AttendanceRules,
 } from '../team';
 
 type Toast = (msg: string, type: 'success' | 'error' | 'info' | 'warning') => void;
-type Tab = 'today' | 'attendance' | 'leave' | 'setup';
+type Tab = 'today' | 'attendance' | 'shifts' | 'leave' | 'setup';
 
 const CARD = 'rounded-2xl bg-white dark:bg-ink-900 shadow-sm';
 const LABEL = 'text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-ink-500 dark:text-ink-400';
@@ -51,6 +52,7 @@ function Pill({ tone, children }: { tone: 'ok' | 'wait' | 'bad' | 'info' | 'mute
 function DayBadges({ d }: { d: AttendanceDay }) {
   return (
     <span className="flex flex-wrap gap-1">
+      {d.scheduled === false && <Pill tone="muted">Day off</Pill>}
       {d.late && <Pill tone="wait">Late</Pill>}
       {d.open && d.work_date !== workDate() && <Pill tone="bad">Missed clock-out</Pill>}
       {d.open && d.work_date === workDate() && <Pill tone="info">On shift</Pill>}
@@ -84,18 +86,18 @@ export function TeamModule({
   const nameOf = (id: string) => names.get(id) || id;
 
   const tabs: [Tab, string, React.FC<React.SVGProps<SVGSVGElement>>][] = [
-    ['today', 'Today', Clock], ['attendance', 'Attendance', CalendarDays],
+    ['today', 'Today', Clock], ['attendance', 'Attendance', CalendarDays], ['shifts', 'Shifts', CalendarClock],
     ['leave', 'Leave', Plane], ['setup', 'Setup', Settings2],
   ];
 
   return (
     <div className="max-w-5xl mx-auto space-y-5 pb-8">
-      <div role="tablist" aria-label="Team" className="grid grid-cols-4 sm:inline-flex w-full sm:w-auto p-1 rounded-full bg-ink-100 dark:bg-ink-900 shadow-[inset_1px_1px_3px_var(--nm-sh),inset_-1px_-1px_3px_var(--nm-hl)]">
+      <div role="tablist" aria-label="Team" className="grid grid-cols-5 sm:inline-flex w-full sm:w-auto p-1 rounded-full bg-ink-100 dark:bg-ink-900 shadow-[inset_1px_1px_3px_var(--nm-sh),inset_-1px_-1px_3px_var(--nm-hl)]">
         {tabs.map(([key, label, Icon]) => (
           <button key={key} role="tab" aria-selected={tab === key} onClick={() => setTab(key)}
-            className={`flex items-center justify-center gap-1.5 px-1 sm:px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap cursor-pointer transition-colors ${
+            className={`flex items-center justify-center gap-1.5 px-0.5 sm:px-4 py-2 rounded-full text-[0.6875rem] sm:text-xs font-bold whitespace-nowrap cursor-pointer transition-colors ${
               tab === key ? 'bg-white dark:bg-ink-800 text-brand-700 dark:text-brand-300 shadow-sm' : 'text-ink-600 dark:text-ink-300 hover:text-ink-900 dark:hover:text-white'}`}>
-            <Icon className="w-3.5 h-3.5 hidden min-[400px]:block" />{label}
+            <Icon className="w-3.5 h-3.5 hidden sm:block" />{label}
           </button>
         ))}
       </div>
@@ -103,6 +105,7 @@ export function TeamModule({
       <div key={tab} className="view-enter">
         {tab === 'today' && <TodayTab tick={tick} people={people} nameOf={nameOf} onOpenLeave={() => setTab('leave')} />}
         {tab === 'attendance' && <AttendanceTab tick={tick} people={people} nameOf={nameOf} triggerToast={triggerToast} />}
+        {tab === 'shifts' && <ShiftsTab tick={tick} people={people} triggerToast={triggerToast} />}
         {tab === 'leave' && <LeaveTab tick={tick} nameOf={nameOf} companyId={companyId} triggerToast={triggerToast} />}
         {tab === 'setup' && (
           <SetupTab db={db} profiles={profiles} companyId={companyId} canSettings={canSettings} canPayroll={canPayroll}
@@ -138,8 +141,8 @@ function TodayTab({ tick, people, nameOf, onOpenLeave }: {
 }) {
   const today = workDate();
   const { data, error } = useLoad(async () => {
-    const [shift, days, reqs] = await Promise.all([onShiftNow(), daysBetween(today, today), leaveRequests()]);
-    return { shift, days, pending: reqs.filter(r => r.status === 'pending').length,
+    const [shift, days, reqs, shifts, config] = await Promise.all([onShiftNow(), daysBetween(today, today), leaveRequests(), loadShifts(), loadConfig()]);
+    return { shift, days, shifts, rules: rulesOf(config), pending: reqs.filter(r => r.status === 'pending').length,
       away: reqs.filter(r => r.status === 'approved' && r.start_date <= today && r.end_date >= today) };
   }, [tick, today]);
   // A live "so far" without refetching: re-render every minute.
@@ -189,15 +192,18 @@ function TodayTab({ tick, people, nameOf, onOpenLeave }: {
             <ul className="divide-y divide-ink-100 dark:divide-ink-800">
               {people.map(p => {
                 const d = byId.get(p.Employee_ID);
+                const plan = data ? shiftFor(p.Employee_ID, today, data.shifts, data.rules) : null;
                 return (
                   <li key={p.Employee_ID} className="flex items-center justify-between gap-3 px-5 py-3">
                     <span className="min-w-0">
                       <span className="block text-sm font-semibold text-ink-900 dark:text-white truncate">{nameOf(p.Employee_ID)}</span>
                       <span className="block text-xs text-ink-500 dark:text-ink-400 tabular-nums">
-                        {d ? `${clock(d.first_in)} – ${d.open ? 'now' : clock(d.last_out)} · ${duration(d.worked_minutes)}` : p.Branch_Location || ''}
+                        {d ? `${clock(d.first_in)} – ${d.open ? 'now' : clock(d.last_out)} · ${duration(d.worked_minutes)}`
+                          : plan ? `Shift ${hhmm(plan.start)} – ${hhmm(plan.end)}` : 'Day off'}
                       </span>
                     </span>
-                    {d ? <DayBadges d={d} /> : awayIds.has(p.Employee_ID) ? <Pill tone="info">On leave</Pill> : <Pill tone="muted">Not in yet</Pill>}
+                    {d ? <DayBadges d={d} /> : awayIds.has(p.Employee_ID) ? <Pill tone="info">On leave</Pill>
+                      : !plan ? <Pill tone="muted">Off today</Pill> : <Pill tone="wait">Not in yet</Pill>}
                   </li>
                 );
               })}
@@ -548,7 +554,8 @@ function WorkHoursCard({ canSettings, triggerToast }: { canSettings: boolean; tr
 
   return (
     <section className={`${CARD} p-5 space-y-4 self-start`} aria-labelledby="work-hours">
-      <h2 id="work-hours" className={LABEL}>Work hours</h2>
+      <h2 id="work-hours" className={LABEL}>Default hours</h2>
+      <p className="text-xs text-ink-500 dark:text-ink-400 -mt-2">For anyone without their own shift (set those in Shifts).</p>
       <div className="grid grid-cols-2 gap-3">
         <label className="block"><span className={LABEL}>Day starts</span>
           <input type="time" value={rules.day_start} disabled={!canSettings} onChange={e => set('day_start', e.target.value)} className={`${INPUT} mt-1`} /></label>
@@ -573,7 +580,7 @@ function WorkHoursCard({ canSettings, triggerToast }: { canSettings: boolean; tr
         </div>
       </div>
       <p className="text-xs text-ink-500 dark:text-ink-400">
-        Someone is late when their first scan is after the start time plus the grace minutes. Work days also decide how many days a leave request takes.
+        Someone is late when their first scan is after their shift start plus the grace minutes. Grace applies to everyone.
       </p>
       {canSettings
         ? <button onClick={save} disabled={busy} className={PRIMARY}>{busy ? 'Saving…' : 'Save work hours'}</button>
@@ -681,5 +688,127 @@ function PublishCard({ db, profiles, companyId, payrollScope, triggerToast }: {
         {progress ? `Publishing ${progress[0]} of ${progress[1]}…` : `Publish ${saved} saved payslip${saved === 1 ? '' : 's'}`}
       </button>
     </section>
+  );
+}
+
+// ── Shifts ───────────────────────────────────────────────────────────────────
+
+const WEEK: [number, string][] = [[1, 'Monday'], [2, 'Tuesday'], [3, 'Wednesday'], [4, 'Thursday'], [5, 'Friday'], [6, 'Saturday'], [7, 'Sunday']];
+
+function ShiftsTab({ tick, people, triggerToast }: { tick: number; people: DatabaseState['employees']; triggerToast: Toast }) {
+  const { data, error, reload } = useLoad(async () => {
+    const [shifts, config] = await Promise.all([loadShifts(), loadConfig()]);
+    return { shifts, rules: rulesOf(config) };
+  }, [tick]);
+  const [editing, setEditing] = useState<string | null>(null);
+
+  if (error) return <ErrorNote message={error} />;
+  if (!data) return <div className="space-y-2"><Skeleton className="h-16" /><Skeleton className="h-16" /></div>;
+  const company = describeWeek(data.rules.work_days.map(d => ({ weekday: d, start: data.rules.day_start, end: data.rules.day_end, break: data.rules.break_minutes })));
+  const person = people.find(p => p.Employee_ID === editing);
+
+  return (
+    <div className="space-y-4">
+      <p className={`${CARD} p-4 text-sm text-ink-600 dark:text-ink-300`}>
+        Each person's shift decides when they are late and how many days their leave takes.
+        Anyone without their own shift works the default hours: <span className="font-semibold text-ink-900 dark:text-white">{company}</span>.
+      </p>
+      <section className={`${CARD} overflow-hidden`} aria-label="Shifts">
+        {people.length === 0 ? <EmptyState compact icon={<CalendarClock />} title="No staff yet" body="Add employees in Payroll; then set their shifts here." />
+          : (
+            <ul className="divide-y divide-ink-100 dark:divide-ink-800">
+              {people.map(p => {
+                const week = data.shifts.get(p.Employee_ID) || [];
+                return (
+                  <li key={p.Employee_ID} className="flex items-center justify-between gap-3 px-5 py-3.5">
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-ink-900 dark:text-white truncate">{p.Employee_Name}</span>
+                      <span className="block text-xs text-ink-500 dark:text-ink-400">
+                        {week.length ? describeWeek(week) : `Default hours · ${company}`}
+                      </span>
+                    </span>
+                    <button onClick={() => setEditing(p.Employee_ID)} className={GHOST}>{week.length ? 'Edit' : 'Set shift'}</button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+      </section>
+      {editing && person && (
+        <ShiftSheet name={person.Employee_Name} employeeId={editing} week={data.shifts.get(editing) || []}
+          defaults={{ start: data.rules.day_start, end: data.rules.day_end, days: data.rules.work_days, break: data.rules.break_minutes }}
+          triggerToast={triggerToast} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reload(); }} />
+      )}
+    </div>
+  );
+}
+
+function ShiftSheet({ name, employeeId, week, defaults, triggerToast, onClose, onSaved }: {
+  name: string; employeeId: string; week: ShiftDay[];
+  defaults: { start: string; end: string; days: number[]; break: number };
+  triggerToast: Toast; onClose: () => void; onSaved: () => void;
+}) {
+  // Start from their own week, or from the default hours if they have none.
+  const [days, setDays] = useState<Record<number, ShiftDay | null>>(() => Object.fromEntries(WEEK.map(([n]) => {
+    const own = week.find(d => d.weekday === n);
+    if (week.length) return [n, own || null];
+    return [n, defaults.days.includes(n) ? { weekday: n, start: defaults.start, end: defaults.end, break: defaults.break } : null];
+  })));
+  const [busy, setBusy] = useState(false);
+  const set = (n: number, patch: Partial<ShiftDay> | null) =>
+    setDays(d => ({ ...d, [n]: patch === null ? null : { ...(d[n] || { weekday: n, start: defaults.start, end: defaults.end, break: defaults.break }), ...patch } }));
+  const first = WEEK.map(([n]) => days[n]).find(Boolean);
+  const copyToAll = () => first && setDays(d => Object.fromEntries(WEEK.map(([n]) => [n, d[n] ? { ...first, weekday: n } : null])));
+
+  const save = async (list: ShiftDay[], done: string) => {
+    if (list.some(d => !d.start || !d.end)) { triggerToast('Fill in a start and end time for each working day.', 'warning'); return; }
+    if (list.some(d => d.start === d.end)) { triggerToast('A shift cannot start and end at the same time.', 'warning'); return; }
+    setBusy(true);
+    try { await saveShift(employeeId, list); triggerToast(done, 'success'); onSaved(); }
+    catch (e: any) { triggerToast(e.message, 'error'); }
+    finally { setBusy(false); }
+  };
+  const chosen = WEEK.map(([n]) => days[n]).filter((d): d is ShiftDay => !!d);
+
+  return (
+    <Sheet title={`${name}'s shift`} subtitle="Malaysia time. An end time earlier than the start runs past midnight."
+      icon={<CalendarClock className="w-4 h-4" />} onClose={onClose} maxWidth="md"
+      footer={
+        <div className="flex flex-wrap items-center justify-between gap-2 w-full">
+          <button disabled={busy || !week.length} onClick={() => save([], `${name} is back on the default hours.`)} className={GHOST}>Use default hours</button>
+          <button disabled={busy} onClick={() => save(chosen, `${name}'s shift saved.`)} className={PRIMARY}>{busy ? 'Saving…' : 'Save shift'}</button>
+        </div>
+      }>
+      <div className="space-y-2">
+        {WEEK.map(([n, label]) => {
+          const d = days[n];
+          return (
+            <div key={n} className={`rounded-2xl px-3 py-2.5 ${d ? 'bg-ink-50 dark:bg-ink-800/60' : 'bg-transparent border border-dashed border-ink-200 dark:border-ink-700'}`}>
+              <div className="flex items-center justify-between gap-2">
+                <label className="flex items-center gap-2 text-sm font-semibold text-ink-900 dark:text-white cursor-pointer">
+                  <input type="checkbox" checked={!!d} onChange={e => set(n, e.target.checked ? {} : null)} className="w-4 h-4" />
+                  {label}
+                </label>
+                {!d && <span className="text-xs text-ink-500 dark:text-ink-400">Day off</span>}
+              </div>
+              {d && (
+                <div className="mt-2 grid grid-cols-[1fr_1fr_5.5rem] gap-2">
+                  <label className="block min-w-0"><span className="sr-only">{label} start</span>
+                    <input type="time" value={d.start} onChange={e => set(n, { start: e.target.value })} className={INPUT} /></label>
+                  <label className="block min-w-0"><span className="sr-only">{label} end</span>
+                    <input type="time" value={d.end} onChange={e => set(n, { end: e.target.value })} className={INPUT} /></label>
+                  <label className="block min-w-0"><span className="sr-only">{label} break minutes</span>
+                    <input type="number" min={0} step={5} value={d.break} onChange={e => set(n, { break: Number(e.target.value) })} className={INPUT} title="Break (min)" /></label>
+                </div>
+              )}
+            </div>
+          );
+        })}
+        <div className="flex items-center justify-between gap-2 pt-1">
+          <span className="text-2xs text-ink-500 dark:text-ink-400">Start · End · Break (min)</span>
+          <button type="button" disabled={!first} onClick={copyToAll} className={GHOST}>Same hours every working day</button>
+        </div>
+      </div>
+    </Sheet>
   );
 }

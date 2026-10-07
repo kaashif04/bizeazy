@@ -243,6 +243,44 @@ ok(await fails(staff, `select public.cancel_leave($1)`, [req1]), 'a cancelled re
 ok(await fails(boss2, `select public.cancel_leave($1)`, [req2]), 'only the requester cancels');
 ok((await as(rival, `select 1 from public.leave_requests`)).length === 0, 'another company sees none of the leave');
 
+// Shifts: each person their own. Aisyah (EMP-1) works Mon–Fri 10:00–19:00 and
+// Saturday nights 22:00–02:00; Sunday is off.
+const week = [1, 2, 3, 4, 5].map(d => ({ weekday: d, start: '10:00', end: '19:00' }))
+  .concat([{ weekday: 6, start: '22:00', end: '02:00' }]);
+ok(await fails(staff, `select public.set_shift('EMP-1', $1::jsonb)`, [JSON.stringify(week)]), 'staff cannot set their own shift');
+ok(await fails(clerk, `select public.set_shift('EMP-1', $1::jsonb)`, [JSON.stringify(week)]), 'payroll alone cannot set shifts');
+await as(boss2, `select public.set_shift('EMP-1', $1::jsonb)`, [JSON.stringify(week)]);
+ok((await as(staff, `select 1 from public.employee_shifts`)).length === 6, 'staff read their own week');
+await as(boss2, `select public.set_shift('EMP-2', $1::jsonb)`, [JSON.stringify([{ weekday: 1, start: '07:00', end: '15:00' }])]);
+ok((await as(staff, `select employee_id from public.employee_shifts where employee_id = 'EMP-2'`)).length === 0, "…but not anyone else's");
+ok((await as(rival, `select 1 from public.employee_shifts`)).length === 0, 'another company sees no shifts');
+
+// 2026-09-02 (Wed) 08:55 was on time for 09:00; against a 10:00 shift it still is.
+// 2026-09-03 (Thu) 09:30 was late against 09:00; against 10:00 it is early.
+let byDay = Object.fromEntries((await as(staff, `select work_date::text as d, late, scheduled, shift_start::text as s from public.attendance_days`)).map((r: any) => [r.d, r]));
+ok(byDay['2026-09-03'].late === false && byDay['2026-09-03'].s === '10:00:00', 'lateness follows the person\'s own start time');
+await db.exec(`insert into public.attendance_events (company_id, employee_id, method, occurred_at) values
+  ('${A}', 'EMP-1', 'fingerprint', '2026-09-05 22:20+08'), ('${A}', 'EMP-1', 'fingerprint', '2026-09-06 02:05+08'),
+  ('${A}', 'EMP-1', 'fingerprint', '2026-09-07 10:25+08'),
+  ('${A}', 'EMP-1', 'fingerprint', '2026-09-13 11:00+08')`);
+byDay = Object.fromEntries((await as(staff, `select work_date::text as d, late, scheduled, worked_minutes as m from public.attendance_days`)).map((r: any) => [r.d, r]));
+ok(byDay['2026-09-05'].late && byDay['2026-09-05'].m === 225, 'a Saturday night shift 22:20–02:05 is late and 3 h 45 m');
+ok(byDay['2026-09-07'].late, '10:25 on a 10:00 Monday is late');
+ok(byDay['2026-09-13'].scheduled === false && byDay['2026-09-13'].late === false, 'working on a day off is never late');
+const ravi = (await as(boss2, `select late, scheduled from public.attendance_days where employee_id = 'EMP-2' and work_date = '2026-09-02'`))[0];
+ok(ravi.scheduled === false && !ravi.late, 'Ravi only works Mondays, so Wednesday is a day off for him');
+
+// Leave counts the person's own working days: Mon–Sun is 6 for Aisyah, not the company's 6 of Mon–Sat by chance.
+const [{ id: req3 }] = await ask(staff, unpaid, day(21), day(27));
+ok((await as(staff, `select days from public.leave_requests where id = $1`, [req3]))[0].days == 6, 'a week of leave is her six shift days');
+ok(await fails(staff, `select public.request_leave($1, $2::date, $3::date, false, '')`, [unpaid, day(34), day(34)]), 'leave on a day off is refused');
+await as(boss2, `select public.set_shift('EMP-1', '[]'::jsonb)`);
+ok((await as(staff, `select 1 from public.employee_shifts`)).length === 0, 'an empty week puts her back on company hours');
+ok((await as(staff, `select scheduled from public.attendance_days where work_date = '2026-09-13'`))[0].scheduled === false,
+   '…where Sunday is not a work day');
+ok((await as(rival, `select public.leave_days($1, 'EMP-1', $2::date, $3::date, false) as n`, [A, day(0), day(6)]))[0].n == 0,
+   'another company cannot count A\'s working days');
+
 // Payslip PDFs in Storage.
 const pdf = (who: string, path: string) =>
   as(who, `insert into storage.objects (bucket_id, name) values ('payslips', $1)`, [path]);

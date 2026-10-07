@@ -130,15 +130,28 @@ Employee details live in the Hub's generic `records` table:
 - **`attendance_days`** (view, read this for display): one row per employee per
   working day — `employee_id, work_date date, first_in timestamptz, last_in
   timestamptz, last_out timestamptz null, worked_minutes int, scans int, open
-  boolean, late boolean, has_manual boolean, untrusted_clock boolean`.
+  boolean, late boolean, has_manual boolean, untrusted_clock boolean,
+  scheduled boolean, shift_start time null, shift_end time null`.
   A working day runs **4 am to 4 am Malaysia time**, so a late shift (in 22:00,
   out 01:30) is one day. `worked_minutes` counts completed pairs only; while
   `open`, the live "so far" is `worked_minutes + (now − last_in)`. `last_out`
   is null while the day is open. Pairing rule (implemented in
   the view, do not re-implement): non-voided events of the day sorted by time,
   paired 1st–2nd, 3rd–4th…; `open` means an odd count (still on shift, or a
-  missed clock-out). `late` compares `first_in` with the company's day start
-  plus grace minutes.
+  missed clock-out). `late` compares `first_in` with **that person's own
+  shift start** for that weekday plus the company's grace minutes; it is never
+  true on a day off. `scheduled = false` means they worked on a day off
+  (show a "Day off" badge, not "Late").
+- **`employee_shifts`** (read; staff see only their own rows): `employee_id,
+  weekday smallint (ISO: 1 = Monday … 7 = Sunday), start_time time, end_time
+  time, break_minutes int`. One row per working weekday; a weekday with no
+  row is a **day off**. An `end_time` earlier than `start_time` runs past
+  midnight (e.g. 22:00–02:00). Someone with **no rows at all** works the
+  company's default hours from 4.6 (`work_days`, `day_start`, `day_end`).
+  Managers set shifts in the Hub (Team → Shifts); this app never edits them.
+  The same rule is in the database as `shift_on(company_id, employee_id,
+  date) → (scheduled, start_time, end_time)`; call it for a single day if
+  that is simpler than reading the week.
 - **`on_shift_now`** (view, managers): `employee_id, employee_name,
   branch, since timestamptz` — people whose latest event today is an open in.
 
@@ -156,7 +169,9 @@ Employee details live in the Hub's generic `records` table:
   decided_at timestamptz null, decision_note text, created_at`.
 - Writes go through RPCs only, never direct `insert`/`update`:
   - `request_leave(p_leave_type_id uuid, p_start date, p_end date, p_half_day boolean, p_reason text) returns uuid`
-    — staff, for themselves. The server computes `days` and refuses overlaps,
+    — staff, for themselves. The server computes `days` from **their own
+    shift** (only their working days count) and refuses dates with no shift
+    day ("You are not working on those dates."), overlaps,
     end-before-start, half-day across several days, and requests beyond the
     remaining balance of an unpaid-limited type.
   - `cancel_leave(p_id uuid)` — the requester, while `pending` (or an approved
@@ -166,7 +181,8 @@ Employee details live in the Hub's generic `records` table:
 
 ### 4.6 Company rules (read)
 `config` table, key `'settings'`, value JSON. Read
-`value.attendance` for display only:
+`value.attendance` for display only. These are the **default hours** for
+anyone without their own shift (4.4); `grace_minutes` applies to everyone:
 ```json
 { "timezone": "Asia/Kuala_Lumpur", "work_days": [1,2,3,4,5,6],
   "day_start": "09:00", "day_end": "18:00", "grace_minutes": 10,
@@ -192,13 +208,16 @@ password? Ask your manager to reset it." No sign-up link.
 
 1. **Today** — greeting with first name; today's status card: "Clocked in at
    8:52 · 3 h 14 m so far" (live counter) / "Not clocked in yet" / "Clocked out
-   at 18:04 · 8 h 12 m"; late badge if `late`; this week's total hours; the
-   next approved leave; any pending leave request.
+   at 18:04 · 8 h 12 m"; late badge if `late`; **"Your shift today: 10:00 am –
+   7:00 pm"** or **"Day off today"**; this week's total hours; the next
+   approved leave; any pending leave request.
 2. **Attendance** — month picker (current month default); one row per day from
    `attendance_days`: date, in, out, hours, badges (Late, Missed clock-out,
    Corrected by manager, Kiosk clock was wrong). Month totals at the top
-   (days worked, hours). Days with no record that are work days show as
-   "Absent" only if they are in the past and not on approved leave.
+   (days worked, hours). A day with no record shows as "Absent" only if it is
+   in the past, it is one of **that person's shift days** (or a company work
+   day when they have no shift), and they are not on approved leave. Other
+   days show as "Day off".
 3. **Payslips** — list newest first by month: month, net pay, Paid on date /
    Payment pending; tap → open the PDF (signed URL) with Download and Share
    (Web Share API where available).
@@ -206,7 +225,8 @@ password? Ask your manager to reset it." No sign-up link.
    button → sheet: type, start, end, half day (only if one day), reason →
    `request_leave`. Below: my requests with status chips; pending ones can be
    cancelled.
-5. **Me** — name, position, branch, joining date; change password (current +
+5. **Me** — name, position, branch, joining date; **my shift** (the week from
+   `employee_shifts`, or "Default hours: Mon–Sat 9:00 am – 6:00 pm"); change password (current +
    new + confirm, min 8 chars: re-authenticate with the current password via
    `signInWithPassword`, then `auth.updateUser`); dark mode toggle; sign out.
 

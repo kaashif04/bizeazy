@@ -3,7 +3,7 @@
  * The database pairs scans into days; these only have to agree with it on
  * which day a moment belongs to, and show Malaysia time.
  */
-import { clock, duration, workDate, monthRange, mytToIso, workDayBounds, rulesOf } from './team';
+import { clock, duration, workDate, monthRange, mytToIso, workDayBounds, rulesOf, shiftFor, isoWeekday, describeWeek, hhmm, DEFAULT_RULES } from './team';
 
 const ok = (cond: boolean, msg: string) => { if (!cond) throw new Error(`SELF-CHECK FAILED: ${msg}`); };
 
@@ -28,5 +28,18 @@ ok(from === '2026-08-31T20:00:00.000Z' && to === '2026-09-01T20:00:00.000Z', 'a 
 
 ok(rulesOf({}).day_start === '09:00' && rulesOf({ settings: { attendance: { grace_minutes: 5 } } }).grace_minutes === 5,
    'rules fall back to defaults and keep what was set');
+
+// Shifts: own week if set, else company hours; a missing weekday is a day off.
+ok(isoWeekday('2026-09-07') === 1 && isoWeekday('2026-09-13') === 7, 'Monday is 1, Sunday is 7');
+const week = [1, 2, 3, 4, 5].map(d => ({ weekday: d, start: '10:00', end: '19:00', break: 60 }))
+  .concat([{ weekday: 6, start: '22:00', end: '02:00', break: 0 }]);
+const shifts = new Map([['EMP-1', week]]);
+ok(shiftFor('EMP-1', '2026-09-07', shifts, DEFAULT_RULES)?.start === '10:00', 'own Monday shift');
+ok(shiftFor('EMP-1', '2026-09-13', shifts, DEFAULT_RULES) === null, 'own Sunday is off');
+ok(shiftFor('EMP-2', '2026-09-12', shifts, DEFAULT_RULES)?.start === '09:00', 'no shift: company hours on Saturday');
+ok(shiftFor('EMP-2', '2026-09-13', shifts, DEFAULT_RULES) === null, 'no shift: company Sunday is off');
+ok(hhmm('00:30') === '12:30 am' && hhmm('12:00') === '12:00 pm' && hhmm('22:00') === '10:00 pm', '12-hour times');
+ok(describeWeek(week) === 'Mon–Fri 10:00 am – 7:00 pm · Sat 10:00 pm – 2:00 am', `week summary, got ${describeWeek(week)}`);
+ok(describeWeek([]) === 'Company hours', 'no shift reads as company hours');
 
 console.log('All team time self-checks passed.');

@@ -54,7 +54,11 @@ export const dayLabel = (date: string): string =>
 export interface AttendanceDay {
   employee_id: string; work_date: string; first_in: string; last_in: string; last_out: string | null;
   worked_minutes: number; scans: number; open: boolean; late: boolean; has_manual: boolean; untrusted_clock: boolean;
+  scheduled: boolean; shift_start: string | null; shift_end: string | null;
 }
+/** One weekday of a person's shift. weekday is ISO: 1 = Monday … 7 = Sunday. */
+export interface ShiftDay { weekday: number; start: string; end: string; break: number }
+export type Shifts = Map<string, ShiftDay[]>;   // employee_id → their week; absent = company hours
 export interface OnShift { employee_id: string; employee_name: string; branch: string; since: string }
 export interface ScanEvent {
   id: string; employee_id: string; occurred_at: string; method: 'fingerprint' | 'face' | 'manual';
@@ -79,6 +83,47 @@ export const DEFAULT_RULES: AttendanceRules = {
 };
 export const rulesOf = (config: Record<string, any>): AttendanceRules =>
   ({ ...DEFAULT_RULES, ...(config?.settings?.attendance || {}) });
+
+/** ISO weekday of a 'YYYY-MM-DD' date: 1 = Monday … 7 = Sunday. */
+export const isoWeekday = (date: string): number => ((new Date(`${date}T12:00:00Z`).getUTCDay() + 6) % 7) + 1;
+
+/**
+ * A person's hours on a date, as the database decides it (public.shift_on):
+ * their own shift if they have one, else the company's hours. null = day off.
+ */
+export function shiftFor(employeeId: string, date: string, shifts: Shifts, rules: AttendanceRules): { start: string; end: string } | null {
+  const own = shifts.get(employeeId);
+  const wd = isoWeekday(date);
+  if (own?.length) {
+    const d = own.find(x => x.weekday === wd);
+    return d ? { start: d.start, end: d.end } : null;
+  }
+  return rules.work_days.includes(wd) ? { start: rules.day_start, end: rules.day_end } : null;
+}
+
+/** '09:00' → '9:00 am'. */
+export const hhmm = (t: string | null | undefined): string => {
+  if (!t) return '—';
+  const [h, m] = t.split(':').map(Number);
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
+};
+
+const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+/** "Mon–Fri 10:00 am – 7:00 pm · Sat 10:00 pm – 2:00 am"; consecutive days with the same hours run together. */
+export function describeWeek(week: ShiftDay[]): string {
+  if (!week.length) return 'Company hours';
+  const sorted = [...week].sort((a, b) => a.weekday - b.weekday);
+  const parts: string[] = [];
+  for (let i = 0; i < sorted.length;) {
+    let j = i;
+    while (j + 1 < sorted.length && sorted[j + 1].weekday === sorted[j].weekday + 1
+      && sorted[j + 1].start === sorted[i].start && sorted[j + 1].end === sorted[i].end) j++;
+    const days = i === j ? DAY_NAMES[sorted[i].weekday - 1] : `${DAY_NAMES[sorted[i].weekday - 1]}–${DAY_NAMES[sorted[j].weekday - 1]}`;
+    parts.push(`${days} ${hhmm(sorted[i].start)} – ${hhmm(sorted[i].end)}`);
+    i = j + 1;
+  }
+  return parts.join(' · ');
+}
 
 // ── Reads and writes ─────────────────────────────────────────────────────────
 
@@ -123,6 +168,20 @@ export async function scansOn(employeeId: string, date: string): Promise<ScanEve
   const byId = new Map(voids.map(v => [v.event_id, v]));
   return events.map(e => ({ ...e, voided: byId.get(e.id) || null }));
 }
+
+export async function loadShifts(): Promise<Shifts> {
+  const list = await rows<{ employee_id: string; weekday: number; start_time: string; end_time: string; break_minutes: number }>(
+    supabase.from('employee_shifts').select('employee_id, weekday, start_time, end_time, break_minutes'));
+  const out: Shifts = new Map();
+  for (const r of list) {
+    const week = out.get(r.employee_id) || [];
+    week.push({ weekday: r.weekday, start: r.start_time.slice(0, 5), end: r.end_time.slice(0, 5), break: r.break_minutes });
+    out.set(r.employee_id, week);
+  }
+  return out;
+}
+export const saveShift = (employeeId: string, week: ShiftDay[]) =>
+  call('set_shift', { p_employee_id: employeeId, p_days: week });
 
 export const addMissedScan = (employeeId: string, iso: string, note: string) =>
   call('add_manual_event', { p_employee_id: employeeId, p_occurred_at: iso, p_note: note });
