@@ -727,7 +727,7 @@ function ShiftsTab({ tick, people, triggerToast }: { tick: number; people: Datab
                         {week.length ? describeWeek(week) : `Default hours · ${company}`}
                       </span>
                     </span>
-                    <button onClick={() => setEditing(p.Employee_ID)} className={GHOST}>{week.length ? 'Edit' : 'Set shift'}</button>
+                    <button onClick={() => setEditing(p.Employee_ID)} className={`${GHOST} shrink-0 whitespace-nowrap`}>{week.length ? 'Edit' : 'Set shift'}</button>
                   </li>
                 );
               })}
