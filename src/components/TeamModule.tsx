@@ -90,12 +90,12 @@ export function TeamModule({
 
   return (
     <div className="max-w-5xl mx-auto space-y-5 pb-8">
-      <div role="tablist" aria-label="Team" className="inline-flex p-1 rounded-full bg-ink-100 dark:bg-ink-900 shadow-[inset_1px_1px_3px_var(--nm-sh),inset_-1px_-1px_3px_var(--nm-hl)] max-w-full overflow-x-auto">
+      <div role="tablist" aria-label="Team" className="grid grid-cols-4 sm:inline-flex w-full sm:w-auto p-1 rounded-full bg-ink-100 dark:bg-ink-900 shadow-[inset_1px_1px_3px_var(--nm-sh),inset_-1px_-1px_3px_var(--nm-hl)]">
         {tabs.map(([key, label, Icon]) => (
           <button key={key} role="tab" aria-selected={tab === key} onClick={() => setTab(key)}
-            className={`flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap cursor-pointer transition-colors ${
+            className={`flex items-center justify-center gap-1.5 px-1 sm:px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap cursor-pointer transition-colors ${
               tab === key ? 'bg-white dark:bg-ink-800 text-brand-700 dark:text-brand-300 shadow-sm' : 'text-ink-600 dark:text-ink-300 hover:text-ink-900 dark:hover:text-white'}`}>
-            <Icon className="w-3.5 h-3.5" />{label}
+            <Icon className="w-3.5 h-3.5 hidden min-[400px]:block" />{label}
           </button>
         ))}
       </div>

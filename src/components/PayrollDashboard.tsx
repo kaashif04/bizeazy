@@ -892,7 +892,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
         <div className={`rounded-xl border ${isDarkMode ? 'border-ink-800 bg-ink-900' : 'border-ink-200 bg-white shadow-sm'}`}>
           {/* Phone: one card per employee. Six columns of horizontal scroll is
               not a roster anyone can check during service. */}
-          <ul className="md:hidden divide-y divide-ink-100 dark:divide-ink-800">
+          <ul className="xl:hidden divide-y divide-ink-100 dark:divide-ink-800">
             {filteredEmployees.map((employee) => (
               <li key={employee.Employee_ID} className="p-4">
                 <div className="flex items-start gap-3">
@@ -978,7 +978,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
             ))}
           </ul>
 
-          <div className="hidden md:block overflow-x-auto">
+          <div className="hidden xl:block overflow-x-auto">
           <table className="min-w-full text-left text-xs">
             <thead className={`border-b text-2xs font-bold uppercase tracking-wider ${isDarkMode ? 'bg-ink-950/40 border-ink-800 text-ink-500' : 'bg-ink-50 border-ink-200 text-ink-700'}`}>
               <tr>

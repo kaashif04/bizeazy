@@ -1304,7 +1304,7 @@ export default function QuotationModule({
           )
         ) : (
           <>
-          <div className="hidden md:block overflow-x-auto">
+          <div className="hidden xl:block overflow-x-auto">
             <table className="min-w-full text-left text-xs">
               <thead className={`border-b text-2xs font-bold uppercase tracking-wider ${
                 isDarkMode ? 'bg-ink-950/40 border-ink-800 text-ink-500' : 'bg-ink-50 border-ink-200 text-ink-500'
@@ -1389,7 +1389,7 @@ export default function QuotationModule({
           </div>
 
           {/* Mobile card list */}
-          <div className="md:hidden divide-y divide-ink-100 dark:divide-ink-800">
+          <div className="xl:hidden divide-y divide-ink-100 dark:divide-ink-800">
             {filtered.map(q => {
               const expired = isExpired(q.Valid_Until);
               return (
@@ -1453,7 +1453,7 @@ export default function QuotationModule({
           maxWidth="6xl"
           dismissOnBackdrop={false}
         >
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
+            <form onSubmit={handleSubmit}>
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-6">
 
                 {/* Left: metadata */}
@@ -1857,8 +1857,8 @@ export default function QuotationModule({
               </div>
 
               {/* Footer */}
-              <div className={`flex items-center justify-between gap-2 pt-4 mt-4 border-t ${isDarkMode ? 'border-ink-800' : 'border-ink-100'}`}>
-                <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 sticky bottom-0 z-10 -mx-4 sm:-mx-5 -mb-4 px-4 sm:px-5 py-3 mt-4 bg-ink-50/95 dark:bg-ink-900/95 backdrop-blur-sm border-t border-ink-200 dark:border-ink-800">
+                <div className="flex flex-wrap items-center gap-2">
                   {editingQuotation && (
                     <button type="button" onClick={() => handleDelete(editingQuotation.Quotation_ID)}
                       className="px-4 py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors bg-rose-50 hover:bg-rose-100 text-rose-600 border-rose-200 dark:bg-rose-950/30 dark:hover:bg-rose-900/40 dark:text-rose-400 dark:border-rose-800">
@@ -1884,7 +1884,7 @@ export default function QuotationModule({
                     </button>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 ml-auto">
                   <button type="button" onClick={() => setIsModalOpen(false)}
                     className={`px-4 py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors ${isDarkMode ? 'bg-transparent border-ink-700 text-ink-300 hover:bg-ink-800' : 'bg-white border-ink-200 text-ink-700 hover:bg-ink-50'}`}>
                     Cancel

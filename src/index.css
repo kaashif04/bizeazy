@@ -261,6 +261,31 @@
   }
 }
 
+/* Form controls shrink with their column. Without min-width: 0 a field keeps
+   its intrinsic width (about 150px, more for iOS date and time pickers) and
+   pushes past a grid cell or flex row on a narrow phone. iOS draws date and
+   time fields with a native control that ignores the width it is given unless
+   its appearance is reset; the picker still opens on tap. */
+@layer base {
+  input, select, textarea { min-width: 0; max-width: 100%; }
+  input[type="date"], input[type="time"], input[type="month"], input[type="datetime-local"] {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  input::-webkit-date-and-time-value { text-align: left; }
+  /* Safari draws a native select at its own squat height whatever the padding;
+     reset it and draw the chevron, so every dropdown matches the text fields. */
+  select:not([multiple]) {
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%239C958A'%3E%3Cpath d='M5.3 7.3a1 1 0 0 1 1.4 0L10 10.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 0-1.4z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.6rem center;
+    background-size: 1rem;
+    padding-right: 2rem;
+  }
+}
+
 /* A comfortable floor for form controls on every device; the touch rule below
    raises it again for fingers. 29px-tall buttons were cramped with a mouse too. */
 @layer base {

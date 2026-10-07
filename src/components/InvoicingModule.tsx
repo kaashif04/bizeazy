@@ -1183,7 +1183,7 @@ export default function InvoicingModule({
           )
         ) : (
           <>
-          <div className="hidden md:block overflow-x-auto">
+          <div className="hidden xl:block overflow-x-auto">
             <table className="min-w-full text-left text-xs">
               <thead className={`border-b text-2xs font-bold uppercase tracking-wider ${
                 isDarkMode ? 'bg-ink-950/40 border-ink-800 text-ink-500' : 'bg-ink-50 border-ink-200 text-ink-500'
@@ -1268,7 +1268,7 @@ export default function InvoicingModule({
           </div>
 
           {/* Mobile card list — visible only on small screens */}
-          <div className="md:hidden divide-y divide-ink-100 dark:divide-ink-800">
+          <div className="xl:hidden divide-y divide-ink-100 dark:divide-ink-800">
             {filtered.map(inv => {
               const pay = getPaymentSummary(inv, db.payments);
               return (
@@ -1347,7 +1347,7 @@ export default function InvoicingModule({
           dismissOnBackdrop={false}
         >
             {/* Body */}
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
+            <form onSubmit={handleSubmit}>
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr] gap-6">
 
                 {/* Left: metadata */}
@@ -1625,16 +1625,16 @@ export default function InvoicingModule({
                   {/* Column headers */}
                   {lineItems.length > 0 && (
                     <div
-                      className={`grid text-2xs font-bold uppercase tracking-wider px-2 py-1 ${
+                      className={`grid gap-2 text-2xs font-bold uppercase tracking-wider px-2 py-1 ${
                         isDarkMode ? 'text-ink-500' : 'text-ink-500'
                       }`}
-                      style={{ gridTemplateColumns: '1fr 48px 72px 68px 52px' }}
+                      style={{ gridTemplateColumns: 'minmax(0,1fr) 36px 64px 68px 52px' }}
                     >
                       <span>Description</span>
                       <span className="text-center">Qty</span>
-                      <span className="text-right">Price (RM)</span>
-                      <span className="text-right">Subtotal</span>
-                      <span className="text-center">Action</span>
+                      <span className="text-right">Price</span>
+                      <span className="text-right">Total</span>
+                      <span className="sr-only">Actions</span>
                     </div>
                   )}
 
@@ -1706,7 +1706,7 @@ export default function InvoicingModule({
                           className={`grid items-center gap-2 px-2 py-1.5 rounded-lg ${
                             isDarkMode ? 'hover:bg-ink-800/40' : 'hover:bg-ink-50'
                           }`}
-                          style={{ gridTemplateColumns: '1fr 48px 72px 68px 52px' }}
+                          style={{ gridTemplateColumns: 'minmax(0,1fr) 36px 64px 68px 52px' }}
                         >
                           <span className={`text-2xs font-medium truncate ${isDarkMode ? 'text-ink-200' : 'text-ink-800'}`}>
                             {item.name}
@@ -1759,7 +1759,7 @@ export default function InvoicingModule({
               </div>
 
               {/* Footer */}
-              <div className={`flex items-center justify-between gap-2 pt-4 mt-4 border-t ${isDarkMode ? 'border-ink-800' : 'border-ink-100'}`}>
+              <div className="flex flex-wrap items-center justify-between gap-2 sticky bottom-0 z-10 -mx-4 sm:-mx-5 -mb-4 px-4 sm:px-5 py-3 mt-4 bg-ink-50/95 dark:bg-ink-900/95 backdrop-blur-sm border-t border-ink-200 dark:border-ink-800">
                 <div>
                   {editingInvoice && (
                     <button
@@ -1776,7 +1776,7 @@ export default function InvoicingModule({
                     </button>
                   )}
                 </div>
-                <div className="flex items-center gap-2 justify-end sticky bottom-0 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 mt-4 bg-ink-50/95 dark:bg-ink-900/95 backdrop-blur-sm border-t border-ink-200 dark:border-ink-800 z-10">
+                <div className="flex items-center gap-2 justify-end ml-auto">
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
