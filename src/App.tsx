@@ -888,7 +888,6 @@ export default function App() {
                 db={db}
                 profiles={profiles}
                 activeBranchLocation={activeBranchLocation}
-                notifications={notifications}
                 allowed={allowed}
                 loading={firstLoad}
                 onNavigate={(view, intent) => { if (intent?.create) setCreateIn(view); setActiveView(view); }}

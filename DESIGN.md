@@ -27,13 +27,6 @@ colors:
   charcoal: "#1C1B19"
   night-ground: "#121110"
 typography:
-  display:
-    fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif"
-    fontSize: "2.75rem"
-    fontWeight: 600
-    lineHeight: 1
-    letterSpacing: "-0.03em"
-    fontFeature: "\"tnum\""
   headline:
     fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
     fontSize: "2.25rem"
@@ -69,7 +62,6 @@ rounded:
   xl: "16px"
   sheet: "20px"
   2xl: "24px"
-  hero: "28px"
   full: "9999px"
 spacing:
   row-x: "16px"
@@ -102,16 +94,20 @@ components:
     backgroundColor: "{colors.ivory-card}"
     rounded: "{rounded.2xl}"
     padding: "16px"
-  hero-card:
+  stat-card:
     backgroundColor: "{colors.ivory-card}"
     textColor: "{colors.charcoal}"
-    typography: "{typography.display}"
-    rounded: "{rounded.hero}"
-    padding: "24px 20px 64px"
-  progress-track:
-    backgroundColor: "{colors.pressed-track}"
+    rounded: "{rounded.2xl}"
+    padding: "16px"
+  icon-well:
+    backgroundColor: "{colors.ivory-paper}"
     rounded: "{rounded.full}"
-    height: "10px"
+    size: "36px"
+  mini-stat:
+    backgroundColor: "{colors.ivory-paper}"
+    textColor: "{colors.charcoal}"
+    rounded: "{rounded.xl}"
+    padding: "10px 12px"
   quick-action:
     backgroundColor: "{colors.ivory-card}"
     textColor: "{colors.cobalt}"
@@ -162,7 +158,7 @@ components:
 
 **Creative North Star: "Soft System"**
 
-BizEazy is ivory paper shaped into relief. Surfaces are not drawn with lines; they are raised off the paper or pressed into it, lit from the top-left with a pale highlight and shaded to the bottom-right with a warm umber shade. Cards, the Hub's hero and the round quick actions float; fields and progress tracks sit in. Charcoal ink carries every figure, and cobalt is the single accent: primary actions, the active place, progress, focus.
+BizEazy is ivory paper shaped into relief. Surfaces are not drawn with lines; they are raised off the paper or pressed into it, lit from the top-left with a pale highlight and shaded to the bottom-right with a warm umber shade. Cards and the round quick actions float; fields, icon wells and the Hub's mini-stat wells sit in. Charcoal ink carries every figure, and cobalt is the single accent: primary actions, the active place, progress, focus.
 
 Density is phone-first: one column, 44px touch floors, a bottom tab bar on phones and a sidebar from `md` up. Desktop adds room, never features. One face (Inter) carries everything; weight, size and a tracked uppercase label role separate an amount from its name.
 
@@ -183,9 +179,9 @@ Printed and PDF documents (anything marked `data-document`: invoices, quotations
 Warm ivory neutrals, charcoal ink, one cobalt accent and three status hues.
 
 ### Primary
-- **Cobalt** (cobalt): primary pill buttons, the active sidebar item, the brand mark, quick-action icons, the hero's progress bar, the caret and `accent-color`. Hover deepens to **Cobalt Deep** (cobalt-deep), which also sets active tab labels and "See all" links. **Cobalt Focus** (cobalt-focus) is the focus outline.
+- **Cobalt** (cobalt): primary pill buttons, the active sidebar item, the brand mark, quick-action icons, the caret and `accent-color`. Hover deepens to **Cobalt Deep** (cobalt-deep), which also sets active tab labels and "See all" links. **Cobalt Focus** (cobalt-focus) is the focus outline.
 - **Cobalt Wash / Tint** (cobalt-wash, cobalt-tint): the active bottom-tab pill and the "just so you know" info pill.
-- **Cobalt Bright / Light** (cobalt-bright, cobalt-light): the dark-mode progress bar, and dark-mode accent text, icons, caret and focus outline.
+- **Cobalt Bright / Light** (cobalt-bright, cobalt-light): dark-mode accent text, icons, caret and focus outline.
 
 ### Secondary (status)
 - **Paid Mint** (paid-mint, paid-mint-dot, paid-mint-text): paid, done, saved; the drawn tick and paid pills.
@@ -194,17 +190,17 @@ Warm ivory neutrals, charcoal ink, one cobalt accent and three status hues.
 
 ### Neutral
 - **Ivory Paper** (ivory-paper): the app ground in light mode.
-- **Ivory Card** (ivory-card): every raised surface: cards, rows, the hero, quick actions, header, sidebar, tab bar, toasts. It is `--color-white`, so `bg-white` and `text-white` mean ivory in the app.
-- **Pressed Track** (pressed-track): progress tracks, row dividers, hairline rules on header and tab bar.
+- **Ivory Card** (ivory-card): every raised surface: cards, rows, quick actions, header, sidebar, tab bar, toasts. It is `--color-white`, so `bg-white` and `text-white` mean ivory in the app.
+- **Pressed Track** (pressed-track): row dividers, hairline rules on header and tab bar.
 - **Border** (border): sidebar edge and outline-button strokes.
 - **Secondary Ink** (secondary-ink): labels and secondary text on light grounds.
 - **Non-text Ink** (non-text-ink): chevrons, scrollbar hover; secondary text in dark mode only.
 - **Body Ink** (body-ink): quick-action labels, outline-button text.
-- **Charcoal** (charcoal): primary text and figures; also the dark-mode card and hero surface.
+- **Charcoal** (charcoal): primary text and figures; also the dark-mode card surface.
 - **Night Ground** (night-ground): the dark-mode app ground, header, sidebar and tab bar.
 
 ### Named Rules
-**The One Accent Rule.** Cobalt is the only accent. It marks what is primary, active or in progress; it never fills a hero, a card or a figure.
+**The One Accent Rule.** Cobalt is the only accent. It marks what is primary, active or in progress; it never fills a card or a figure.
 
 **The Dot-and-Word Rule.** Money state is never conveyed by colour alone. Every status pill pairs a 4 to 6px dot with a word ("Paid", "Partial", "Unpaid", "3 days left"); every coloured figure sits under a text label ("Collected", "Owed to you").
 
@@ -221,21 +217,18 @@ Warm ivory neutrals, charcoal ink, one cobalt accent and three status hues.
 **Character:** One neutral workhorse face, slightly tightened (-0.011em) on the body. Large figures are semibold rather than heavy, so the relief, not the ink weight, gives the screen its presence.
 
 ### Hierarchy
-- **Display** (600, 2.75rem phone / 3.75rem from `sm`, line-height 1, -0.03em): the hero amount only.
 - **Headline** (700, 2.25rem): the amount in the confirmed moment.
-- **Title** (700, 1rem, tight tracking): the header view title and brand name. Secondary hero figures step to 1.25 to 1.5rem at 600.
+- **Title** (700, 1rem, tight tracking): the header view title and brand name. Hub stat figures are 1.25rem (1.5rem from `sm`) at 600 with tight tracking; module mini-stat figures are 1.125rem at 600.
 - **Body** (400 to 700, 0.875rem): row titles (700), nav items, toast messages.
-- **Label** (600, 0.6875rem, 0.14em tracking, uppercase): section names ("Needs you", "Latest invoices") and hero figure names ("Owed to you"). A label names the thing beneath it; it never decorates a heading.
+- **Label** (600, 0.6875rem, 0.14em tracking, uppercase): section names ("Recent invoices", "Saved payslips") and figure names ("Collected", "Outstanding", "Owed to you"). A label names the thing beneath it; it never decorates a heading.
 - **Micro** (700, 0.6875rem): status pills, tab labels. This is the small-text floor.
 
 ### Named Rules
 **The Receipt Figure Rule.** Amounts render through `Money`: tabular figures, the currency at 0.5em raised, the cents at 0.55em, both at 80% opacity. Money columns, IDs and dates use tabular figures everywhere.
 
-**The Count-Up Rule.** The hero amount counts up over 300ms (quartic ease-out) when it arrives, and appears instantly under reduced motion.
-
 ## Layout
 
-Phone-first single column with a 16px gutter (24px from `sm`), content capped at `max-w-5xl` on the Hub. The hero is an inset card within the gutter, not a full-bleed band; on desktop its figures become a 1.4fr / 1fr / 1fr row. Quick actions overlap the hero's bottom edge with a -40px offset in a four-column grid capped at `max-w-md`. Below, "Needs you" and "Latest invoices" stack on phone and split 1.2fr / 1fr from `lg`.
+Phone-first single column with a 16px gutter (24px from `sm`), content capped at `max-w-6xl` on the Hub, sections 24px apart (32px from `sm`). The Hub reads top to bottom: the banner; four stat cards in two columns on phone and four from `lg` (12px gaps, 16px from `sm`); the four quick actions in normal flow, a four-column grid capped at `max-w-md`; the module cards, stacked on phone and three across from `md`; then "Recent invoices" (two-thirds) beside "Saved payslips" (one-third) from `lg`, stacked below it.
 
 Navigation: a fixed 64px bottom tab bar under `md`, content padded by 5rem plus the safe-area inset; a 240px sidebar from `md` up (off-canvas on phone for rare actions). The header is 56px on phone, 64px from `md`.
 
@@ -249,20 +242,20 @@ Soft relief. Every shadow pairs a highlight offset up-left (`--nm-hl`, white at 
 - **xs** (`-1px -1px 2px hl, 1px 1px 3px sh`): the faintest lift.
 - **sm** (`-3px -3px 8px hl, 4px 4px 10px sh`): cards, rows, primary buttons at rest.
 - **md** (`-5px -5px 12px hl, 6px 6px 16px sh`): row hover, quick actions, the active sidebar item, the brand mark.
-- **lg** (`-8px -8px 20px hl, 10px 10px 26px sh`): the Hub hero.
+- **lg** (`-8px -8px 20px hl, 10px 10px 26px sh`): floating suggestion dropdowns in the invoice and quotation forms.
 - **xl** (`-10px -10px 28px hl, 16px 16px 40px sh`): toasts and the confirmed card.
 - **pressed** (`inset 2px 2px 5px sh, inset -2px -2px 5px hl`): inputs, selects, textareas.
-- **pressed-track** (`inset 1px 1px 3px sh, inset -1px -1px 3px hl`): progress tracks.
+- **pressed-track** (`inset 1px 1px 3px sh, inset -1px -1px 3px hl`): round icon wells and the Hub's mini-stat wells.
 - **sheet** (`0 -10px 40px -12px` warm umber 22%): bottom sheets, cast upward from the content they cover.
 
 ### Named Rules
-**The Raised-and-Pressed Rule.** Things you read or tap are raised; things you type into or that fill are pressed. A surface is one or the other, never both, and never flat-with-a-border when it is a card.
+**The Raised-and-Pressed Rule.** Things you read or tap are raised; things you type into, and wells set into a raised card (icon wells, mini-stats), are pressed. A surface is one or the other, never both, and never flat-with-a-border when it is a card.
 
 **The Paired Light Rule.** Every relief shadow is a highlight and a shade from the same light (top-left). A one-sided drop shadow or a hard offset breaks the world.
 
 ## Shapes
 
-Generous, soft radii. Cards, rows and toasts are 24px; the Hub hero 28px; bottom sheets 20px; the confirmed card 24px. Inputs and small icon buttons are 12px; sidebar items and the brand mark 16px. Primary buttons, outline buttons, status pills, quick actions, avatars, progress bars and the active tab marker are fully round.
+Generous, soft radii. Cards, rows and toasts are 24px; bottom sheets 20px; the confirmed card 24px. Inputs and small icon buttons are 12px; sidebar items, the brand mark and Hub mini-stat wells 16px. Primary buttons, outline buttons, status pills, quick actions, icon wells, avatars and the active tab marker are fully round.
 
 ## Components
 
@@ -284,7 +277,7 @@ Soft and decisive.
 - **Shadow Strategy:** sm raised at rest, md on hover (see Elevation).
 - **Border:** none; rows inside a card are divided by pressed-track hairlines.
 - **Internal Padding:** 16px horizontal, 14px vertical for rows.
-- **Summary band:** module headers repeat the hero's figure language in one raised card of three labelled figures, never stat tiles.
+- **Summary band:** module headers set three labelled figures in one raised card; separate stat cards belong to the Hub alone.
 
 ### Inputs / Fields
 - **Style:** 12px radius, pressed inset shadow, ivory ground, 12px leading icon inset.
@@ -294,11 +287,13 @@ Soft and decisive.
 - **Sidebar (md+):** ivory, 240px, bold 14px items at 16px radius; the active item is solid cobalt with ivory text and the md shadow; inactive items take a pressed-track hover. The brand mark is a 36px cobalt tile with a tick.
 - **Bottom tab bar (phone):** ivory with a hairline top rule, 64px tabs, micro labels; the active tab wears a cobalt-wash pill (56x32) behind a heavier-stroked icon, with a cobalt-deep label. A coral count badge marks Payroll.
 
-### Hub Hero (signature)
-A raised ivory card (28px radius, lg shadow; charcoal in dark) holding the month's collected amount in charcoal display type, counted up, with tracked uppercase labels over each figure. Under the amount, a cobalt progress bar fills a pressed track (10px, fully round) for "paid of this month's invoices", growing in over 220ms.
+### Hub Overview (signature)
+- **Stat cards:** four raised ivory cards (24px, 16px padding, 20px from `sm`; charcoal in dark), "Total invoiced", "Collected", "Outstanding", "Active staff", entering with `row-enter` at a 40ms stagger. Each holds a 36px pressed round icon well (cobalt, mint or amber icon), the figure in charcoal semibold through `Money` (a plain count for staff), the uppercase label beneath it and a 12px secondary-ink sub-line ("3 unpaid").
+- **Module cards:** Invoicing, Quotations and Payroll as raised ivory buttons: an icon well and a cobalt-deep "Open >" link (chevron nudges 2px on hover), the module name in bold body, a 12px description, then two pressed mini-stat wells (16px radius, ivory-paper ground, pressed-track shadow) each holding a 1.125rem semibold count over a label. A count that needs attention ("Unpaid", "Expired") turns amber 700; hover raises to md, press scales to 99%.
+- **Recent activity:** raised ivory cards with a label heading and a "See all" link. "Recent invoices" lists five rows (icon well, customer, ID and date, amount and status pill) divided by hairlines; "Saved payslips" lists four (name, month, net pay). Empty states carry a single action.
 
 ### Quick Actions (signature)
-Four 56px (64px from `sm`) raised ivory circles with md shadow and cobalt icons, labelled underneath in 12px medium body-ink, overlapping the hero's bottom edge. Labels are verbs ("New invoice", "New quote").
+Four 56px (64px from `sm`) raised ivory circles with md shadow and cobalt icons, (ink-800 in dark), labelled underneath in 12px medium body-ink, set in their own row beneath the stat cards. Labels are verbs ("New invoice", "New quote").
 
 ### Confirmed Moment and Toasts (signature)
 Money recorded or paid out triggers a centred 24px-radius ivory card with xl shadow, a 64px drawn tick in paid mint, a label and the amount in headline type, entering with `confirm-in` (200ms from 94% scale) and gone after 1.4s. It never takes focus or blocks a tap. Other saves use a toast: 24px-radius ivory card with xl shadow, drawn tick for success, rising in over 220ms.
@@ -311,7 +306,7 @@ Money recorded or paid out triggers a centred 24px-radius ivory card with xl sha
 - **Do** pair every status colour with a dot and a word, and every coloured figure with a text label.
 - **Do** render amounts through `Money` (or the same currency/cents treatment) in tabular figures.
 - **Do** keep motion between 150 and 300ms on ease-out-quint, animating only transform and opacity: `view-enter` 180ms, `row-enter` 260ms with 40ms stagger, `toast-in` 220ms, `confirm-in` 200ms, `tick-draw` 300ms after 60ms, `progress-grow` 220ms, `sheet-up` 280ms.
-- **Do** honour reduced motion: the global override collapses animation and transition, and count-ups render the final value at once.
+- **Do** honour reduced motion: the global override collapses animation and transition.
 - **Do** use skeletons, not spinners, for loading content.
 - **Do** use `ink-500` (not `ink-400`) for secondary text on light grounds; `ink-400` is a non-text tone there.
 
@@ -319,7 +314,7 @@ Money recorded or paid out triggers a centred 24px-radius ivory card with xl sha
 - **Don't** use `!important` in component or UI styling. The only sanctioned instances are the global reduced-motion override and print rules, which must beat every component.
 - **Don't** restyle anything inside `[data-document]`: invoices, quotations, kitchen sheets, payslips and branch templates keep their own palette, white paper and faces.
 - **Don't** convey money state by colour alone.
-- **Don't** fill a hero or card with cobalt, or add a second accent hue outside the status trio.
+- **Don't** fill a card with cobalt, or add a second accent hue outside the status trio.
 - **Don't** use one-sided drop shadows or hard offsets; relief is always a highlight and shade pair.
 - **Don't** add a second type family to the app UI.
 - **Don't** use pure black for text.

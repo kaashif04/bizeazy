@@ -14,11 +14,10 @@
       "non-text-ink": { "role": "neutral", "displayName": "Non-text Ink", "canonical": "#9C958A" }
     },
     "typographyMeta": {
-      "display": { "displayName": "Display", "purpose": "The hero amount only; 3.75rem from sm." },
       "headline": { "displayName": "Headline", "purpose": "The amount in the confirmed moment." },
       "title": { "displayName": "Title", "purpose": "Header view title and brand name." },
       "body": { "displayName": "Body", "purpose": "Row titles, nav items, toast messages." },
-      "label": { "displayName": "Label", "purpose": "Uppercase tracked names for sections and hero figures." },
+      "label": { "displayName": "Label", "purpose": "Uppercase tracked names for sections, stats and mini-stats." },
       "micro": { "displayName": "Micro", "purpose": "Status pills, tab labels; the small-text floor." }
     },
     "shadows": [
@@ -27,10 +26,10 @@
       { "name": "xs", "value": "-1px -1px 2px var(--nm-hl), 1px 1px 3px var(--nm-sh)", "purpose": "Faintest lift." },
       { "name": "sm", "value": "-3px -3px 8px var(--nm-hl), 4px 4px 10px var(--nm-sh)", "purpose": "Cards, rows, primary buttons at rest; applied to ivory rounded-2xl cards by the base layer." },
       { "name": "md", "value": "-5px -5px 12px var(--nm-hl), 6px 6px 16px var(--nm-sh)", "purpose": "Row hover, quick actions, active sidebar item, brand mark." },
-      { "name": "lg", "value": "-8px -8px 20px var(--nm-hl), 10px 10px 26px var(--nm-sh)", "purpose": "The Hub hero." },
+      { "name": "lg", "value": "-8px -8px 20px var(--nm-hl), 10px 10px 26px var(--nm-sh)", "purpose": "Floating suggestion dropdowns in the invoice and quotation forms." },
       { "name": "xl", "value": "-10px -10px 28px var(--nm-hl), 16px 16px 40px var(--nm-sh)", "purpose": "Toasts and the confirmed card." },
       { "name": "pressed", "value": "inset 2px 2px 5px var(--nm-sh), inset -2px -2px 5px var(--nm-hl)", "purpose": "Inputs, selects, textareas (base layer)." },
-      { "name": "pressed-track", "value": "inset 1px 1px 3px var(--nm-sh), inset -1px -1px 3px var(--nm-hl)", "purpose": "Progress tracks." },
+      { "name": "pressed-track", "value": "inset 1px 1px 3px var(--nm-sh), inset -1px -1px 3px var(--nm-hl)", "purpose": "Round icon wells and the Hub's mini-stat wells." },
       { "name": "sheet", "value": "0 -10px 40px -12px color-mix(in srgb, #2A2016 22%, transparent)", "purpose": "Bottom sheets, cast upward." }
     ],
     "motion": [
@@ -41,9 +40,8 @@
       { "name": "confirm-in", "value": "200ms, scale(0.94) to rest", "purpose": "The confirmed-moment card." },
       { "name": "tick-draw", "value": "300ms after 60ms, stroke-dashoffset 1 to 0", "purpose": "The drawn tick." },
       { "name": "progress-grow", "value": "220ms, scaleX from 0", "purpose": "Progress bars." },
-      { "name": "count-up", "value": "300ms, quartic ease-out (JS)", "purpose": "The hero amount on arrival." },
       { "name": "sheet-up", "value": "280ms, translateY(100%) to 0", "purpose": "Bottom sheets." },
-      { "name": "reduced-motion", "value": "animation/transition 0.01ms", "purpose": "Honoured completely; count-up shows the final value." }
+      { "name": "reduced-motion", "value": "animation/transition 0.01ms", "purpose": "Honoured completely." }
     ],
     "breakpoints": [
       { "name": "sm", "value": "640px" },
@@ -86,26 +84,26 @@
       "css": ".ds-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 9999px; font: 700 11px/1.09 Inter, system-ui, sans-serif; } .ds-pill i { width: 6px; height: 6px; border-radius: 9999px; } .ds-pill-paid { background: #E6FAF3; color: #006E4F; } .ds-pill-paid i { background: #00A877; } .ds-pill-wait { background: #FFF7E6; color: #7A4800; } .ds-pill-wait i { background: #F09A00; } .ds-pill-late { background: #FFF1F0; color: #B42318; } .ds-pill-late i { background: #F04438; }"
     },
     {
-      "name": "Needs-you Row",
+      "name": "Hub Module Card",
       "kind": "card",
-      "refersTo": "card",
-      "description": "Raised ivory row: tinted icon disc, sentence, days-left pill.",
-      "html": "<button class=\"ds-row\"><span class=\"ds-row-icon\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><rect x=\"3\" y=\"6\" width=\"18\" height=\"13\" rx=\"2\"/><path d=\"M3 10h18\"/></svg></span><span class=\"ds-row-text\"><b>Salaries due</b><small>6 staff, March payroll</small></span><span class=\"ds-row-pill\"><i></i>3 days left</span></button>",
-      "css": ".ds-row { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px 16px; text-align: left; background: #FBFAF7; border: none; border-radius: 24px; box-shadow: -3px -3px 8px rgb(255 255 255 / .85), 4px 4px 10px rgb(122 104 78 / .2); font-family: Inter, system-ui, sans-serif; cursor: pointer; transition: box-shadow 150ms ease-out, transform 150ms ease-out; } .ds-row:hover { box-shadow: -5px -5px 12px rgb(255 255 255 / .85), 6px 6px 16px rgb(122 104 78 / .2); } .ds-row:active { transform: scale(.99); } .ds-row:focus-visible { outline: 2px solid #2F64F0; outline-offset: 2px; } .ds-row-icon { width: 36px; height: 36px; border-radius: 9999px; display: grid; place-items: center; color: #7A4800; background: rgb(122 72 0 / .1); flex-shrink: 0; } .ds-row-icon svg { width: 16px; height: 16px; } .ds-row-text { flex: 1; min-width: 0; } .ds-row-text b { display: block; font-size: 14px; font-weight: 700; color: #1C1B19; } .ds-row-text small { display: block; font-size: 12px; color: #6A645B; } .ds-row-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 9999px; background: #FFF7E6; color: #7A4800; font-size: 11px; font-weight: 700; white-space: nowrap; } .ds-row-pill i { width: 6px; height: 6px; border-radius: 9999px; background: #F09A00; }"
+      "refersTo": "mini-stat",
+      "description": "Raised ivory module button: icon well, Open link, description, two pressed mini-stat wells; amber for a count that needs attention.",
+      "html": "<button class=\"ds-mod\"><span class=\"ds-mod-top\"><span class=\"ds-mod-well\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z\"/><path d=\"M14 2v6h6\"/></svg></span><span class=\"ds-mod-open\">Open <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><path d=\"M9 18l6-6-6-6\"/></svg></span></span><b class=\"ds-mod-name\">Invoicing</b><small class=\"ds-mod-desc\">Create, manage and track invoices</small><span class=\"ds-mod-stats\"><span class=\"ds-mini\"><b>24</b><i>Invoices</i></span><span class=\"ds-mini\"><b class=\"ds-mini-warn\">3</b><i>Unpaid</i></span></span></button>",
+      "css": ".ds-mod { width: 280px; display: flex; flex-direction: column; padding: 16px; text-align: left; background: #FBFAF7; border: none; border-radius: 24px; font-family: Inter, system-ui, sans-serif; cursor: pointer; box-shadow: -3px -3px 8px rgb(255 255 255 / .85), 4px 4px 10px rgb(122 104 78 / .2); transition: box-shadow 150ms ease-out, transform 150ms ease-out; } .ds-mod:hover { box-shadow: -5px -5px 12px rgb(255 255 255 / .85), 6px 6px 16px rgb(122 104 78 / .2); } .ds-mod:active { transform: scale(.99); } .ds-mod:focus-visible { outline: 2px solid #2F64F0; outline-offset: 2px; } .ds-mod-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; } .ds-mod-well { width: 36px; height: 36px; border-radius: 9999px; display: grid; place-items: center; color: #1450E6; background: #F2EFE9; box-shadow: inset 1px 1px 3px rgb(122 104 78 / .2), inset -1px -1px 3px rgb(255 255 255 / .85); } .ds-mod-well svg { width: 16px; height: 16px; } .ds-mod-open { display: inline-flex; align-items: center; gap: 2px; font-size: 12px; font-weight: 600; color: #0E40C2; } .ds-mod-open svg { width: 14px; height: 14px; transition: transform 150ms ease-out; } .ds-mod:hover .ds-mod-open svg { transform: translateX(2px); } .ds-mod-name { font-size: 14px; font-weight: 700; color: #1C1B19; } .ds-mod-desc { font-size: 12px; color: #6A645B; margin: 2px 0 16px; } .ds-mod-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; } .ds-mini { padding: 10px 12px; border-radius: 16px; background: #F2EFE9; box-shadow: inset 1px 1px 3px rgb(122 104 78 / .2), inset -1px -1px 3px rgb(255 255 255 / .85); } .ds-mini b { display: block; font-size: 1.125rem; font-weight: 600; line-height: 1; color: #1C1B19; font-variant-numeric: tabular-nums; } .ds-mini b.ds-mini-warn { color: #7A4800; } .ds-mini i { display: block; margin-top: 4px; font-style: normal; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; color: #6A645B; }"
     },
     {
-      "name": "Hub Hero",
-      "kind": "custom",
-      "refersTo": "hero-card",
-      "description": "Raised ivory card: tracked label, charcoal display amount, cobalt bar on a pressed track.",
-      "html": "<div class=\"ds-hero-ground\"><section class=\"ds-hero\"><p class=\"ds-hero-label\">Collected in October</p><p class=\"ds-hero-amount\"><span class=\"ds-cur\">RM</span>12,450<span class=\"ds-cents\">.50</span></p><div class=\"ds-hero-track\"><div class=\"ds-hero-bar\"></div></div><p class=\"ds-hero-note\">72% of this month's invoices paid</p></section></div>",
-      "css": ".ds-hero-ground { background: #F2EFE9; padding: 24px; } .ds-hero { background: #FBFAF7; color: #1C1B19; padding: 24px 20px 64px; border-radius: 28px; font-family: Inter, system-ui, sans-serif; box-shadow: -8px -8px 20px rgb(255 255 255 / .85), 10px 10px 26px rgb(122 104 78 / .2); } .ds-hero-label { margin: 0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; color: #6A645B; } .ds-hero-amount { margin: 8px 0 0; font-size: 2.75rem; font-weight: 600; line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; } .ds-cur { font-size: .5em; font-weight: 700; vertical-align: .55em; margin-right: 4px; opacity: .8; } .ds-cents { font-size: .55em; font-weight: 700; opacity: .8; } .ds-hero-track { margin-top: 16px; height: 10px; border-radius: 9999px; background: #E9E5DD; overflow: hidden; box-shadow: inset 1px 1px 3px rgb(122 104 78 / .2), inset -1px -1px 3px rgb(255 255 255 / .85); } .ds-hero-bar { height: 100%; width: 72%; border-radius: 9999px; background: #1450E6; transform-origin: left; animation: ds-grow 220ms cubic-bezier(.22,1,.36,1) both; } .ds-hero-note { margin: 6px 0 0; font-size: 12px; color: #6A645B; } @keyframes ds-grow { from { transform: scaleX(0); } } @media (prefers-reduced-motion: reduce) { .ds-hero-bar { animation: none; } }"
+      "name": "Hub Stat Card",
+      "kind": "card",
+      "refersTo": "stat-card",
+      "description": "Raised ivory card: pressed round icon well, semibold figure, uppercase tracked label, sub-line.",
+      "html": "<div class=\"ds-stat-ground\"><div class=\"ds-stat\"><span class=\"ds-well\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 2\"/></svg></span><p class=\"ds-stat-fig\"><span class=\"ds-cur\">RM</span>3,210<span class=\"ds-cents\">.00</span></p><p class=\"ds-stat-label\">Outstanding</p><p class=\"ds-stat-sub\">3 unpaid</p></div></div>",
+      "css": ".ds-stat-ground { background: #F2EFE9; padding: 24px; } .ds-stat { width: 180px; box-sizing: border-box; background: #FBFAF7; color: #1C1B19; padding: 16px; border-radius: 24px; font-family: Inter, system-ui, sans-serif; box-shadow: -3px -3px 8px rgb(255 255 255 / .85), 4px 4px 10px rgb(122 104 78 / .2); } .ds-well { width: 36px; height: 36px; border-radius: 9999px; display: grid; place-items: center; margin-bottom: 12px; color: #9A5C00; background: #F2EFE9; box-shadow: inset 1px 1px 3px rgb(122 104 78 / .2), inset -1px -1px 3px rgb(255 255 255 / .85); } .ds-well svg { width: 16px; height: 16px; } .ds-stat-fig { margin: 0; font-size: 1.25rem; font-weight: 600; line-height: 1; letter-spacing: -0.025em; font-variant-numeric: tabular-nums; } .ds-cur { font-size: .5em; font-weight: 700; vertical-align: .55em; margin-right: 4px; opacity: .8; } .ds-cents { font-size: .55em; font-weight: 700; opacity: .8; } .ds-stat-label { margin: 8px 0 0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; color: #6A645B; } .ds-stat-sub { margin: 2px 0 0; font-size: 12px; color: #6A645B; }"
     },
     {
       "name": "Quick Action",
       "kind": "button",
       "refersTo": "quick-action",
-      "description": "Round raised ivory verb button overlapping the hero's edge.",
+      "description": "Round raised ivory verb button, in a row of four beneath the Hub stat cards.",
       "html": "<div class=\"ds-quick-ground\"><button class=\"ds-quick\"><span class=\"ds-quick-disc\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z\"/><path d=\"M14 2v6h6M12 12v6M9 15h6\"/></svg></span><span class=\"ds-quick-label\">New invoice</span></button></div>",
       "css": ".ds-quick-ground { background: #F2EFE9; padding: 20px; display: inline-block; } .ds-quick { display: inline-flex; flex-direction: column; align-items: center; gap: 6px; background: none; border: none; cursor: pointer; font-family: Inter, system-ui, sans-serif; } .ds-quick-disc { width: 56px; height: 56px; border-radius: 9999px; background: #FBFAF7; color: #1450E6; display: grid; place-items: center; box-shadow: -5px -5px 12px rgb(255 255 255 / .85), 6px 6px 16px rgb(122 104 78 / .2); transition: transform 150ms ease-out; } .ds-quick-disc svg { width: 24px; height: 24px; } .ds-quick:hover .ds-quick-disc { transform: translateY(-2px); } .ds-quick:active .ds-quick-disc { transform: scale(.95); } .ds-quick:focus-visible { outline: 2px solid #2F64F0; outline-offset: 2px; } .ds-quick-label { font-size: 12px; font-weight: 500; color: #3E3A35; }"
     },
@@ -128,7 +126,7 @@
   ],
   "narrative": {
     "northStar": "Soft System",
-    "overview": "BizEazy is ivory paper shaped into relief. Surfaces are not drawn with lines; they are raised off the paper or pressed into it, lit from the top-left with a pale highlight and shaded to the bottom-right with a warm umber shade. Cards, the Hub's hero and the round quick actions float; fields and progress tracks sit in. Charcoal ink carries every figure, and cobalt is the single accent: primary actions, the active place, progress, focus.\n\nDensity is phone-first: one column, 44px touch floors, a bottom tab bar on phones and a sidebar from `md` up. Desktop adds room, never features. One face (Inter) carries everything; weight, size and a tracked uppercase label role separate an amount from its name.\n\nMotion is quick and additive: 150 to 300ms on ease-out-quint, transform and opacity only, never blocking input, fully suppressed under reduced motion.\n\nPrinted and PDF documents (anything marked `data-document`: invoices, quotations, kitchen sheets, payslips, branch templates) are outside this system. Inside `[data-document]` the stylesheet restores the previous warm palette, pure white paper, and Archivo / JetBrains Mono, and the raised/pressed shadows do not apply.",
+    "overview": "BizEazy is ivory paper shaped into relief. Surfaces are not drawn with lines; they are raised off the paper or pressed into it, lit from the top-left with a pale highlight and shaded to the bottom-right with a warm umber shade. Cards and the round quick actions float; fields, icon wells and the Hub's mini-stat wells sit in. Charcoal ink carries every figure, and cobalt is the single accent: primary actions, the active place, progress, focus.\n\nDensity is phone-first: one column, 44px touch floors, a bottom tab bar on phones and a sidebar from `md` up. Desktop adds room, never features. One face (Inter) carries everything; weight, size and a tracked uppercase label role separate an amount from its name.\n\nMotion is quick and additive: 150 to 300ms on ease-out-quint, transform and opacity only, never blocking input, fully suppressed under reduced motion.\n\nPrinted and PDF documents (anything marked `data-document`: invoices, quotations, kitchen sheets, payslips, branch templates) are outside this system. Inside `[data-document]` the stylesheet restores the previous warm palette, pure white paper, and Archivo / JetBrains Mono, and the raised/pressed shadows do not apply.",
     "keyCharacteristics": [
       "Ivory on ivory: depth comes from paired light/shade shadows, not borders or tonal cards.",
       "Raised cards and pressed fields; the same two gestures everywhere.",
@@ -138,13 +136,12 @@
       "Mint means paid, amber waiting, coral late, always with a dot and a word."
     ],
     "rules": [
-      { "name": "The One Accent Rule", "body": "Cobalt is the only accent. It marks what is primary, active or in progress; it never fills a hero, a card or a figure.", "section": "colors" },
+      { "name": "The One Accent Rule", "body": "Cobalt is the only accent. It marks what is primary, active or in progress; it never fills a card or a figure.", "section": "colors" },
       { "name": "The Dot-and-Word Rule", "body": "Money state is never conveyed by colour alone. Every status pill pairs a 4 to 6px dot with a word (\"Paid\", \"Partial\", \"Unpaid\", \"3 days left\"); every coloured figure sits under a text label (\"Collected\", \"Owed to you\").", "section": "colors" },
       { "name": "The Never-Black Rule", "body": "Text is charcoal ink, never black; light-mode shade is warm umber, never grey.", "section": "colors" },
       { "name": "The Legacy-Alias Rule", "body": "`gray-*`, `slate-*`, `indigo-*`, `purple-*` and `red-*` resolve to the ink, cobalt and coral ramps. New code uses `ink-*`, `brand-*`, `emerald-*`, `amber-*`, `rose-*`; the aliases exist only so a missed class still lands.", "section": "colors" },
       { "name": "The Receipt Figure Rule", "body": "Amounts render through `Money`: tabular figures, the currency at 0.5em raised, the cents at 0.55em, both at 80% opacity. Money columns, IDs and dates use tabular figures everywhere.", "section": "typography" },
-      { "name": "The Count-Up Rule", "body": "The hero amount counts up over 300ms (quartic ease-out) when it arrives, and appears instantly under reduced motion.", "section": "typography" },
-      { "name": "The Raised-and-Pressed Rule", "body": "Things you read or tap are raised; things you type into or that fill are pressed. A surface is one or the other, never both, and never flat-with-a-border when it is a card.", "section": "elevation" },
+      { "name": "The Raised-and-Pressed Rule", "body": "Things you read or tap are raised; things you type into, and wells set into a raised card (icon wells, mini-stats), are pressed. A surface is one or the other, never both, and never flat-with-a-border when it is a card.", "section": "elevation" },
       { "name": "The Paired Light Rule", "body": "Every relief shadow is a highlight and a shade from the same light (top-left). A one-sided drop shadow or a hard offset breaks the world.", "section": "elevation" }
     ],
     "dos": [
@@ -153,7 +150,7 @@
       "**Do** pair every status colour with a dot and a word, and every coloured figure with a text label.",
       "**Do** render amounts through `Money` (or the same currency/cents treatment) in tabular figures.",
       "**Do** keep motion between 150 and 300ms on ease-out-quint, animating only transform and opacity: `view-enter` 180ms, `row-enter` 260ms with 40ms stagger, `toast-in` 220ms, `confirm-in` 200ms, `tick-draw` 300ms after 60ms, `progress-grow` 220ms, `sheet-up` 280ms.",
-      "**Do** honour reduced motion: the global override collapses animation and transition, and count-ups render the final value at once.",
+      "**Do** honour reduced motion: the global override collapses animation and transition.",
       "**Do** use skeletons, not spinners, for loading content.",
       "**Do** use `ink-500` (not `ink-400`) for secondary text on light grounds; `ink-400` is a non-text tone there."
     ],
@@ -161,7 +158,7 @@
       "**Don't** use `!important` in component or UI styling. The only sanctioned instances are the global reduced-motion override and print rules, which must beat every component.",
       "**Don't** restyle anything inside `[data-document]`: invoices, quotations, kitchen sheets, payslips and branch templates keep their own palette, white paper and faces.",
       "**Don't** convey money state by colour alone.",
-      "**Don't** fill a hero or card with cobalt, or add a second accent hue outside the status trio.",
+      "**Don't** fill a card with cobalt, or add a second accent hue outside the status trio.",
       "**Don't** use one-sided drop shadows or hard offsets; relief is always a highlight and shade pair.",
       "**Don't** add a second type family to the app UI.",
       "**Don't** use pure black for text.",

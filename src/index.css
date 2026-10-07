@@ -331,7 +331,6 @@
   .confirm-in { animation: confirm-in 200ms var(--ease-out-quint) both; }
   .row-enter  { animation: row-enter 260ms var(--ease-out-quint) both; }
   .tick-draw  { stroke-dasharray: 1; stroke-dashoffset: 0; animation: tick-draw 300ms 60ms var(--ease-out-quint) both; }
-  .progress-grow { transition: transform 220ms var(--ease-out-quint); animation: grow-x 220ms var(--ease-out-quint) both; }
 
 
   /* Money uses tabular figures everywhere the app shows it. */
