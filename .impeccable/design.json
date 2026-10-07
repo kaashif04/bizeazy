@@ -4,29 +4,34 @@
   "title": "Design System: BizEazy Hub",
   "extensions": {
     "colorMeta": {
-      "payment-blue": { "role": "primary", "displayName": "Payment Blue", "canonical": "#1463FF", "tonalRamp": ["#071D4C", "#0B2F78", "#0A3EA6", "#0A4FD6", "#1463FF", "#2C6BFF", "#5487FF", "#8BB0FF", "#B9CFFF", "#DCE7FF", "#EEF4FF"] },
+      "cobalt": { "role": "primary", "displayName": "Cobalt", "canonical": "#1450E6", "tonalRamp": ["#0C1C4A", "#132F78", "#10369A", "#0E40C2", "#1450E6", "#2F64F0", "#5A86F7", "#8DADFF", "#BACDFF", "#DCE6FF", "#EEF3FF"] },
       "paid-mint": { "role": "secondary", "displayName": "Paid Mint", "canonical": "#008A62", "tonalRamp": ["#032A20", "#064A38", "#055A42", "#006E4F", "#008A62", "#00A877", "#12C48C", "#4AD6A7", "#8AE6C6", "#C2F2E1", "#E6FAF3"] },
       "waiting-amber": { "role": "secondary", "displayName": "Waiting Amber", "canonical": "#F09A00", "tonalRamp": ["#3A2100", "#5C3600", "#7A4800", "#9A5C00", "#C77A00", "#F09A00", "#FFB020", "#FFC24D", "#FFD98A", "#FFEBC2", "#FFF7E6"] },
       "late-coral": { "role": "secondary", "displayName": "Late Coral", "canonical": "#F04438", "tonalRamp": ["#451109", "#7A271A", "#912018", "#B42318", "#D92D20", "#F04438", "#FF6257", "#FF8F86", "#FFBCB6", "#FFDEDB", "#FFF1F0"] },
-      "navy-ink": { "role": "neutral", "displayName": "Navy Ink", "canonical": "#0B1B3F", "tonalRamp": ["#060F26", "#0B1B3F", "#1F2A45", "#33405F", "#45557A", "#5B6B8C", "#8F9BB3", "#BCC6D8", "#D9E0EC", "#EAEEF6", "#F4F6FB"] },
-      "cool-paper": { "role": "neutral", "displayName": "Cool Paper", "canonical": "#F4F6FB" },
-      "non-text-ink": { "role": "neutral", "displayName": "Non-text Ink", "canonical": "#8F9BB3" }
+      "charcoal": { "role": "neutral", "displayName": "Charcoal Ink", "canonical": "#1C1B19", "tonalRamp": ["#121110", "#1C1B19", "#2A2825", "#3E3A35", "#544F48", "#6A645B", "#9C958A", "#C4BDB0", "#DCD6CB", "#E9E5DD", "#F2EFE9"] },
+      "ivory-paper": { "role": "neutral", "displayName": "Ivory Paper", "canonical": "#F2EFE9" },
+      "ivory-card": { "role": "neutral", "displayName": "Ivory Card", "canonical": "#FBFAF7" },
+      "non-text-ink": { "role": "neutral", "displayName": "Non-text Ink", "canonical": "#9C958A" }
     },
     "typographyMeta": {
-      "display": { "displayName": "Display", "purpose": "The money-field amount only; 3.75rem from sm." },
+      "display": { "displayName": "Display", "purpose": "The hero amount only; 3.75rem from sm." },
       "headline": { "displayName": "Headline", "purpose": "The amount in the confirmed moment." },
-      "title": { "displayName": "Title", "purpose": "Section headings and the header view title." },
+      "title": { "displayName": "Title", "purpose": "Header view title and brand name." },
       "body": { "displayName": "Body", "purpose": "Row titles, nav items, toast messages." },
-      "label": { "displayName": "Label", "purpose": "Sentence-case figure labels and row details." },
+      "label": { "displayName": "Label", "purpose": "Uppercase tracked names for sections and hero figures." },
       "micro": { "displayName": "Micro", "purpose": "Status pills, tab labels; the small-text floor." }
     },
     "shadows": [
-      { "name": "xs", "value": "0 1px 2px -1px color-mix(in srgb, #0B1B3F 12%, transparent)", "purpose": "Hairline lift." },
-      { "name": "sm", "value": "0 1px 3px -1px color-mix(in srgb, #0B1B3F 10%, transparent), 0 1px 2px -1px color-mix(in srgb, #0B1B3F 6%, transparent)", "purpose": "Cards and list rows at rest." },
-      { "name": "md", "value": "0 4px 12px -3px color-mix(in srgb, #0B1B3F 12%, transparent), 0 2px 4px -2px color-mix(in srgb, #0B1B3F 8%, transparent)", "purpose": "Row hover, active sidebar item, brand mark." },
-      { "name": "lg", "value": "0 12px 28px -8px color-mix(in srgb, #0B1B3F 18%, transparent), 0 4px 10px -4px color-mix(in srgb, #0B1B3F 10%, transparent)", "purpose": "Round quick-action buttons." },
-      { "name": "xl", "value": "0 24px 56px -16px color-mix(in srgb, #0B1B3F 26%, transparent), 0 8px 20px -8px color-mix(in srgb, #0B1B3F 14%, transparent)", "purpose": "Toasts and the confirmed card." },
-      { "name": "sheet", "value": "0 -10px 40px -12px color-mix(in srgb, #0B1B3F 30%, transparent)", "purpose": "Bottom sheets, cast upward." }
+      { "name": "nm-hl", "value": "rgb(255 255 255 / 0.85); dark: rgb(255 255 255 / 0.035)", "purpose": "Highlight half of every relief shadow." },
+      { "name": "nm-sh", "value": "rgb(122 104 78 / 0.2); dark: rgb(0 0 0 / 0.55)", "purpose": "Warm shade half of every relief shadow." },
+      { "name": "xs", "value": "-1px -1px 2px var(--nm-hl), 1px 1px 3px var(--nm-sh)", "purpose": "Faintest lift." },
+      { "name": "sm", "value": "-3px -3px 8px var(--nm-hl), 4px 4px 10px var(--nm-sh)", "purpose": "Cards, rows, primary buttons at rest; applied to ivory rounded-2xl cards by the base layer." },
+      { "name": "md", "value": "-5px -5px 12px var(--nm-hl), 6px 6px 16px var(--nm-sh)", "purpose": "Row hover, quick actions, active sidebar item, brand mark." },
+      { "name": "lg", "value": "-8px -8px 20px var(--nm-hl), 10px 10px 26px var(--nm-sh)", "purpose": "The Hub hero." },
+      { "name": "xl", "value": "-10px -10px 28px var(--nm-hl), 16px 16px 40px var(--nm-sh)", "purpose": "Toasts and the confirmed card." },
+      { "name": "pressed", "value": "inset 2px 2px 5px var(--nm-sh), inset -2px -2px 5px var(--nm-hl)", "purpose": "Inputs, selects, textareas (base layer)." },
+      { "name": "pressed-track", "value": "inset 1px 1px 3px var(--nm-sh), inset -1px -1px 3px var(--nm-hl)", "purpose": "Progress tracks." },
+      { "name": "sheet", "value": "0 -10px 40px -12px color-mix(in srgb, #2A2016 22%, transparent)", "purpose": "Bottom sheets, cast upward." }
     ],
     "motion": [
       { "name": "ease-out-quint", "value": "cubic-bezier(0.22, 1, 0.36, 1)", "purpose": "The one easing for every entrance." },
@@ -36,7 +41,7 @@
       { "name": "confirm-in", "value": "200ms, scale(0.94) to rest", "purpose": "The confirmed-moment card." },
       { "name": "tick-draw", "value": "300ms after 60ms, stroke-dashoffset 1 to 0", "purpose": "The drawn tick." },
       { "name": "progress-grow", "value": "220ms, scaleX from 0", "purpose": "Progress bars." },
-      { "name": "count-up", "value": "300ms, quartic ease-out (JS)", "purpose": "Headline amounts on arrival." },
+      { "name": "count-up", "value": "300ms, quartic ease-out (JS)", "purpose": "The hero amount on arrival." },
       { "name": "sheet-up", "value": "280ms, translateY(100%) to 0", "purpose": "Bottom sheets." },
       { "name": "reduced-motion", "value": "animation/transition 0.01ms", "purpose": "Honoured completely; count-up shows the final value." }
     ],
@@ -49,28 +54,28 @@
   },
   "components": [
     {
-      "name": "Primary Button",
+      "name": "Primary Pill Button",
       "kind": "button",
       "refersTo": "button-primary",
       "description": "Main action in a module toolbar or form.",
-      "html": "<button class=\"ds-btn-primary\">New invoice</button>",
-      "css": ".ds-btn-primary { display: inline-flex; align-items: center; gap: 6px; background: var(--color-brand-600, #1463FF); color: #fff; font: 700 12px/1.33 Manrope, system-ui, sans-serif; padding: 8px 16px; border: none; border-radius: 8px; box-shadow: 0 1px 3px -1px rgba(11,27,63,.10), 0 1px 2px -1px rgba(11,27,63,.06); cursor: pointer; transition: background-color 150ms ease-out; } .ds-btn-primary:hover { background: var(--color-brand-700, #0A4FD6); } .ds-btn-primary:focus-visible { outline: 2px solid #2C6BFF; outline-offset: 2px; }"
+      "html": "<button class=\"ds-btn-primary\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><path d=\"M12 5v14M5 12h14\"/></svg>New invoice</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; gap: 6px; background: #1450E6; color: #FBFAF7; font: 700 12px/1.33 Inter, system-ui, sans-serif; padding: 8px 16px; border: none; border-radius: 9999px; box-shadow: -3px -3px 8px rgb(255 255 255 / .85), 4px 4px 10px rgb(122 104 78 / .2); cursor: pointer; transition: background-color 150ms ease-out; } .ds-btn-primary svg { width: 14px; height: 14px; } .ds-btn-primary:hover { background: #0E40C2; } .ds-btn-primary:focus-visible { outline: 2px solid #2F64F0; outline-offset: 2px; }"
     },
     {
       "name": "Outline Pill Button",
       "kind": "button",
       "refersTo": "button-outline",
       "description": "Secondary toolbar action, 44px tall.",
-      "html": "<button class=\"ds-btn-outline\">Customers</button>",
-      "css": ".ds-btn-outline { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 12px; background: transparent; color: #33405F; font: 700 12px/1.33 Manrope, system-ui, sans-serif; border: 1px solid #D9E0EC; border-radius: 9999px; cursor: pointer; transition: background-color 150ms ease-out; } .ds-btn-outline:hover { background: #F4F6FB; } .ds-btn-outline:focus-visible { outline: 2px solid #2C6BFF; outline-offset: 2px; }"
+      "html": "<button class=\"ds-btn-outline\">Customers <span>24</span></button>",
+      "css": ".ds-btn-outline { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 12px; background: transparent; color: #3E3A35; font: 700 12px/1.33 Inter, system-ui, sans-serif; border: 1px solid #DCD6CB; border-radius: 9999px; cursor: pointer; transition: background-color 150ms ease-out; } .ds-btn-outline span { color: #6A645B; font-variant-numeric: tabular-nums; } .ds-btn-outline:hover { background: #F2EFE9; } .ds-btn-outline:focus-visible { outline: 2px solid #2F64F0; outline-offset: 2px; }"
     },
     {
-      "name": "Search Input",
+      "name": "Pressed Search Field",
       "kind": "input",
       "refersTo": "input",
-      "description": "Text field with a leading icon.",
+      "description": "Text field sitting into the paper, with a leading icon.",
       "html": "<label class=\"ds-input-wrap\"><svg class=\"ds-input-icon\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.3-4.3\"/></svg><input class=\"ds-input\" placeholder=\"Search ID, customer…\"></label>",
-      "css": ".ds-input-wrap { position: relative; display: block; } .ds-input-icon { position: absolute; left: 12px; top: 50%; width: 14px; height: 14px; transform: translateY(-50%); color: #5B6B8C; } .ds-input { width: 100%; min-height: 38px; padding: 8px 12px 8px 36px; font: 400 12px Manrope, system-ui, sans-serif; color: #0B1B3F; background: #fff; border: 1px solid #D9E0EC; border-radius: 8px; caret-color: #1463FF; } .ds-input:focus { outline: none; box-shadow: 0 0 0 1px #2C6BFF; }"
+      "css": ".ds-input-wrap { position: relative; display: block; padding: 8px; background: #F2EFE9; } .ds-input-icon { position: absolute; left: 20px; top: 50%; width: 14px; height: 14px; transform: translateY(-50%); color: #6A645B; } .ds-input { width: 100%; box-sizing: border-box; min-height: 38px; padding: 8px 12px 8px 36px; font: 400 12px Inter, system-ui, sans-serif; color: #1C1B19; background: #FBFAF7; border: 1px solid transparent; border-radius: 12px; caret-color: #1450E6; box-shadow: inset 2px 2px 5px rgb(122 104 78 / .2), inset -2px -2px 5px rgb(255 255 255 / .85); } .ds-input:focus-visible { outline: 2px solid #2F64F0; outline-offset: 2px; }"
     },
     {
       "name": "Status Pill",
@@ -78,84 +83,89 @@
       "refersTo": "status-pill-paid",
       "description": "Dot plus word; mint paid, amber partial, coral unpaid.",
       "html": "<span class=\"ds-pill ds-pill-paid\"><i></i>Paid</span> <span class=\"ds-pill ds-pill-wait\"><i></i>Partial</span> <span class=\"ds-pill ds-pill-late\"><i></i>Unpaid</span>",
-      "css": ".ds-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 9999px; font: 700 11px/1.09 Manrope, system-ui, sans-serif; } .ds-pill i { width: 6px; height: 6px; border-radius: 9999px; } .ds-pill-paid { background: #E6FAF3; color: #006E4F; } .ds-pill-paid i { background: #00A877; } .ds-pill-wait { background: #FFF7E6; color: #7A4800; } .ds-pill-wait i { background: #F09A00; } .ds-pill-late { background: #FFF1F0; color: #B42318; } .ds-pill-late i { background: #F04438; }"
+      "css": ".ds-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 9999px; font: 700 11px/1.09 Inter, system-ui, sans-serif; } .ds-pill i { width: 6px; height: 6px; border-radius: 9999px; } .ds-pill-paid { background: #E6FAF3; color: #006E4F; } .ds-pill-paid i { background: #00A877; } .ds-pill-wait { background: #FFF7E6; color: #7A4800; } .ds-pill-wait i { background: #F09A00; } .ds-pill-late { background: #FFF1F0; color: #B42318; } .ds-pill-late i { background: #F04438; }"
     },
     {
       "name": "Needs-you Row",
       "kind": "card",
       "refersTo": "card",
-      "description": "Rounded white row: tinted icon disc, sentence, days-left pill.",
+      "description": "Raised ivory row: tinted icon disc, sentence, days-left pill.",
       "html": "<button class=\"ds-row\"><span class=\"ds-row-icon\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><rect x=\"3\" y=\"6\" width=\"18\" height=\"13\" rx=\"2\"/><path d=\"M3 10h18\"/></svg></span><span class=\"ds-row-text\"><b>Salaries due</b><small>6 staff, March payroll</small></span><span class=\"ds-row-pill\"><i></i>3 days left</span></button>",
-      "css": ".ds-row { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px 16px; text-align: left; background: #fff; border: none; border-radius: 16px; box-shadow: 0 1px 3px -1px rgba(11,27,63,.10), 0 1px 2px -1px rgba(11,27,63,.06); font-family: Manrope, system-ui, sans-serif; cursor: pointer; transition: box-shadow 150ms ease-out, transform 150ms ease-out; } .ds-row:hover { box-shadow: 0 4px 12px -3px rgba(11,27,63,.12), 0 2px 4px -2px rgba(11,27,63,.08); } .ds-row:active { transform: scale(.99); } .ds-row-icon { width: 36px; height: 36px; border-radius: 9999px; display: grid; place-items: center; color: #7A4800; background: rgba(122,72,0,.1); flex-shrink: 0; } .ds-row-icon svg { width: 16px; height: 16px; } .ds-row-text { flex: 1; min-width: 0; } .ds-row-text b { display: block; font-size: 14px; font-weight: 700; color: #0B1B3F; } .ds-row-text small { display: block; font-size: 12px; color: #5B6B8C; } .ds-row-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 9999px; background: #FFF7E6; color: #7A4800; font-size: 11px; font-weight: 700; white-space: nowrap; } .ds-row-pill i { width: 6px; height: 6px; border-radius: 9999px; background: #F09A00; }"
+      "css": ".ds-row { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px 16px; text-align: left; background: #FBFAF7; border: none; border-radius: 24px; box-shadow: -3px -3px 8px rgb(255 255 255 / .85), 4px 4px 10px rgb(122 104 78 / .2); font-family: Inter, system-ui, sans-serif; cursor: pointer; transition: box-shadow 150ms ease-out, transform 150ms ease-out; } .ds-row:hover { box-shadow: -5px -5px 12px rgb(255 255 255 / .85), 6px 6px 16px rgb(122 104 78 / .2); } .ds-row:active { transform: scale(.99); } .ds-row:focus-visible { outline: 2px solid #2F64F0; outline-offset: 2px; } .ds-row-icon { width: 36px; height: 36px; border-radius: 9999px; display: grid; place-items: center; color: #7A4800; background: rgb(122 72 0 / .1); flex-shrink: 0; } .ds-row-icon svg { width: 16px; height: 16px; } .ds-row-text { flex: 1; min-width: 0; } .ds-row-text b { display: block; font-size: 14px; font-weight: 700; color: #1C1B19; } .ds-row-text small { display: block; font-size: 12px; color: #6A645B; } .ds-row-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 9999px; background: #FFF7E6; color: #7A4800; font-size: 11px; font-weight: 700; white-space: nowrap; } .ds-row-pill i { width: 6px; height: 6px; border-radius: 9999px; background: #F09A00; }"
     },
     {
-      "name": "Money Field",
+      "name": "Hub Hero",
       "kind": "custom",
-      "refersTo": "money-field",
-      "description": "The Hub's blue band: label, display amount, progress, receipt edge.",
-      "html": "<section class=\"ds-field\"><p class=\"ds-field-label\">Collected in October</p><p class=\"ds-field-amount\"><span class=\"ds-cur\">RM</span>12,450<span class=\"ds-cents\">.50</span></p><div class=\"ds-field-track\"><div class=\"ds-field-bar\"></div></div><p class=\"ds-field-note\">72% of this month's invoices paid</p></section>",
-      "css": ".ds-field { background: #1463FF; color: #fff; padding: 24px 20px 64px; font-family: Manrope, system-ui, sans-serif; -webkit-mask: radial-gradient(circle 7px at 50% 100%, transparent 98%, #000) 0 0 / 18px 100% repeat-x; mask: radial-gradient(circle 7px at 50% 100%, transparent 98%, #000) 0 0 / 18px 100% repeat-x; } .ds-field-label { margin: 0; font-size: 14px; font-weight: 600; color: #DCE7FF; } .ds-field-amount { margin: 4px 0 0; font-size: 2.75rem; font-weight: 800; line-height: 1; letter-spacing: -0.025em; font-variant-numeric: tabular-nums; } .ds-cur { font-size: .5em; font-weight: 700; vertical-align: .55em; margin-right: 4px; opacity: .8; } .ds-cents { font-size: .55em; font-weight: 700; opacity: .8; } .ds-field-track { margin-top: 16px; height: 6px; border-radius: 9999px; background: rgba(255,255,255,.2); overflow: hidden; } .ds-field-bar { height: 100%; width: 72%; border-radius: 9999px; background: #4AD6A7; } .ds-field-note { margin: 6px 0 0; font-size: 12px; color: #DCE7FF; }"
+      "refersTo": "hero-card",
+      "description": "Raised ivory card: tracked label, charcoal display amount, cobalt bar on a pressed track.",
+      "html": "<div class=\"ds-hero-ground\"><section class=\"ds-hero\"><p class=\"ds-hero-label\">Collected in October</p><p class=\"ds-hero-amount\"><span class=\"ds-cur\">RM</span>12,450<span class=\"ds-cents\">.50</span></p><div class=\"ds-hero-track\"><div class=\"ds-hero-bar\"></div></div><p class=\"ds-hero-note\">72% of this month's invoices paid</p></section></div>",
+      "css": ".ds-hero-ground { background: #F2EFE9; padding: 24px; } .ds-hero { background: #FBFAF7; color: #1C1B19; padding: 24px 20px 64px; border-radius: 28px; font-family: Inter, system-ui, sans-serif; box-shadow: -8px -8px 20px rgb(255 255 255 / .85), 10px 10px 26px rgb(122 104 78 / .2); } .ds-hero-label { margin: 0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; color: #6A645B; } .ds-hero-amount { margin: 8px 0 0; font-size: 2.75rem; font-weight: 600; line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; } .ds-cur { font-size: .5em; font-weight: 700; vertical-align: .55em; margin-right: 4px; opacity: .8; } .ds-cents { font-size: .55em; font-weight: 700; opacity: .8; } .ds-hero-track { margin-top: 16px; height: 10px; border-radius: 9999px; background: #E9E5DD; overflow: hidden; box-shadow: inset 1px 1px 3px rgb(122 104 78 / .2), inset -1px -1px 3px rgb(255 255 255 / .85); } .ds-hero-bar { height: 100%; width: 72%; border-radius: 9999px; background: #1450E6; transform-origin: left; animation: ds-grow 220ms cubic-bezier(.22,1,.36,1) both; } .ds-hero-note { margin: 6px 0 0; font-size: 12px; color: #6A645B; } @keyframes ds-grow { from { transform: scaleX(0); } } @media (prefers-reduced-motion: reduce) { .ds-hero-bar { animation: none; } }"
     },
     {
       "name": "Quick Action",
       "kind": "button",
       "refersTo": "quick-action",
-      "description": "Round white verb button riding the money field's edge.",
-      "html": "<button class=\"ds-quick\"><span class=\"ds-quick-disc\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z\"/><path d=\"M14 2v6h6M12 12v6M9 15h6\"/></svg></span><span class=\"ds-quick-label\">New invoice</span></button>",
-      "css": ".ds-quick { display: inline-flex; flex-direction: column; align-items: center; gap: 6px; background: none; border: none; cursor: pointer; font-family: Manrope, system-ui, sans-serif; } .ds-quick-disc { width: 56px; height: 56px; border-radius: 9999px; background: #fff; color: #1463FF; display: grid; place-items: center; box-shadow: 0 12px 28px -8px rgba(11,27,63,.18), 0 4px 10px -4px rgba(11,27,63,.10); transition: transform 150ms ease-out; } .ds-quick-disc svg { width: 24px; height: 24px; } .ds-quick:hover .ds-quick-disc { transform: translateY(-2px); } .ds-quick:active .ds-quick-disc { transform: scale(.95); } .ds-quick-label { font-size: 12px; font-weight: 700; color: #1F2A45; }"
+      "description": "Round raised ivory verb button overlapping the hero's edge.",
+      "html": "<div class=\"ds-quick-ground\"><button class=\"ds-quick\"><span class=\"ds-quick-disc\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z\"/><path d=\"M14 2v6h6M12 12v6M9 15h6\"/></svg></span><span class=\"ds-quick-label\">New invoice</span></button></div>",
+      "css": ".ds-quick-ground { background: #F2EFE9; padding: 20px; display: inline-block; } .ds-quick { display: inline-flex; flex-direction: column; align-items: center; gap: 6px; background: none; border: none; cursor: pointer; font-family: Inter, system-ui, sans-serif; } .ds-quick-disc { width: 56px; height: 56px; border-radius: 9999px; background: #FBFAF7; color: #1450E6; display: grid; place-items: center; box-shadow: -5px -5px 12px rgb(255 255 255 / .85), 6px 6px 16px rgb(122 104 78 / .2); transition: transform 150ms ease-out; } .ds-quick-disc svg { width: 24px; height: 24px; } .ds-quick:hover .ds-quick-disc { transform: translateY(-2px); } .ds-quick:active .ds-quick-disc { transform: scale(.95); } .ds-quick:focus-visible { outline: 2px solid #2F64F0; outline-offset: 2px; } .ds-quick-label { font-size: 12px; font-weight: 500; color: #3E3A35; }"
     },
     {
       "name": "Bottom Tab Bar",
       "kind": "nav",
-      "refersTo": "nav-item-active",
-      "description": "Phone navigation; active tab wears a blue-wash pill.",
+      "refersTo": "tab-active-pill",
+      "description": "Phone navigation; active tab wears a cobalt-wash pill.",
       "html": "<nav class=\"ds-tabs\"><button class=\"ds-tab ds-tab-on\"><span class=\"ds-tab-pill\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"9\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"5\" rx=\"1\"/><rect x=\"14\" y=\"12\" width=\"7\" height=\"9\" rx=\"1\"/><rect x=\"3\" y=\"16\" width=\"7\" height=\"5\" rx=\"1\"/></svg></span>Hub</button><button class=\"ds-tab\"><span class=\"ds-tab-pill\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\"><path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z\"/><path d=\"M14 2v6h6\"/></svg></span>Invoices</button></nav>",
-      "css": ".ds-tabs { display: flex; background: #fff; border-top: 1px solid #EAEEF6; font-family: Manrope, system-ui, sans-serif; } .ds-tab { flex: 1; height: 64px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; background: none; border: none; color: #5B6B8C; font-size: 11px; font-weight: 600; cursor: pointer; transition: color 150ms ease-out; } .ds-tab:active { background: #EAEEF6; } .ds-tab-on { color: #0A4FD6; font-weight: 700; } .ds-tab-pill { width: 56px; height: 32px; border-radius: 9999px; display: grid; place-items: center; transition: background-color 200ms ease-out; } .ds-tab-on .ds-tab-pill { background: #DCE7FF; } .ds-tab-pill svg { width: 20px; height: 20px; }"
+      "css": ".ds-tabs { display: flex; background: #FBFAF7; border-top: 1px solid #E9E5DD; font-family: Inter, system-ui, sans-serif; } .ds-tab { flex: 1; height: 64px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; background: none; border: none; color: #6A645B; font-size: 11px; font-weight: 600; cursor: pointer; transition: color 150ms ease-out; } .ds-tab:active { background: #E9E5DD; } .ds-tab:focus-visible { outline: 2px solid #2F64F0; outline-offset: -2px; } .ds-tab-on { color: #0E40C2; font-weight: 700; } .ds-tab-pill { width: 56px; height: 32px; border-radius: 9999px; display: grid; place-items: center; transition: background-color 200ms ease-out; } .ds-tab-on .ds-tab-pill { background: #DCE6FF; } .ds-tab-pill svg { width: 20px; height: 20px; }"
     },
     {
       "name": "Confirmed Moment",
       "kind": "custom",
       "refersTo": "confirm-card",
-      "description": "Brief payment-success card with a drawn tick; never takes focus.",
+      "description": "Brief payment-recorded card with a drawn tick; never takes focus.",
       "html": "<div class=\"ds-confirm\"><svg class=\"ds-tick\" viewBox=\"0 0 24 24\" fill=\"none\"><circle cx=\"12\" cy=\"12\" r=\"11\" fill=\"currentColor\" opacity=\".15\"/><path d=\"M7 12.5l3.2 3.2L17 9\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\" pathLength=\"1\"/></svg><p class=\"ds-confirm-title\">Payment recorded</p><p class=\"ds-confirm-amount\"><span class=\"ds-cur\">RM</span>1,200<span class=\"ds-cents\">.00</span></p></div>",
-      "css": ".ds-confirm { width: 320px; max-width: 100%; box-sizing: border-box; padding: 28px 24px; border-radius: 24px; background: #fff; text-align: center; font-family: Manrope, system-ui, sans-serif; box-shadow: 0 24px 56px -16px rgba(11,27,63,.26), 0 8px 20px -8px rgba(11,27,63,.14); animation: ds-confirm-in 200ms cubic-bezier(.22,1,.36,1) both; } .ds-tick { width: 64px; height: 64px; color: #008A62; } .ds-tick path { stroke-dasharray: 1; animation: ds-tick 300ms 60ms cubic-bezier(.22,1,.36,1) both; } .ds-confirm-title { margin: 12px 0 0; font-size: 14px; font-weight: 700; color: #45557A; } .ds-confirm-amount { margin: 4px 0 0; font-size: 2.25rem; font-weight: 800; letter-spacing: -0.025em; color: #0B1B3F; font-variant-numeric: tabular-nums; } .ds-cur { font-size: .5em; vertical-align: .55em; margin-right: 4px; opacity: .8; } .ds-cents { font-size: .55em; opacity: .8; } @keyframes ds-confirm-in { from { opacity: 0; transform: scale(.94); } 60% { opacity: 1; } to { opacity: 1; transform: none; } } @keyframes ds-tick { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } } @media (prefers-reduced-motion: reduce) { .ds-confirm, .ds-tick path { animation: none; } }"
+      "css": ".ds-confirm { width: 320px; max-width: 100%; box-sizing: border-box; padding: 28px 24px; border-radius: 24px; background: #FBFAF7; text-align: center; font-family: Inter, system-ui, sans-serif; box-shadow: -10px -10px 28px rgb(255 255 255 / .85), 16px 16px 40px rgb(122 104 78 / .2); animation: ds-confirm-in 200ms cubic-bezier(.22,1,.36,1) both; } .ds-tick { width: 64px; height: 64px; color: #008A62; } .ds-tick path { stroke-dasharray: 1; animation: ds-tick 300ms 60ms cubic-bezier(.22,1,.36,1) both; } .ds-confirm-title { margin: 12px 0 0; font-size: 14px; font-weight: 700; color: #544F48; } .ds-confirm-amount { margin: 4px 0 0; font-size: 2.25rem; font-weight: 700; letter-spacing: -0.025em; color: #1C1B19; font-variant-numeric: tabular-nums; } .ds-cur { font-size: .5em; vertical-align: .55em; margin-right: 4px; opacity: .8; } .ds-cents { font-size: .55em; opacity: .8; } @keyframes ds-confirm-in { from { opacity: 0; transform: scale(.94); } 60% { opacity: 1; } to { opacity: 1; transform: none; } } @keyframes ds-tick { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } } @media (prefers-reduced-motion: reduce) { .ds-confirm, .ds-tick path { animation: none; } }"
     }
   ],
   "narrative": {
-    "northStar": "Payment Confirmed",
-    "overview": "Every figure in BizEazy reads like the success screen of a DuitNow or e-wallet payment: one confident amount, set large in tabular figures, confirmed with a tick that draws itself. The Hub opens on a committed blue money field that owns the top of the screen and ends in a scalloped receipt tear; everything below it sits on cool paper in white, softly lifted cards. The system refuses the category default of grey stat tiles in a white grid.\n\nDensity is phone-first: one column, thumb-height actions, 44px touch floors, a bottom tab bar on phones and a sidebar from `md` up. Desktop adds room, never features. One geometric workhorse face (Manrope) carries everything; weight, not a second family, separates an amount from its label.\n\nMotion is quick and additive: 150 to 300ms, ease-out-quint, transform and opacity only, never blocking input, and fully suppressed under reduced motion. Content is visible by default; motion only confirms.\n\nPrinted and PDF documents (anything marked `data-document`: invoices, quotations, kitchen sheets, payslips, branch templates) are outside this system. They keep the previous warm palette and Archivo / JetBrains Mono faces, restored by a token override in `src/index.css`.",
+    "northStar": "Soft System",
+    "overview": "BizEazy is ivory paper shaped into relief. Surfaces are not drawn with lines; they are raised off the paper or pressed into it, lit from the top-left with a pale highlight and shaded to the bottom-right with a warm umber shade. Cards, the Hub's hero and the round quick actions float; fields and progress tracks sit in. Charcoal ink carries every figure, and cobalt is the single accent: primary actions, the active place, progress, focus.\n\nDensity is phone-first: one column, 44px touch floors, a bottom tab bar on phones and a sidebar from `md` up. Desktop adds room, never features. One face (Inter) carries everything; weight, size and a tracked uppercase label role separate an amount from its name.\n\nMotion is quick and additive: 150 to 300ms on ease-out-quint, transform and opacity only, never blocking input, fully suppressed under reduced motion.\n\nPrinted and PDF documents (anything marked `data-document`: invoices, quotations, kitchen sheets, payslips, branch templates) are outside this system. Inside `[data-document]` the stylesheet restores the previous warm palette, pure white paper, and Archivo / JetBrains Mono, and the raised/pressed shadows do not apply.",
     "keyCharacteristics": [
-      "A blue money field with a scalloped receipt edge as the Hub's single ornament.",
-      "Oversized extra-bold tabular amounts with the currency and cents set smaller.",
-      "Mint means paid, amber means waiting, coral means late, always with a dot and a word.",
-      "Big rounded white cards on cool paper; pills for status and secondary actions.",
-      "A drawn tick as the one confirming gesture (toasts, the confirmed moment, \"All clear\")."
+      "Ivory on ivory: depth comes from paired light/shade shadows, not borders or tonal cards.",
+      "Raised cards and pressed fields; the same two gestures everywhere.",
+      "Charcoal figures; cobalt only where something is primary, active or in progress.",
+      "Pill primary buttons, round raised quick actions, fully round status pills.",
+      "Small uppercase tracked labels name sections and figures.",
+      "Mint means paid, amber waiting, coral late, always with a dot and a word."
     ],
     "rules": [
+      { "name": "The One Accent Rule", "body": "Cobalt is the only accent. It marks what is primary, active or in progress; it never fills a hero, a card or a figure.", "section": "colors" },
       { "name": "The Dot-and-Word Rule", "body": "Money state is never conveyed by colour alone. Every status pill pairs a 4 to 6px dot with a word (\"Paid\", \"Partial\", \"Unpaid\", \"3 days left\"); every coloured figure sits under a text label (\"Collected\", \"Owed to you\").", "section": "colors" },
-      { "name": "The Never-Black Rule", "body": "Text is navy ink, not black; shadows are tinted from navy ink, not black.", "section": "colors" },
-      { "name": "The Legacy-Alias Rule", "body": "`gray-*`, `slate-*`, `indigo-*`, `purple-*` and `red-*` resolve to the ink, brand and coral ramps. New code uses `ink-*`, `brand-*`, `emerald-*`, `amber-*`, `rose-*`; the aliases exist only so a missed class still lands on the right colour.", "section": "colors" },
+      { "name": "The Never-Black Rule", "body": "Text is charcoal ink, never black; light-mode shade is warm umber, never grey.", "section": "colors" },
+      { "name": "The Legacy-Alias Rule", "body": "`gray-*`, `slate-*`, `indigo-*`, `purple-*` and `red-*` resolve to the ink, cobalt and coral ramps. New code uses `ink-*`, `brand-*`, `emerald-*`, `amber-*`, `rose-*`; the aliases exist only so a missed class still lands.", "section": "colors" },
       { "name": "The Receipt Figure Rule", "body": "Amounts render through `Money`: tabular figures, the currency at 0.5em raised, the cents at 0.55em, both at 80% opacity. Money columns, IDs and dates use tabular figures everywhere.", "section": "typography" },
-      { "name": "The Count-Up Rule", "body": "A headline amount counts up over 300ms (quartic ease-out) when it arrives, and appears instantly under reduced motion.", "section": "typography" },
-      { "name": "The Tinted Shadow Rule", "body": "Shadows are `color-mix` of navy ink (#0B1B3F) with transparent; no hard offsets, no black.", "section": "elevation" },
-      { "name": "The Receipt Edge Rule", "body": "The money field ends in a scalloped tear line (7px radius circles on an 18px repeat, applied as a mask so it works on any colour beneath). It is the one ornament the world allows; nothing else gets decorative edges.", "section": "shapes" }
+      { "name": "The Count-Up Rule", "body": "The hero amount counts up over 300ms (quartic ease-out) when it arrives, and appears instantly under reduced motion.", "section": "typography" },
+      { "name": "The Raised-and-Pressed Rule", "body": "Things you read or tap are raised; things you type into or that fill are pressed. A surface is one or the other, never both, and never flat-with-a-border when it is a card.", "section": "elevation" },
+      { "name": "The Paired Light Rule", "body": "Every relief shadow is a highlight and a shade from the same light (top-left). A one-sided drop shadow or a hard offset breaks the world.", "section": "elevation" }
     ],
     "dos": [
       "**Do** write every dark-mode colour as an explicit `dark:` class beside its light counterpart.",
+      "**Do** build depth from the shadow tokens (`shadow-sm` to `shadow-xl`) and the pressed inset pair, so dark mode follows `--nm-hl` / `--nm-sh` automatically.",
       "**Do** pair every status colour with a dot and a word, and every coloured figure with a text label.",
       "**Do** render amounts through `Money` (or the same currency/cents treatment) in tabular figures.",
-      "**Do** keep motion between 150 and 300ms on ease-out-quint, animating only transform and opacity: `view-enter` 180ms for screens, `row-enter` 260ms with 40ms stagger for lists, `toast-in` 220ms, `confirm-in` 200ms, `tick-draw` 300ms after 60ms, `progress-grow` 220ms.",
+      "**Do** keep motion between 150 and 300ms on ease-out-quint, animating only transform and opacity: `view-enter` 180ms, `row-enter` 260ms with 40ms stagger, `toast-in` 220ms, `confirm-in` 200ms, `tick-draw` 300ms after 60ms, `progress-grow` 220ms, `sheet-up` 280ms.",
       "**Do** honour reduced motion: the global override collapses animation and transition, and count-ups render the final value at once.",
       "**Do** use skeletons, not spinners, for loading content.",
       "**Do** use `ink-500` (not `ink-400`) for secondary text on light grounds; `ink-400` is a non-text tone there."
     ],
     "donts": [
       "**Don't** use `!important` in component or UI styling. The only sanctioned instances are the global reduced-motion override and print rules, which must beat every component.",
-      "**Don't** restyle anything inside `[data-document]`: invoices, quotations, kitchen sheets, payslips and branch templates keep their own palette and faces.",
+      "**Don't** restyle anything inside `[data-document]`: invoices, quotations, kitchen sheets, payslips and branch templates keep their own palette, white paper and faces.",
       "**Don't** convey money state by colour alone.",
-      "**Don't** add ornaments beyond the receipt edge, or a second type family to the app UI.",
-      "**Don't** use pure black for text or shadows.",
-      "**Don't** set text below the 0.6875rem micro floor.",
+      "**Don't** fill a hero or card with cobalt, or add a second accent hue outside the status trio.",
+      "**Don't** use one-sided drop shadows or hard offsets; relief is always a highlight and shade pair.",
+      "**Don't** add a second type family to the app UI.",
+      "**Don't** use pure black for text.",
+      "**Don't** set text below the 0.6875rem floor.",
       "**Don't** let motion block input or hide content by default."
     ]
   }

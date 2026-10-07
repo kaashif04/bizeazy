@@ -78,7 +78,7 @@ export function EmptyState({
         <button
           type="button"
           onClick={action.onClick}
-          className="tap mt-4 inline-flex items-center justify-center gap-1.5 px-4 rounded-lg text-xs font-bold cursor-pointer transition-colors bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white shadow-sm [&_svg]:w-3.5 [&_svg]:h-3.5"
+          className="tap mt-4 inline-flex items-center justify-center gap-1.5 px-4 rounded-full text-xs font-bold cursor-pointer transition-colors bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white shadow-sm [&_svg]:w-3.5 [&_svg]:h-3.5"
         >
           {action.icon}
           {action.label}

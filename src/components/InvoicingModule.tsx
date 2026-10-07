@@ -482,7 +482,7 @@ function InvoicePreviewModal({
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
             onClick={onDownload}
-            className="flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold px-4 py-2 rounded-lg cursor-pointer transition-colors shadow-sm"
+            className="flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold px-4 py-2 rounded-full cursor-pointer transition-colors shadow-sm"
           >
             <Download className="w-3.5 h-3.5" />
             Download PDF
@@ -1115,7 +1115,7 @@ export default function InvoicingModule({
           {!isStaff && (
             <button
               onClick={() => openModal()}
-              className="flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs px-3.5 py-2 rounded-lg transition-colors cursor-pointer shadow-sm shrink-0"
+              className="flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs px-3.5 py-2 rounded-full transition-colors cursor-pointer shadow-sm shrink-0"
             >
               <Plus className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">New Invoice</span>
@@ -1189,7 +1189,7 @@ export default function InvoicingModule({
                 isDarkMode ? 'bg-ink-950/40 border-ink-800 text-ink-500' : 'bg-ink-50 border-ink-200 text-ink-500'
               }`}>
                 <tr>
-                  <th className="px-5 py-3">Invoice ID</th>
+                  <th className="px-4 py-3">Invoice ID</th>
                   <th className="px-4 py-3">Date</th>
                   <th className="px-4 py-3">Outlet</th>
                   <th className="px-4 py-3">Customer</th>
@@ -1205,7 +1205,7 @@ export default function InvoicingModule({
                   const pay = getPaymentSummary(inv, db.payments);
                   return (
                     <tr key={inv.Invoice_ID} className="hover:bg-ink-50/50 dark:hover:bg-ink-800/30 transition-colors">
-                      <td className="px-5 py-3.5 font-mono font-bold text-ink-900 dark:text-white whitespace-nowrap">{inv.Invoice_ID}</td>
+                      <td className="px-4 py-3.5 font-mono font-bold text-ink-900 dark:text-white whitespace-nowrap">{inv.Invoice_ID}</td>
                       <td className="px-4 py-3.5 text-ink-500 dark:text-ink-400 whitespace-nowrap">{inv.Date}</td>
                       <td className="px-4 py-3.5">
                         {/* Neutral chip, the branch's colour only as a dot: colour words are
@@ -1215,7 +1215,7 @@ export default function InvoicingModule({
                           {p ? outletLabel(p) : inv.Company}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 font-medium text-ink-700 dark:text-ink-300 max-w-[160px] truncate">{inv.Customer_Name}</td>
+                      <td className="px-4 py-3.5 font-medium text-ink-700 dark:text-ink-300 max-w-[130px] truncate">{inv.Customer_Name}</td>
                       <td className="px-4 py-3.5 text-right font-black font-mono text-ink-900 dark:text-white whitespace-nowrap">
                         {curr} {fmt(Number(inv.Total_Amount))}
                       </td>
@@ -1684,7 +1684,7 @@ export default function InvoicingModule({
                                 setLineItems(prev => prev.map((it, i) => i === idx ? { ...editItem } : it));
                                 setEditingItemIdx(null);
                               }}
-                              className="px-2 py-1 text-2xs font-bold rounded-lg bg-brand-600 hover:bg-brand-700 text-white cursor-pointer"
+                              className="px-2 py-1 text-2xs font-bold rounded-full bg-brand-600 hover:bg-brand-700 text-white cursor-pointer"
                             >
                               Save
                             </button>
@@ -1789,7 +1789,7 @@ export default function InvoicingModule({
                   <button
                     type="submit"
                     disabled={isSyncing}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer shadow-sm"
+                    className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-bold text-xs rounded-full transition-colors cursor-pointer shadow-sm"
                   >
                     {isSyncing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
                     {isSyncing ? 'Saving…' : (editingInvoice ? 'Update Invoice' : 'Generate & Save')}
@@ -1814,7 +1814,7 @@ export default function InvoicingModule({
                     setCustName(''); setCustContact(''); setCustAddress(''); setCustType('Regular');
                     setIsCustomerFormOpen(true);
                   }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-lg cursor-pointer transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-full cursor-pointer transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" /> Add Customer
                 </button>
@@ -1892,7 +1892,7 @@ export default function InvoicingModule({
                         setIsSyncing(false);
                       }
                     }}
-                    className="px-3 py-1.5 text-xs font-bold rounded-lg bg-brand-600 hover:bg-brand-700 text-white cursor-pointer">
+                    className="px-3 py-1.5 text-xs font-bold rounded-full bg-brand-600 hover:bg-brand-700 text-white cursor-pointer">
                     {editingCustomer ? 'Save Changes' : 'Add Customer'}
                   </button>
                 </div>

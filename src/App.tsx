@@ -426,7 +426,7 @@ function Sidebar({
       md:relative md:translate-x-0 md:flex-shrink-0
       bg-white dark:bg-ink-950 border-r border-ink-200 dark:border-ink-800 flex flex-col h-screen md:sticky md:top-0
     `}>
-      {/* Brand: the world's confirming tick, in the payment blue */}
+      {/* Brand: the world's confirming tick, in cobalt */}
       <div className="px-4 pt-5 pb-4 flex-shrink-0">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 bg-brand-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md">
@@ -1173,7 +1173,7 @@ export default function App() {
                   <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
                     <button
                       onClick={() => window.print()}
-                      className="px-4 py-1.5 cursor-pointer bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-md active:scale-95"
+                      className="px-4 py-1.5 cursor-pointer bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-full flex items-center gap-1.5 transition-all shadow-md active:scale-95"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
                       Print / Save A4

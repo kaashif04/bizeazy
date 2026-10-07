@@ -152,9 +152,9 @@ export function Sheet({
 /** The two button shapes every sheet footer uses, so Save looks the same everywhere. */
 export const sheetBtn = {
   primary:
-    'inline-flex items-center justify-center gap-1.5 tap px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 active:bg-brand-800 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold text-xs shadow-sm transition-colors cursor-pointer',
+    'inline-flex items-center justify-center gap-1.5 tap px-4 py-2.5 rounded-full bg-brand-600 hover:bg-brand-700 active:bg-brand-800 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold text-xs shadow-sm transition-colors cursor-pointer',
   ghost:
     'inline-flex items-center justify-center gap-1.5 tap px-4 py-2.5 rounded-xl border border-ink-300 dark:border-ink-700 text-ink-700 dark:text-ink-200 hover:bg-ink-100 dark:hover:bg-ink-800 font-bold text-xs transition-colors cursor-pointer',
   danger:
-    'inline-flex items-center justify-center gap-1.5 tap px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm transition-colors cursor-pointer',
+    'inline-flex items-center justify-center gap-1.5 tap px-4 py-2.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm transition-colors cursor-pointer',
 };

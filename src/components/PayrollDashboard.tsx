@@ -693,7 +693,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
             <button
               id="add-employee-btn"
               onClick={() => handleOpenEmployeeModal()}
-              className="flex items-center gap-1 bg-brand-600 hover:bg-brand-700 text-white font-extrabold tracking-tight text-xs px-3.5 py-2.5 rounded-lg cursor-pointer transition-colors border border-transparent shadow-sm"
+              className="flex items-center gap-1 bg-brand-600 hover:bg-brand-700 text-white font-extrabold tracking-tight text-xs px-3.5 py-2.5 rounded-full cursor-pointer transition-colors border border-transparent shadow-sm"
             >
               <UserPlus className="w-3.5 h-3.5" />
               <span>Add Employee</span>
@@ -705,7 +705,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
             <button
               id="generate-slips-btn"
               onClick={handleOpenGenerator}
-              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold tracking-tight text-xs px-3.5 py-2.5 rounded-lg cursor-pointer transition-colors shadow-sm border border-transparent"
+              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold tracking-tight text-xs px-3.5 py-2.5 rounded-full cursor-pointer transition-colors shadow-sm border border-transparent"
               title="Open the Malaysian Payslip compilation workspace."
             >
               <Coins className="w-3.5 h-3.5" />
@@ -1396,7 +1396,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                 <button 
                   type="submit"
                   disabled={isSyncing}
-                  className="px-4 py-2 text-xs font-bold text-white rounded-lg bg-brand-600 hover:bg-brand-700 cursor-pointer flex items-center gap-1.5 shadow-sm transition-colors"
+                  className="px-4 py-2 text-xs font-bold text-white rounded-full bg-brand-600 hover:bg-brand-700 cursor-pointer flex items-center gap-1.5 shadow-sm transition-colors"
                 >
                   {isSyncing ? "Saving..." : (editingEmployee ? "Update Employee" : "Register Employee")}
                 </button>
@@ -2068,7 +2068,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                   <button
                     onClick={() => handleSavePayslip(previewPayslip)}
                     disabled={isSyncing}
-                    className="flex items-center gap-1 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl transition-all duration-150 cursor-pointer shadow-sm"
+                    className="flex items-center gap-1 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-full transition-all duration-150 cursor-pointer shadow-sm"
                     title="Write this payroll slip permanently to the database ledger."
                   >
                     <Save className="w-3.5 h-3.5" />
@@ -2079,7 +2079,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                 {/* Print button */}
                 <button
                   onClick={() => window.print()}
-                  className="flex items-center gap-1 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors"
+                  className="flex items-center gap-1 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-full cursor-pointer transition-colors"
                   title="Print or save as A4 PDF."
                 >
                   <Printer className="w-3.5 h-3.5" />

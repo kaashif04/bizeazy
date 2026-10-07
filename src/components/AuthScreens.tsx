@@ -19,7 +19,7 @@ const INPUT =
 const LABEL =
   'block text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1.5';
 const BUTTON =
-  'w-full flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-semibold text-sm py-2.5 px-4 rounded-xl transition-colors cursor-pointer shadow-sm';
+  'w-full flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-semibold text-sm py-2.5 px-4 rounded-full transition-colors cursor-pointer shadow-sm';
 
 function Shell({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (

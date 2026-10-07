@@ -318,7 +318,7 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
           <div className="flex items-center gap-2">
             <button
               onClick={() => window.print()}
-              className="px-4 py-1.5 cursor-pointer bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-md active:scale-95"
+              className="px-4 py-1.5 cursor-pointer bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-full flex items-center gap-1.5 transition-all shadow-md active:scale-95"
             >
               <Printer className="w-3.5 h-3.5" />
               Print / Save A4
@@ -613,7 +613,7 @@ function KitchenSheetModal({ data, onClose }: { data: PreviewData; onClose: () =
           <div className="flex items-center gap-2">
             <button
               onClick={() => window.print()}
-              className="px-4 py-1.5 cursor-pointer bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-md active:scale-95"
+              className="px-4 py-1.5 cursor-pointer bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-full flex items-center gap-1.5 transition-all shadow-md active:scale-95"
             >
               <Printer className="w-3.5 h-3.5" />
               Print / Save A4
@@ -1265,7 +1265,7 @@ export default function QuotationModule({
           </div>
           <button
             onClick={() => openModal()}
-            className="flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs px-3.5 py-2 rounded-lg transition-colors cursor-pointer shadow-sm shrink-0"
+            className="flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs px-3.5 py-2 rounded-full transition-colors cursor-pointer shadow-sm shrink-0"
           >
             <Plus className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">New Quotation</span>
@@ -1890,7 +1890,7 @@ export default function QuotationModule({
                     Cancel
                   </button>
                   <button type="submit" disabled={isSyncing}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer shadow-sm">
+                    className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-bold text-xs rounded-full transition-colors cursor-pointer shadow-sm">
                     {isSyncing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
                     {isSyncing ? 'Saving…' : (editingQuotation ? 'Update Quotation' : 'Generate & Save')}
                   </button>

@@ -384,7 +384,7 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
       >
         <button
           onClick={() => onDownload(invoiceId)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-xl transition-all cursor-pointer"
+          className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-black rounded-full shadow-xl transition-all cursor-pointer"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5}

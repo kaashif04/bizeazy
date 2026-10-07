@@ -132,65 +132,65 @@ export function HubOverview({
   const needs = notifications.slice(0, 5);
 
   return (
-    <div className="-mx-4 sm:-mx-6 -mt-4 sm:-mt-6">
+    <div className="max-w-5xl mx-auto">
       {/* ── The money field ── */}
       <section
         aria-label={canSales ? `Money this month at ${branch}` : 'Payroll'}
-        className="receipt-edge bg-brand-600 dark:bg-brand-700 text-white px-5 sm:px-8 pt-6 pb-16 sm:pb-20"
+        className="rounded-[1.75rem] bg-white dark:bg-ink-900 shadow-lg text-ink-900 dark:text-white px-5 sm:px-8 pt-6 pb-16 sm:pb-20"
       >
-        <div className="max-w-5xl mx-auto">
+        <div>
           {canSales ? (
             <div className="grid gap-5 sm:grid-cols-[1.4fr_1fr_1fr] sm:items-end">
               <div>
-                <p className="text-sm font-semibold text-brand-100">Collected in {monthTitle(thisMonth)}</p>
+                <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-ink-500 dark:text-ink-400">Collected in {monthTitle(thisMonth)}</p>
                 {loading
-                  ? <span className="block mt-2 h-11 w-52 rounded-lg bg-white/20 animate-pulse" />
-                  : <Money value={collected} currency={currency} className="block mt-1 text-[2.75rem] sm:text-6xl font-extrabold leading-none tracking-tight" />}
-                <div className="mt-4 h-1.5 rounded-full bg-white/20 overflow-hidden" aria-hidden="true">
-                  <div className="h-full rounded-full bg-emerald-300 origin-left progress-grow" style={{ transform: `scaleX(${progress})` }} />
+                  ? <span className="block mt-2 h-11 w-52 rounded-lg bg-ink-100 dark:bg-ink-800 animate-pulse" />
+                  : <Money value={collected} currency={currency} className="block mt-2 text-[2.75rem] sm:text-6xl font-semibold leading-none tracking-[-0.03em]" />}
+                <div className="mt-4 h-2.5 rounded-full bg-ink-100 dark:bg-ink-800 shadow-[inset_1px_1px_3px_var(--nm-sh),inset_-1px_-1px_3px_var(--nm-hl)] overflow-hidden" aria-hidden="true">
+                  <div className="h-full rounded-full bg-brand-600 dark:bg-brand-400 origin-left progress-grow" style={{ transform: `scaleX(${progress})` }} />
                 </div>
-                <p className="mt-1.5 text-xs text-brand-100">
+                <p className="mt-1.5 text-xs text-ink-500 dark:text-ink-400">
                   {invoiced > 0 ? `${Math.round(progress * 100)}% of this month's invoices paid` : 'No invoices raised yet this month'}
                 </p>
               </div>
               <div className="flex sm:block gap-6">
                 <div>
-                  <p className="text-xs font-semibold text-brand-100">Owed to you</p>
-                  <Money value={owed.total} currency={currency} className="block text-xl sm:text-2xl font-extrabold leading-tight" />
-                  <p className="text-xs text-brand-100">{owed.count} unpaid invoice{owed.count === 1 ? '' : 's'}</p>
+                  <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-ink-500 dark:text-ink-400">Owed to you</p>
+                  <Money value={owed.total} currency={currency} className="block text-xl sm:text-2xl font-semibold leading-tight tracking-tight" />
+                  <p className="text-xs text-ink-500 dark:text-ink-400">{owed.count} unpaid invoice{owed.count === 1 ? '' : 's'}</p>
                 </div>
                 <div className="sm:hidden">
-                  <p className="text-xs font-semibold text-brand-100">Invoiced</p>
-                  <Money value={invoiced} currency={currency} className="block text-xl font-extrabold leading-tight" />
+                  <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-ink-500 dark:text-ink-400">Invoiced</p>
+                  <Money value={invoiced} currency={currency} className="block text-xl font-semibold leading-tight tracking-tight" />
                 </div>
               </div>
               <div className="hidden sm:block">
-                <p className="text-xs font-semibold text-brand-100">Invoiced this month</p>
-                <Money value={invoiced} currency={currency} className="block text-2xl font-extrabold leading-tight" />
-                <p className="text-xs text-brand-100">by invoice date</p>
+                <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-ink-500 dark:text-ink-400">Invoiced this month</p>
+                <Money value={invoiced} currency={currency} className="block text-2xl font-semibold leading-tight tracking-tight" />
+                <p className="text-xs text-ink-500 dark:text-ink-400">by invoice date</p>
               </div>
             </div>
           ) : (
             <div>
-              <p className="text-sm font-semibold text-brand-100">Payroll cost last month</p>
-              <Money value={payroll[0].cost} currency={currency} className="block mt-1 text-[2.75rem] font-extrabold leading-none tracking-tight" />
-              <p className="mt-2 text-xs text-brand-100">{payroll[0].staff} payslip{payroll[0].staff === 1 ? '' : 's'} saved · {monthTitle(payroll[0].month)}</p>
+              <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-ink-500 dark:text-ink-400">Payroll cost last month</p>
+              <Money value={payroll[0].cost} currency={currency} className="block mt-2 text-[2.75rem] font-semibold leading-none tracking-[-0.03em]" />
+              <p className="mt-2 text-xs text-ink-500 dark:text-ink-400">{payroll[0].staff} payslip{payroll[0].staff === 1 ? '' : 's'} saved · {monthTitle(payroll[0].month)}</p>
             </div>
           )}
         </div>
       </section>
 
-      <div className="px-4 sm:px-6 max-w-5xl mx-auto">
+      <div>
         {/* ── Quick actions, riding the field's edge ── */}
         {quick.length > 0 && (
-          <nav aria-label="Quick actions" className="-mt-10 relative grid grid-cols-4 gap-2 sm:gap-4 max-w-md">
+          <nav aria-label="Quick actions" className="-mt-10 relative px-3 sm:px-6 grid grid-cols-4 gap-2 sm:gap-4 max-w-md">
             {quick.map(({ view, label, Icon, create }) => (
               <button key={view} type="button" onClick={() => onNavigate(view, { create })}
                 className="group flex flex-col items-center gap-1.5 cursor-pointer">
-                <span className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-white dark:bg-ink-900 shadow-lg flex items-center justify-center text-brand-600 dark:text-brand-300 transition-transform duration-150 ease-out group-hover:-translate-y-0.5 group-active:scale-95">
+                <span className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-white dark:bg-ink-800 shadow-md flex items-center justify-center text-brand-600 dark:text-brand-300 transition-transform duration-150 ease-out group-hover:-translate-y-0.5 group-active:scale-95">
                   <Icon className="w-6 h-6" />
                 </span>
-                <span className="text-xs font-bold text-ink-800 dark:text-ink-100 text-center leading-tight">{label}</span>
+                <span className="text-xs font-medium text-ink-700 dark:text-ink-200 text-center leading-tight">{label}</span>
               </button>
             ))}
           </nav>
@@ -201,7 +201,7 @@ export function HubOverview({
         <div className="mt-7 grid grid-cols-1 gap-6 lg:grid-cols-[1.2fr_1fr] pb-8">
           {/* ── Needs you ── */}
           <section aria-labelledby="needs-you" className="min-w-0">
-            <h2 id="needs-you" className="text-base font-extrabold tracking-tight text-ink-900 dark:text-white mb-3">Needs you</h2>
+            <h2 id="needs-you" className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-ink-500 dark:text-ink-400 mb-3">Needs you</h2>
             {loading ? (
               <div className="space-y-2">{[0, 1, 2].map(i => <div key={i}><Skeleton className="h-16 rounded-2xl" /></div>)}</div>
             ) : needs.length === 0 ? (
@@ -244,7 +244,7 @@ export function HubOverview({
           {canSales && (
             <section aria-labelledby="latest-invoices" className="min-w-0">
               <div className="flex items-baseline justify-between mb-3">
-                <h2 id="latest-invoices" className="text-base font-extrabold tracking-tight text-ink-900 dark:text-white">Latest invoices</h2>
+                <h2 id="latest-invoices" className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-ink-500 dark:text-ink-400">Latest invoices</h2>
                 <button type="button" onClick={() => onNavigate('invoicing')}
                   className="text-xs font-bold text-brand-700 dark:text-brand-300 hover:underline cursor-pointer min-h-11 px-1">
                   See all

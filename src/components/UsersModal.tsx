@@ -23,7 +23,7 @@ const INPUT =
 const LABEL =
   'block text-2xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1';
 const PRIMARY =
-  'px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer shadow-sm';
+  'px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-bold text-xs rounded-full transition-colors cursor-pointer shadow-sm';
 const GHOST =
   'px-3 py-1.5 rounded-lg border border-ink-200 dark:border-ink-700 text-xs font-bold text-ink-700 dark:text-ink-300 hover:bg-ink-50 dark:hover:bg-ink-800 cursor-pointer transition-colors';
 
