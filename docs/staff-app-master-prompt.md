@@ -1,9 +1,6 @@
 # Master prompt — BizEazy Staff app
 
-Paste everything below the line into a fresh coding session (Claude Code or
-similar), opened on a new, empty repository for the staff app.
 
----
 
 You are building **BizEazy Staff**, a phone-first web app for the staff and
 managers of small Malaysian restaurants. It is a companion to an existing
@@ -70,7 +67,8 @@ a custom `storage` adapter passed to `createClient`.
   `lucide-react` for icons. No state library, no router library unless you can
   justify it in one sentence; a hash- or state-based view switch is enough.
 - Installable PWA: `manifest.webmanifest` (name "BizEazy Staff", theme colour
-  `#195C4B`, background `#FAF8F6`, 192 and 512 icons) and a small service
+  `#F2EFE9`, background `#F2EFE9`, 192 and 512 icons; dark theme colour
+  `#121110` via a second `<meta name="theme-color" media="(prefers-color-scheme: dark)">`) and a small service
   worker that caches the app shell only. **Never cache API responses or
   payslip PDFs.**
 - Environment:
@@ -83,7 +81,8 @@ a custom `storage` adapter passed to `createClient`.
 - Deploy as its own Vercel project (e.g. `bizeazy-staff.vercel.app`).
 - Timezone for everything shown: `Asia/Kuala_Lumpur`. Timestamps from the
   database are UTC (`timestamptz`); format with `Intl.DateTimeFormat('en-MY', { timeZone: 'Asia/Kuala_Lumpur', … })`.
-  Money is RM with two decimals, in a monospace, tabular font.
+  Money is RM with two decimals in tabular figures (`font-variant-numeric:
+  tabular-nums`), so columns never jitter.
 
 ## 4. The data contract (provided by the Hub)
 
@@ -115,7 +114,9 @@ Employee details live in the Hub's generic `records` table:
   `supabase.storage.from('payslips').createSignedUrl(path, 60)`.
   If the file is missing (older payslips), show "Ask your manager to re-save
   this payslip in the Hub" instead of an error. **Never render a payslip
-  yourself** — one renderer, in the Hub, keeps the figures identical.
+  yourself** — one renderer, in the Hub, keeps the figures identical. The
+  Hub's payslip is a single A4 page (210 × 297 mm); show the PDF as-is, scaled
+  to the phone's width, and let Download / Share hand over the same file.
 
 ### 4.4 Attendance (read)
 - **`attendance_events`** (raw, never edited):
@@ -214,23 +215,56 @@ password? Ask your manager to reset it." No sign-up link.
 
 A manager who is also an employee (has `employee_id`) sees both sets of tabs.
 
-## 6. Design
+## 6. Design — "Soft System" (match the Hub)
 
-Match the Hub so the two feel like one product:
-- Font **Archivo** (UI) and **JetBrains Mono** (money, times, IDs), from Google
-  Fonts.
-- Colour tokens: copy the `@theme` block from the Hub's `src/index.css`
-  (warm `ink` neutrals, pine `brand`: `brand-600 #195C4B`, saffron for
-  warnings, clay for danger). Light and dark mode, dark via a `.dark` class on
-  `<html>`, explicit `dark:` classes on every coloured element, **never
-  `!important`**.
-- Body text ≥ 14 px; secondary text uses `ink-500` (light) / `ink-400` (dark)
-  for contrast; status is never shown by colour alone (always a word or icon).
+The Hub's visual world is called **Soft System**; the two apps must feel like one
+product. The Hub repo's `DESIGN.md` (and `.impeccable/design.json`) is the source
+of truth. Read it first, then:
+
+- **Copy the tokens, don't re-invent them.** Take the `@theme` block, the
+  `:root` / `:root.dark` `--nm-hl` / `--nm-sh` variables and the base-layer
+  raised/pressed rules from the Hub's `src/index.css` verbatim. Leave out the
+  `[data-document]` block (this app renders no documents) and the legacy
+  `gray/slate/indigo/purple` aliases (start clean with `ink` and `brand`).
+- **Palette:** ivory paper `#F2EFE9` (`ink-50`) as the ground; ivory cards
+  `#FBFAF7` (the app's `--color-white`); charcoal text `#1C1B19` (`ink-900`),
+  never pure black; **cobalt `#1450E6` (`brand-600`) is the only accent**:
+  primary buttons, the active tab, progress, links. Status hues only: mint for
+  done/approved/paid, amber for waiting/pending/late, coral for missed/rejected.
+  Dark mode is warm charcoal (`#121110` ground, `ink-900` cards).
+- **Relief, not lines:** cards are raised off the paper (paired light-from-top-
+  left / shade-to-bottom-right shadows, `shadow-sm`…`shadow-lg`); inputs,
+  progress tracks and small stat wells are pressed in (inset shadow). Use
+  hairline borders only for the header, tab bar and list dividers.
+- **Shape:** cards 24 px radius (`rounded-2xl`), inputs 12 px, primary buttons
+  and chips are pills (`rounded-full`), icon buttons and quick actions are
+  round.
+- **Type:** **Inter** only (400–700 from Google Fonts), body ≥ 14 px with
+  `-0.011em` tracking. Section names are small uppercase labels
+  (`0.6875rem`, 600, `tracking-[0.14em]`, `ink-500`), e.g. "THIS WEEK",
+  "ON SHIFT NOW". Figures (hours, RM) are semibold, tabular.
+- **Status = dot + word** in a soft pill ("● Approved", "● Late"), never colour
+  alone.
+- **Motion:** quick and quiet, 150–300 ms, `cubic-bezier(0.22, 1, 0.36, 1)`,
+  transform and opacity only: views rise in (~180 ms), list rows stagger
+  (40 ms apart), a drawn tick confirms a successful action (leave requested,
+  leave approved). Respect `prefers-reduced-motion` completely.
+- Light and dark via a `.dark` class on `<html>`; explicit `dark:` classes on
+  every coloured element; **never `!important`** (except a global
+  reduced-motion override and print rules).
+- Secondary text `ink-500` (light) / `ink-400` (dark) for contrast. Honour iOS
+  safe-area insets; the bottom tab bar shows the active tab as a cobalt-tinted
+  pill behind its icon, like the Hub's.
 - Loading: skeletons on first load, never a blank screen or a misleading empty
   state; empty states say what to do next.
-- Respect `prefers-reduced-motion`; honour safe-area insets on iOS.
 
 ## 7. Behaviour rules
+
+- **Speed is the feature.** It must feel instant: no spinner between tabs,
+  every tab keeps its last data and refreshes in the background, actions
+  update the screen optimistically and roll back with a clear message if the
+  server refuses. Code-split each tab with `React.lazy` and preload the rest
+  when the browser is idle; keep the first-load JS under ~200 KB gzip.
 
 - Every screen works on a slow phone connection: show cached data with an
   "Updating…" hint rather than blocking.
@@ -252,7 +286,8 @@ Match the Hub so the two feel like one product:
   `src/time.selfcheck.ts` (`npx tsx src/time.selfcheck.ts`, assert-based, no
   framework) covering month boundaries, midnight, and a shift crossing midnight.
 - Check every screen at 375 px and 1280 px, light and dark, before calling it
-  done.
+  done, and compare it side by side with the Hub at the same width: same
+  paper, same cards, same cobalt, same type.
 - README: what the app is, env vars, how to run, the role table, and a pointer
   to the Hub repo as the owner of the database.
 
