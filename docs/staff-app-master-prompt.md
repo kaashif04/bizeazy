@@ -128,9 +128,13 @@ Employee details live in the Hub's generic `records` table:
 - **`attendance_voids`**: `event_id uuid, reason text, voided_by uuid,
   voided_at`. A voided event is ignored everywhere.
 - **`attendance_days`** (view, read this for display): one row per employee per
-  local date — `employee_id, work_date date, first_in timestamptz, last_out
-  timestamptz null, worked_minutes int, scans int, open boolean, late boolean,
-  has_manual boolean, untrusted_clock boolean`. Pairing rule (implemented in
+  working day — `employee_id, work_date date, first_in timestamptz, last_in
+  timestamptz, last_out timestamptz null, worked_minutes int, scans int, open
+  boolean, late boolean, has_manual boolean, untrusted_clock boolean`.
+  A working day runs **4 am to 4 am Malaysia time**, so a late shift (in 22:00,
+  out 01:30) is one day. `worked_minutes` counts completed pairs only; while
+  `open`, the live "so far" is `worked_minutes + (now − last_in)`. `last_out`
+  is null while the day is open. Pairing rule (implemented in
   the view, do not re-implement): non-voided events of the day sorted by time,
   paired 1st–2nd, 3rd–4th…; `open` means an odd count (still on shift, or a
   missed clock-out). `late` compares `first_in` with the company's day start
@@ -140,9 +144,12 @@ Employee details live in the Hub's generic `records` table:
 
 ### 4.5 Leave (read and write)
 - **`leave_types`** (read): `id uuid, name, days_per_year numeric, paid
-  boolean, active boolean`. Set up by the owner in the Hub.
+  boolean, active boolean`. Set up by the owner in the Hub (Team → Leave).
+  Offer only `active` types when requesting.
 - **`leave_balances`** (view, read): `employee_id, leave_type_id, year int,
-  entitled numeric, taken numeric, pending numeric, remaining numeric`.
+  entitled numeric, taken numeric, pending numeric, remaining numeric null`
+  for the current year. `remaining` is null for a type with no yearly limit
+  (`days_per_year = 0`, e.g. unpaid leave): show "No limit".
 - **`leave_requests`** (read): `id uuid, employee_id, leave_type_id,
   start_date date, end_date date, half_day boolean, days numeric, reason text,
   status ('pending'|'approved'|'rejected'|'cancelled'), decided_by uuid null,

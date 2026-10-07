@@ -13,7 +13,7 @@ import { Sheet } from './ui/Sheet';
 import {
   listUsers, createUser, updateUser, resetUserPassword, deleteUser, changePassword,
   createRecoveryCode, recoveryStatus,
-  ALL_MODULES, MODULE_LABELS, ModuleName, Session, SessionUser,
+  ALL_MODULES, MODULE_LABELS, ModuleName, Role, Session, SessionUser,
 } from '../auth';
 
 type Tab = 'users' | 'password';
@@ -55,10 +55,35 @@ function ModuleTicks({
   );
 }
 
+/** Who a login clocks in as. Staff must have one; anyone else may (an owner who also works shifts). */
+function EmployeePicker({
+  value, role, employees, onChange,
+}: { value: string; role: Role; employees: { id: string; name: string }[]; onChange: (id: string) => void }) {
+  return (
+    <div>
+      <label className={LABEL}>{role === 'staff' ? 'Employee *' : 'Clocks in as (optional)'}</label>
+      <select value={value} onChange={e => onChange(e.target.value)} className={INPUT}>
+        <option value="">{role === 'staff' ? 'Choose the employee…' : 'Nobody — does not clock in'}</option>
+        {employees.map(e => <option key={e.id} value={e.id}>{e.name} ({e.id})</option>)}
+      </select>
+    </div>
+  );
+}
+
+const ROLE_OPTIONS = (
+  <>
+    <option value="member">Member (Hub, chosen modules)</option>
+    <option value="admin">Admin (full access)</option>
+    <option value="staff">Staff (Staff app only)</option>
+  </>
+);
+
 export function UsersModal({
-  session, isDark, onClose, onToast, initialTab,
+  session, isDark, onClose, onToast, initialTab, employees = [],
 }: {
   initialTab?: Tab;
+  /** Payroll's employees, to link staff logins to. */
+  employees?: { id: string; name: string }[];
   session: Session;
   isDark: boolean;
   onClose: () => void;
@@ -74,10 +99,11 @@ export function UsersModal({
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState({
     userId: '', password: '', fullName: '', email: '',
-    role: 'member' as 'admin' | 'member', modules: ['invoicing'] as ModuleName[],
+    role: 'member' as Role, modules: ['invoicing'] as ModuleName[], employeeId: '',
   });
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [edit, setEdit] = useState<{ fullName: string; email: string; role: 'admin' | 'member'; modules: ModuleName[]; active: boolean } | null>(null);
+  const [edit, setEdit] = useState<{ fullName: string; email: string; role: Role; modules: ModuleName[]; active: boolean; employeeId: string } | null>(null);
+  const employeeName = (id?: string | null) => employees.find(e => e.id === id)?.name || id || '';
 
   const [pw, setPw] = useState({ old: '', next: '', confirm: '' });
   const [recovery, setRecovery] = useState<{ exists: boolean; created_at: string | null } | null>(null);
@@ -137,20 +163,21 @@ export function UsersModal({
       setError('A user ID and a password of at least 8 characters are required.');
       return;
     }
+    if (draft.role === 'staff' && !draft.employeeId) { setError('Choose the employee this staff login belongs to.'); return; }
     const ok = await run(() => createUser({
       userId: draft.userId.trim(), password: draft.password,
       fullName: draft.fullName.trim() || draft.userId.trim(), email: draft.email.trim(),
-      role: draft.role, modules: draft.modules,
+      role: draft.role, modules: draft.modules, employeeId: draft.employeeId,
     }), `User "${draft.userId.trim()}" created.`);
     if (ok) {
       setAdding(false);
-      setDraft({ userId: '', password: '', fullName: '', email: '', role: 'member', modules: ['invoicing'] });
+      setDraft({ userId: '', password: '', fullName: '', email: '', role: 'member', modules: ['invoicing'], employeeId: '' });
     }
   };
 
   const startEdit = (u: SessionUser) => {
     setEditingId(u.user_id);
-    setEdit({ fullName: u.full_name, email: u.email, role: u.role, modules: u.modules, active: u.active });
+    setEdit({ fullName: u.full_name, email: u.email, role: u.role, modules: u.modules, active: u.active, employeeId: u.employee_id || '' });
   };
 
   const handleSaveEdit = async () => {
@@ -244,6 +271,11 @@ export function UsersModal({
                                   <ShieldCheck className="w-2.5 h-2.5" />Admin
                                 </span>
                               )}
+                              {u.role === 'staff' && (
+                                <span className="text-2xs font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+                                  Staff app
+                                </span>
+                              )}
                               {!u.active && (
                                 <span className="text-2xs font-bold uppercase px-1.5 py-0.5 rounded bg-ink-200 dark:bg-ink-800 text-ink-600 dark:text-ink-400">
                                   Disabled
@@ -252,7 +284,9 @@ export function UsersModal({
                               {isSelf && <span className="text-2xs font-bold uppercase text-ink-500 dark:text-ink-400">you</span>}
                             </div>
                             <p className="text-2xs text-ink-500 dark:text-ink-400 mt-0.5 truncate">
-                              {u.role === 'admin' ? 'All modules' : (u.modules.map(m => MODULE_LABELS[m]).join(' · ') || 'No modules assigned')}
+                              {u.role === 'admin' ? 'All modules' : u.role === 'staff' ? 'Clock-ins, payslips and leave'
+                                : (u.modules.map(m => MODULE_LABELS[m]).join(' · ') || 'No modules assigned')}
+                              {u.employee_id && <> · Clocks in as {employeeName(u.employee_id)}</>}
                             </p>
                           </div>
                           <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -289,9 +323,8 @@ export function UsersModal({
                             <div className="grid grid-cols-2 gap-2">
                               <div>
                                 <label className={LABEL}>Role</label>
-                                <select value={edit.role} onChange={e => setEdit({ ...edit, role: e.target.value as 'admin' | 'member' })} className={INPUT}>
-                                  <option value="member">Member</option>
-                                  <option value="admin">Admin (full access)</option>
+                                <select value={edit.role} onChange={e => setEdit({ ...edit, role: e.target.value as Role })} className={INPUT}>
+                                  {ROLE_OPTIONS}
                                 </select>
                               </div>
                               <div>
@@ -302,12 +335,16 @@ export function UsersModal({
                                 </select>
                               </div>
                             </div>
-                            <div>
-                              <label className={LABEL}>
-                                Modules {edit.role === 'admin' && <span className="normal-case font-normal">— admins always get everything</span>}
-                              </label>
-                              <ModuleTicks selected={edit.role === 'admin' ? ALL_MODULES : edit.modules} disabled={edit.role === 'admin'} onToggle={toggleEditModule} />
-                            </div>
+                            <EmployeePicker value={edit.employeeId} role={edit.role} employees={employees}
+                              onChange={id => setEdit({ ...edit, employeeId: id })} />
+                            {edit.role !== 'staff' && (
+                              <div>
+                                <label className={LABEL}>
+                                  Modules {edit.role === 'admin' && <span className="normal-case font-normal">— admins always get everything</span>}
+                                </label>
+                                <ModuleTicks selected={edit.role === 'admin' ? ALL_MODULES : edit.modules} disabled={edit.role === 'admin'} onToggle={toggleEditModule} />
+                              </div>
+                            )}
                             <div className="flex justify-end">
                               <button onClick={handleSaveEdit} disabled={busy} className={PRIMARY}>
                                 {busy ? 'Saving…' : 'Save Changes'}
@@ -348,15 +385,22 @@ export function UsersModal({
                   </div>
                   <div>
                     <label className={LABEL}>Role</label>
-                    <select value={draft.role} onChange={e => setDraft({ ...draft, role: e.target.value as 'admin' | 'member' })} className={INPUT}>
-                      <option value="member">Member</option>
-                      <option value="admin">Admin (full access)</option>
+                    <select value={draft.role} onChange={e => setDraft({ ...draft, role: e.target.value as Role })} className={INPUT}>
+                      {ROLE_OPTIONS}
                     </select>
                   </div>
-                  <div>
-                    <label className={LABEL}>Modules this user can open</label>
-                    <ModuleTicks selected={draft.role === 'admin' ? ALL_MODULES : draft.modules} disabled={draft.role === 'admin'} onToggle={toggleDraftModule} />
-                  </div>
+                  <EmployeePicker value={draft.employeeId} role={draft.role} employees={employees}
+                    onChange={id => setDraft({ ...draft, employeeId: id })} />
+                  {draft.role === 'staff' ? (
+                    <p className="text-2xs text-ink-500 dark:text-ink-400">
+                      Staff sign in to the BizEazy Staff app to see their clock-ins, payslips and leave. They cannot open the Hub.
+                    </p>
+                  ) : (
+                    <div>
+                      <label className={LABEL}>Modules this user can open</label>
+                      <ModuleTicks selected={draft.role === 'admin' ? ALL_MODULES : draft.modules} disabled={draft.role === 'admin'} onToggle={toggleDraftModule} />
+                    </div>
+                  )}
                   <div className="flex items-center justify-end gap-2">
                     <button onClick={() => { setAdding(false); setError(''); }} className={GHOST}>Cancel</button>
                     <button onClick={handleAdd} disabled={busy} className={PRIMARY}>

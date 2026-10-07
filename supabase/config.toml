@@ -4,3 +4,8 @@ project_id = "rtleeehglawquekygfoh"
 # verify the caller's token inside the function itself.
 [functions.accounts]
 verify_jwt = false
+
+# A kiosk has no Supabase session: it sends its own device token, which the
+# function checks; the Hub's kiosk actions verify the caller's token inside.
+[functions.kiosk]
+verify_jwt = false

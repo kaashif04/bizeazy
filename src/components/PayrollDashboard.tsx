@@ -17,6 +17,7 @@ import { PayslipArchive } from './PayslipArchive';
 import { confirmMoment } from '../utils/confirm';
 import { createPortal } from 'react-dom';
 import { attachA4Scale } from '../utils/a4scale';
+import { publishPayslipPdf } from '../utils/payslipPdf';
 
 interface PayrollDashboardProps {
   db: DatabaseState;
@@ -41,6 +42,8 @@ interface PayrollDashboardProps {
   payrollScope?: 'company' | 'branch';
   /** Present only for people allowed to change company settings. */
   onPayrollScopeChange?: (scope: 'company' | 'branch') => void;
+  /** Where saved payslip PDFs are published for the Staff app. */
+  companyId?: string;
 }
 
 export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
@@ -58,6 +61,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
   setIsSyncing,
   payrollScope = 'company',
   onPayrollScopeChange,
+  companyId,
 }) => {
   // --- STATE CONTROLS ---
   const [searchTerm, setSearchTerm] = useState('');
@@ -612,6 +616,14 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
   };
 
   // Save localized slips directly into Google Sheets DB
+  /** The Staff app's copy. Saving already succeeded, so a failure here only warns. */
+  const publishPdf = (ps: Payslip) => {
+    if (!companyId) return;
+    const emp = db.employees.find(e => e.Employee_ID === ps.Employee_ID);
+    publishPayslipPdf(companyId, ps, emp, profileFor(ps.Branch_Location || emp?.Branch_Location), byBranch)
+      .catch((err: any) => triggerToast(`Saved, but the Staff app copy did not upload: ${err.message}`, 'warning'));
+  };
+
   const handleSavePayslip = async (payslipToSave: Payslip) => {
     if (isStaff) {
       triggerToast("Access Denied: Read-only mode activated.", "error");
@@ -647,6 +659,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       setIsSyncing(true);
       await syncStateToSheets(spreadsheetId, accessToken, nextDb, profiles, activeBranchLocation);
       triggerToast(`Payslip ${finalizedSlips.Payslip_ID} stored successfully!`, "success");
+      publishPdf(finalizedSlips);
     } catch (err: any) {
       triggerToast(`Not saved yet: ${err.message}`, "error");
     } finally {
@@ -2138,6 +2151,10 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                   setMarkPaymentPayslip(null);
                   setTransferDateInput('');
                   syncStateToSheets(spreadsheetId, accessToken, nextDb, profiles, activeBranchLocation)
+                    .then(() => {
+                      const updated = nextDb.payslips.find(p => p.Payslip_ID === paid.Payslip_ID);
+                      if (updated) publishPdf(updated);
+                    })
                     .then(() => confirmMoment({
                       title: 'Salary paid', amount: paid.Final_Net_Pay,
                       note: [who, normaliseMonthLabel(paid.Month_Year)].filter(Boolean).join(' · '),

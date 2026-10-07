@@ -37,17 +37,19 @@ const InvoicingModule = lazy(loadInvoicing);
 const QuotationModule = lazy(loadQuotations);
 const PayrollDashboard = lazy(() => loadPayroll().then(m => ({ default: m.PayrollDashboard })));
 const ReportsView = lazy(() => loadReports().then(m => ({ default: m.ReportsView })));
-const preloadModules = () => { loadInvoicing(); loadQuotations(); loadPayroll(); loadReports(); };
+const loadTeam = () => import('./components/TeamModule');
+const TeamModule = lazy(() => loadTeam().then(m => ({ default: m.TeamModule })));
+const preloadModules = () => { loadInvoicing(); loadQuotations(); loadPayroll(); loadReports(); loadTeam(); };
 import {
   LayoutDashboard, FileText, Users, LogOut, Moon, Sun, RefreshCw,
   Building2, TrendingUp, Clock, Loader2, X, AlertTriangle, ArrowRight,
-  CreditCard, Settings, Menu, Upload, CalendarRange, UserCog, BarChart3, Info,
+  CreditCard, Settings, Menu, Upload, CalendarRange, UserCog, BarChart3, Info, UserCheck,
 } from 'lucide-react';
 import { HubOverview, DrawnTick, Money } from './components/HubOverview';
 import { CONFIRMED_EVENT, Confirmation } from './utils/confirm';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type AppView = 'hub' | 'invoicing' | 'payroll' | 'quotations' | 'reports';
+type AppView = 'hub' | 'invoicing' | 'payroll' | 'quotations' | 'reports' | 'team';
 type AuthStatus = 'loading' | 'unauthenticated' | 'authenticated';
 
 interface Toast {
@@ -391,6 +393,7 @@ const NAV_ITEMS: { view: AppView; Icon: React.FC<React.SVGProps<SVGSVGElement>>;
   { view: 'quotations', Icon: CalendarRange, label: 'Quotations' },
   { view: 'payroll', Icon: Users, label: 'Payroll' },
   { view: 'reports', Icon: BarChart3, label: 'Reports' },
+  { view: 'team', Icon: UserCheck, label: 'Team' },
 ];
 
 function Sidebar({
@@ -790,7 +793,7 @@ export default function App() {
 
   const viewTitle: Record<AppView, string> = {
     hub: 'Overview', invoicing: 'Invoices', payroll: 'Payroll',
-    quotations: 'Quotations', reports: 'Reports',
+    quotations: 'Quotations', reports: 'Reports', team: 'Team',
   };
 
   const wrapClass = isDark ? 'dark' : '';
@@ -997,6 +1000,17 @@ export default function App() {
                 onStartedNew={() => setCreateIn(null)}
               />
             )}
+            {activeView === 'team' && session && (
+              <TeamModule
+                db={db}
+                profiles={profiles}
+                companyId={session.company.company_id}
+                canSettings={can(session, 'settings')}
+                canPayroll={can(session, 'payroll')}
+                payrollScope={payrollScope}
+                triggerToast={triggerToast}
+              />
+            )}
             {activeView === 'reports' && (
               <ReportsView
                 db={db}
@@ -1021,6 +1035,7 @@ export default function App() {
                 setIsSyncing={setIsSyncing}
                 payrollScope={payrollScope}
                 onPayrollScopeChange={can(session, 'settings') ? handlePayrollScope : undefined}
+                companyId={session?.company.company_id}
               />
             )}
             </Suspense>)}
@@ -1047,7 +1062,8 @@ export default function App() {
         />
       )}
       {isUsersOpen && (
-        <UsersModal session={session} isDark={isDark} onClose={() => setIsUsersOpen(false)} onToast={triggerToast} initialTab={needsRecoveryCode ? 'password' : undefined} />
+        <UsersModal session={session} isDark={isDark} onClose={() => setIsUsersOpen(false)} onToast={triggerToast} initialTab={needsRecoveryCode ? 'password' : undefined}
+          employees={db.employees.map(e => ({ id: e.Employee_ID, name: e.Employee_Name }))} />
       )}
       <BottomNav
         activeView={activeView}

@@ -15,7 +15,7 @@
  */
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const ALL_MODULES = ['invoicing', 'quotations', 'payroll', 'settings'];
+const ALL_MODULES = ['invoicing', 'quotations', 'payroll', 'settings', 'team'];
 const loginEmail = (code: string) => `${code}@users.bizeazy.invalid`;
 
 const cors = {
@@ -58,8 +58,12 @@ const isTaken = (message: string) => /already|registered|exists|duplicate/i.test
 
 interface Profile {
   user_id: string; company_id: string; user_code: string; display_id: string;
-  full_name: string; email: string; role: 'admin' | 'member'; modules: string[]; active: boolean;
+  full_name: string; email: string; role: 'admin' | 'member' | 'staff'; modules: string[]; active: boolean;
+  employee_id: string | null;
 }
+
+type Role = Profile['role'];
+const cleanRole = (r: unknown): Role => (r === 'admin' || r === 'staff' ? r : 'member');
 
 /** The shape the app keeps as its signed-in user. */
 const publicUser = (p: Profile) => ({
@@ -67,9 +71,30 @@ const publicUser = (p: Profile) => ({
   full_name: p.full_name,
   email: p.email,
   role: p.role,
-  modules: p.role === 'admin' ? ALL_MODULES : p.modules,
+  modules: p.role === 'admin' ? ALL_MODULES : p.role === 'staff' ? [] : p.modules,
   active: p.active,
+  employee_id: p.employee_id,
 });
+
+/**
+ * The employee a login is linked to: it must exist in this company and have no
+ * other login. A staff login must have one; anyone else may (an owner who also
+ * clocks in). Returns null to unlink.
+ */
+async function employeeLink(admin: Profile, role: Role, value: unknown, self?: string): Promise<string | null> {
+  const id = String(value ?? '').trim();
+  if (!id) {
+    if (role === 'staff') throw new Refusal('Choose the employee this staff login belongs to.');
+    return null;
+  }
+  const { data: emp } = await db.from('records').select('id')
+    .eq('company_id', admin.company_id).eq('kind', 'employees').eq('id', id).maybeSingle();
+  if (!emp) throw new Refusal('That employee is not in your payroll.');
+  const { data: taken } = await db.from('profiles').select('user_id, display_id')
+    .eq('company_id', admin.company_id).eq('employee_id', id).maybeSingle();
+  if (taken && taken.user_id !== self) throw new Refusal(`That employee already has a login (${taken.display_id}).`);
+  return id;
+}
 
 async function signedInAdmin(req: Request): Promise<Profile> {
   const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
@@ -228,6 +253,8 @@ async function listUsers(admin: Profile) {
 async function createUser(admin: Profile, p: any) {
   const code = userCode(p.userId);
   const pw = password(p.password);
+  const role = cleanRole(p.role);
+  const employee_id = await employeeLink(admin, role, p.employeeId);
   if ((await checkUserId({ userId: code })).available === false) throw new Refusal('That user ID is already taken.');
 
   const { data: created, error } = await db.auth.admin.createUser({ email: loginEmail(code), password: pw, email_confirm: true });
@@ -235,11 +262,11 @@ async function createUser(admin: Profile, p: any) {
     if (error && isTaken(error.message)) throw new Refusal('That user ID is already taken.');
     throw error ?? new Error('Could not create the account.');
   }
-  const role = String(p.role) === 'admin' ? 'admin' : 'member';
   const row = {
     user_id: created.user.id, company_id: admin.company_id, user_code: code,
     display_id: String(p.userId).trim(), full_name: String(p.fullName ?? '').trim() || String(p.userId).trim(),
-    email: String(p.email ?? '').trim(), role, modules: cleanModules(p.modules), active: true,
+    email: String(p.email ?? '').trim(), role, modules: role === 'staff' ? [] : cleanModules(p.modules), active: true,
+    employee_id,
   };
   const { error: profileError } = await db.from('profiles').insert(row);
   if (profileError) {
@@ -252,7 +279,7 @@ async function createUser(admin: Profile, p: any) {
 
 async function updateUser(admin: Profile, p: any) {
   const user = await colleague(admin, p.userId);
-  const role = p.role === undefined ? user.role : (String(p.role) === 'admin' ? 'admin' : 'member');
+  const role = p.role === undefined ? user.role : cleanRole(p.role);
   const active = p.active === undefined ? user.active : !!p.active;
 
   // Demoting or disabling the last active admin would lock the whole company
@@ -265,6 +292,10 @@ async function updateUser(admin: Profile, p: any) {
   if (p.fullName !== undefined) patch.full_name = String(p.fullName).trim();
   if (p.email !== undefined) patch.email = String(p.email).trim();
   if (p.modules !== undefined) patch.modules = cleanModules(p.modules);
+  if (role === 'staff') patch.modules = [];
+  if (p.employeeId !== undefined || (role === 'staff' && !user.employee_id)) {
+    patch.employee_id = await employeeLink(admin, role, p.employeeId ?? user.employee_id, user.user_id);
+  }
   const { data, error } = await db.from('profiles').update(patch).eq('user_id', user.user_id).select('*').single();
   if (error) throw error;
 

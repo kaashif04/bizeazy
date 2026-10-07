@@ -8,23 +8,29 @@
  */
 import { supabase, setRemember, remembered, loginEmail } from './supabase';
 
-export type ModuleName = 'invoicing' | 'quotations' | 'payroll' | 'settings';
-export const ALL_MODULES: ModuleName[] = ['invoicing', 'quotations', 'payroll', 'settings'];
+export type ModuleName = 'invoicing' | 'quotations' | 'payroll' | 'settings' | 'team';
+export const ALL_MODULES: ModuleName[] = ['invoicing', 'quotations', 'payroll', 'settings', 'team'];
 
 export const MODULE_LABELS: Record<ModuleName, string> = {
   invoicing: 'Invoicing',
   quotations: 'Quotations',
   payroll: 'Payroll & Payslips',
   settings: 'Settings & Company Profiles',
+  team: 'Team: attendance & leave',
 };
+
+/** Staff sign in to the BizEazy Staff app only; the Hub turns them away. */
+export type Role = 'admin' | 'member' | 'staff';
 
 export interface SessionUser {
   user_id: string;
   full_name: string;
   email: string;
-  role: 'admin' | 'member';
+  role: Role;
   modules: ModuleName[];
   active: boolean;
+  /** The employee record this login clocks in as, if any. */
+  employee_id?: string | null;
 }
 
 export interface SessionCompany {
@@ -89,6 +95,7 @@ supabase.auth.onAuthStateChange((event) => {
 
 const DEACTIVATED = 'This account has been deactivated. Contact your administrator.';
 const EXPIRED = 'Your session has expired. Please sign in again.';
+const STAFF_ONLY = 'This login is for the BizEazy Staff app. Ask your manager for the link.';
 
 /** Who is signed in, read fresh from the server. */
 async function fetchSession(): Promise<Session> {
@@ -105,6 +112,10 @@ async function fetchSession(): Promise<Session> {
   if (!p || !p.active) {
     await supabase.auth.signOut();
     throw new Error(DEACTIVATED);
+  }
+  if (p.role === 'staff') {
+    await supabase.auth.signOut();
+    throw new Error(STAFF_ONLY);
   }
   const company: any = Array.isArray(p.companies) ? p.companies[0] : p.companies;
   const role = p.role === 'admin' ? 'admin' : 'member';
@@ -167,7 +178,7 @@ export async function refreshSession(): Promise<Session> {
     return session;
   } catch (err) {
     // Offline is not signed out: keep the cached copy and let the next call retry.
-    if (!/expired|deactivated/i.test((err as Error).message)) throw err;
+    if (!/expired|deactivated|Staff app/i.test((err as Error).message)) throw err;
     signalSignedOut();
     throw err;
   }
@@ -195,9 +206,9 @@ async function accounts(action: string, body: Record<string, unknown>): Promise<
 }
 
 export const listUsers = (): Promise<SessionUser[]> => accounts('listUsers', {});
-export const createUser = (p: { userId: string; password: string; fullName: string; email?: string; role: 'admin' | 'member'; modules: ModuleName[] }) =>
+export const createUser = (p: { userId: string; password: string; fullName: string; email?: string; role: Role; modules: ModuleName[]; employeeId?: string }) =>
   accounts('createUser', p);
-export const updateUser = (p: { userId: string; fullName?: string; email?: string; role?: 'admin' | 'member'; modules?: ModuleName[]; active?: boolean }) =>
+export const updateUser = (p: { userId: string; fullName?: string; email?: string; role?: Role; modules?: ModuleName[]; active?: boolean; employeeId?: string }) =>
   accounts('updateUser', p);
 export const resetUserPassword = (userId: string, password: string) => accounts('resetUserPassword', { userId, password });
 export const deleteUser = (userId: string) => accounts('deleteUser', { userId });
