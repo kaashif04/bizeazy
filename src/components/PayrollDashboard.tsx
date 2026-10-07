@@ -15,6 +15,8 @@ import { Sheet, sheetBtn } from './ui/Sheet';
 import { EmptyState } from './ui/States';
 import { PayslipArchive } from './PayslipArchive';
 import { confirmMoment } from '../utils/confirm';
+import { createPortal } from 'react-dom';
+import { attachA4Scale } from '../utils/a4scale';
 
 interface PayrollDashboardProps {
   db: DatabaseState;
@@ -1661,84 +1663,40 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       )}
 
       {/* --- MODAL 3: PAYSLIP PREVIEW TEMPLATE --- */}
-      {previewPayslip && previewEmployee && (
-        <div data-document className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm overflow-y-auto flex items-start justify-center py-4 px-2 sm:py-8 sm:px-6">
+      {previewPayslip && previewEmployee && createPortal(
+        <div id="payslip-preview-overlay" data-document className="fixed inset-0 z-[60] bg-black/70 flex overlay-center justify-center p-2 sm:p-4 overflow-y-auto">
           <style dangerouslySetInnerHTML={{__html: `
-            #printable-payslip {
-              transform-origin: top left;
-            }
-            @media screen and (max-width: 479px) {
-              #printable-payslip {
-                transform: scale(0.72);
-                transform-origin: top left;
-                margin-bottom: -160px;
-                width: 138.9% !important;
-              }
-            }
-            @media screen and (min-width: 480px) and (max-width: 639px) {
-              #printable-payslip {
-                transform: scale(0.82);
-                transform-origin: top left;
-                margin-bottom: -100px;
-                width: 121.9% !important;
-              }
-            }
+            /* Amounts never wrap; labels take the remaining width. */
+            #printable-payslip .flex.justify-between { gap: 0.75rem; }
+            #printable-payslip .flex.justify-between > span:last-child { white-space: nowrap; }
             @media print {
               @page { size: A4 portrait; margin: 0mm; }
+              /* Same recipe as the invoice and quotation previews: pin the print
+                 viewport to A4 so phones print 1:1, and drop every other body child
+                 from layout so no blank second page is left behind. */
               html, body {
-                margin: 0 !important; padding: 0 !important;
-                background: white !important;
-                /* Pin the print viewport to true A4 width so mobile Chrome/Safari
-                   prints the 210mm payslip 1:1 instead of shrinking it into a
-                   corner and spilling onto a second page. */
                 width: 210mm !important; min-width: 210mm !important; max-width: 210mm !important;
                 -webkit-text-size-adjust: 100% !important; text-size-adjust: 100% !important;
               }
-              body * { visibility: hidden !important; }
-              #printable-payslip, #printable-payslip * {
-                visibility: visible !important;
-                color: #111827 !important;
+              body, html { margin: 0 !important; padding: 0 !important; background: white !important; }
+              body > * { display: none !important; }
+              body > #payslip-preview-overlay { display: block !important; }
+              .no-print { display: none !important; }
+              #payslip-preview-overlay, #payslip-preview-dialog, #payslip-stage-container {
+                position: static !important; height: auto !important;
+                max-height: none !important; overflow: visible !important;
+                padding: 0 !important; margin: 0 !important; display: block !important;
+                background: white !important; box-shadow: none !important; border-radius: 0 !important;
               }
+              .a4-spacer { width: auto !important; height: auto !important; margin: 0 !important; }
               #printable-payslip {
-                position: fixed !important;
-                top: 0 !important; left: 0 !important;
-                width: 210mm !important;
-                max-width: 210mm !important;
-                box-sizing: border-box !important;
-                overflow: visible !important;
-                height: auto !important;
-                background: white !important;
-                border: none !important; box-shadow: none !important;
-                padding: 12mm 14mm !important;
-                margin: 0 !important;
-                z-index: 99999 !important;
-                transform: none !important;
+                width: 210mm !important; min-height: 297mm !important; height: auto !important;
+                transform: none !important; margin: 0 !important; box-shadow: none !important;
+                -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
               }
-              #printable-payslip * {
-                box-sizing: border-box !important;
-              }
-              #printable-payslip [class*="grid-cols-2"] {
-                display: grid !important;
-                grid-template-columns: 1fr 1fr !important;
-              }
-              #printable-payslip [class*="grid-cols-3"] {
-                display: grid !important;
-                grid-template-columns: 1fr 1fr 1fr !important;
-              }
-              #printable-payslip .bg-ink-9,
-              #printable-payslip [class*="bg-ink-9"] {
-                background: #f0fdf4 !important;
-              }
-              #printable-payslip [class*="text-white"] { color: #111827 !important; }
-              #printable-payslip [class*="text-emerald"] { color: #059669 !important; }
-              #printable-payslip [class*="text-rose"] { color: #dc2626 !important; }
-              #printable-payslip .payslip-badge { color: white !important; }
-              .no-print { display: none !important; visibility: hidden !important; }
-              * { -webkit-print-color-adjust: exact !important;
-                  print-color-adjust: exact !important; }
             }
           `}} />
-          <div className="w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden">
+          <div id="payslip-preview-dialog" className="w-full max-w-4xl h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col bg-white dark:bg-ink-900">
               <div className={`flex items-center justify-between px-6 py-4 no-print ${isDarkMode ? 'bg-ink-900 border-b border-ink-800' : 'bg-white border-b border-ink-100'}`}>
               <div className="flex items-center gap-2">
                 <FileText className="w-5 h-5 text-brand-500" />
@@ -1764,19 +1722,21 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               </button>
             </div>
 
-            {/* Document Printable Frame */}
-            <div id="printable-payslip" className={`p-8 space-y-6 w-full ${isDarkMode ? 'bg-ink-950' : 'bg-white'}`}>
+            {/* A4 page at true width, scaled to fit the screen (utils/a4scale). */}
+            <div id="payslip-stage-container" ref={attachA4Scale} className="flex-1 bg-ink-800 p-2 sm:p-8 overflow-auto w-full">
+            <div className="a4-spacer mx-auto">
+            <div id="printable-payslip" className="a4-page bg-white text-ink-900 w-[794px] min-h-[1123px] p-12 space-y-6 shadow-2xl">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h1 className="text-lg font-black tracking-tight text-ink-900 dark:text-white uppercase">
+                  <h1 className="text-lg font-black tracking-tight text-ink-900 uppercase">
                     {letterhead.company_name || letterhead.name}
                   </h1>
                   {/* By-branch companies name the branch; whole-company payroll is issued by the company alone. */}
                   {byBranch && <p className="text-2xs text-ink-500 font-bold uppercase">{letterhead.store_name || letterhead.name}</p>}
-                  <p className="text-xs text-ink-500 dark:text-ink-400 max-w-sm mt-1 leading-relaxed">
+                  <p className="text-xs text-ink-500 max-w-sm mt-1 leading-relaxed">
                     {letterhead.address}
                   </p>
-                  <p className="text-xs text-ink-500 dark:text-ink-400 mt-1">
+                  <p className="text-xs text-ink-500 mt-1">
                     Phone: {letterhead.phone} | Email: {letterhead.email}
                   </p>
                 </div>
@@ -1785,7 +1745,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                   <span className="payslip-badge inline-block px-3 py-1 bg-brand-600 font-black tracking-widest text-2xs rounded-md border border-brand-600" style={{ color: 'white' }}>
                     PAYSLIP RECORD
                   </span>
-                  <div className="text-xs font-bold text-ink-900 dark:text-ink-100 mt-2">
+                  <div className="text-xs font-bold text-ink-900 mt-2">
                     ID: <span className="font-mono">{previewPayslip.Payslip_ID}</span>
                   </div>
                   <div className="text-xs text-ink-500 mt-0.5">
@@ -1801,43 +1761,43 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                 </div>
               </div>
 
-              <div className="border-b dark:border-ink-800" />
+              <div className="border-b" />
 
               {/* Detail Blocks */}
 <div className="grid grid-cols-2 gap-4">
   <div>
-    <h4 className="text-2xs font-bold text-ink-500 dark:text-ink-400 uppercase tracking-widest mb-1.5 font-mono">
+    <h4 className="text-2xs font-bold text-ink-500 uppercase tracking-widest mb-1.5 font-mono">
       Employee Details
     </h4>
-    <p className="text-sm font-black text-ink-950 dark:text-white">
+    <p className="text-sm font-black text-ink-950">
       {previewEmployee.Employee_Name}
     </p>
-    <p className="text-xs text-ink-700 dark:text-ink-400 font-medium">
+    <p className="text-xs text-ink-700 font-medium">
       IC Number/Passport:{" "}
-      <span className="font-mono text-ink-950 dark:text-white font-bold">
+      <span className="font-mono text-ink-950 font-bold">
         {previewEmployee.IC_Passport}
       </span>
     </p>
-    <p className="text-xs text-ink-700 dark:text-ink-400 font-medium">
+    <p className="text-xs text-ink-700 font-medium">
       Position:{" "}
-      <span className="font-bold text-ink-950 dark:text-white">
+      <span className="font-bold text-ink-950">
         {previewEmployee.Position}
       </span>
     </p>
-    <p className="text-xs text-ink-700 dark:text-ink-400 font-medium">
+    <p className="text-xs text-ink-700 font-medium">
       Outlet:{" "}
-      <span className="font-bold text-ink-950 dark:text-white">
+      <span className="font-bold text-ink-950">
         {previewEmployee.Branch_Location || previewEmployee.Assigned_Outlet}
       </span>
     </p>
   </div>
   <div>
-    <h4 className="text-2xs font-bold text-ink-500 dark:text-ink-400 uppercase tracking-widest mb-1.5 font-mono">
+    <h4 className="text-2xs font-bold text-ink-500 uppercase tracking-widest mb-1.5 font-mono">
       Payment details
     </h4>
-    <p className="text-xs text-ink-700 dark:text-ink-400 font-medium">
+    <p className="text-xs text-ink-700 font-medium">
       Month / Year:{" "}
-      <strong className="text-ink-950 dark:text-white font-black">
+      <strong className="text-ink-950 font-black">
         {(() => {
           const raw = previewPayslip.Month_Year || '';
           if (raw.includes('T') || /^\d{4}-\d{2}/.test(raw)) {
@@ -1848,22 +1808,22 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
         })()}
       </strong>
     </p>
-    <p className="text-xs text-ink-700 dark:text-ink-400 font-medium">
+    <p className="text-xs text-ink-700 font-medium">
       Bank Account Details:{" "}
-      <span className="font-bold text-ink-950 dark:text-white">
+      <span className="font-bold text-ink-950">
         {previewEmployee.Bank_Details || "Maybank Account"}
       </span>
     </p>
     {previewPayslip.Transfer_Date && (
-      <p className="text-xs text-ink-700 dark:text-ink-400 font-medium">
+      <p className="text-xs text-ink-700 font-medium">
         Wage Transfer Date:{' '}
-        <strong className="text-emerald-700 dark:text-emerald-400 font-black">
+        <strong className="text-emerald-700 font-black">
           {previewPayslip.Transfer_Date}
         </strong>
       </p>
     )}
     {!previewPayslip.Transfer_Date && (
-      <p className="text-xs text-ink-700 dark:text-ink-300 font-bold mt-1">
+      <p className="text-xs text-ink-700 font-bold mt-1">
         Transfer Date: _______________________
       </p>
     )}
@@ -1873,19 +1833,19 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               {/* Two balanced columns: Earnings vs Deductions */}
               <div className="grid grid-cols-2 gap-6 pt-2">
                 <div className="space-y-3">
-                  <div className="text-xs font-black text-emerald-800 dark:text-emerald-400 border-b pb-1 dark:border-ink-800 flex justify-between">
+                  <div className="text-xs font-black text-emerald-800 border-b pb-1 flex justify-between">
                     <span>EARNINGS ITEMIZED</span>
                     <span>AMOUNT</span>
                   </div>
                   <div className="space-y-1.5 text-xs font-semibold">
-                    <div className="flex justify-between text-ink-900 dark:text-ink-300">
+                    <div className="flex justify-between text-ink-900">
                       <span>
                         Basic Pay
                         {previewPayslip.Pay_Period && (
                           <span className="block text-2xs font-medium text-ink-500">{previewPayslip.Pay_Period}</span>
                         )}
                       </span>
-                      <span className="font-black text-ink-950 dark:text-white">RM {previewPayslip.Basic_Pay.toFixed(2)}</span>
+                      <span className="font-black text-ink-950">RM {previewPayslip.Basic_Pay.toFixed(2)}</span>
                     </div>
                     {(() => {
                       let list: any[] = [];
@@ -1895,17 +1855,17 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       list = list.filter((item: any) => !('_bm_paid' in item) && (item.description?.trim() || item.amount > 0));
                       if (list.length > 0) {
                         return list.map((item: any, idx: number) => (
-                          <div key={idx} className="flex justify-between text-ink-900 dark:text-ink-200">
+                          <div key={idx} className="flex justify-between text-ink-900">
                             <span>{item.description || 'Custom Allowance'}</span>
-                            <span className="font-bold text-ink-950 dark:text-white">RM {item.amount.toFixed(2)}</span>
+                            <span className="font-bold text-ink-950">RM {item.amount.toFixed(2)}</span>
                           </div>
                         ));
                       }
                       if (previewPayslip.Custom_Allowances > 0) {
                         return (
-                          <div className="flex justify-between text-ink-900 dark:text-ink-300">
+                          <div className="flex justify-between text-ink-900">
                             <span>Custom Allowances</span>
-                            <span className="font-bold text-ink-950 dark:text-white">
+                            <span className="font-bold text-ink-950">
                               RM {previewPayslip.Custom_Allowances.toFixed(2)}
                             </span>
                           </div>
@@ -1914,35 +1874,35 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       return null;
                     })()}
                   </div>
-                  <div className="flex justify-between text-xs font-black p-2 bg-emerald-500/10 text-emerald-800 dark:text-emerald-400 rounded-lg">
+                  <div className="flex justify-between text-xs font-black p-2 bg-emerald-500/10 text-emerald-800 rounded-lg">
                     <span>Total Earnings / Gross Pay</span>
                     <span>RM {(previewPayslip.Basic_Pay + previewPayslip.Custom_Allowances).toFixed(2)}</span>
                   </div>
                 </div>
 
                 <div className="space-y-3">
-                  <div className="text-xs font-black text-rose-700 dark:text-rose-400 border-b pb-1 dark:border-ink-800 flex justify-between">
+                  <div className="text-xs font-black text-rose-700 border-b pb-1 flex justify-between">
                     <span>DEDUCTIONS ITEMIZED</span>
                     <span>AMOUNT</span>
                   </div>
                   <div className="space-y-1.5 text-xs font-semibold">
-                    <div className="flex justify-between text-ink-900 dark:text-ink-300">
+                    <div className="flex justify-between text-ink-900">
                       <span>Employee EPF ({deductionLabels(previewEmployee).epf})</span>
-                      <span className="font-extrabold text-ink-950 dark:text-white">RM {previewPayslip.Employee_EPF.toFixed(2)}</span>
+                      <span className="font-extrabold text-ink-950">RM {previewPayslip.Employee_EPF.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-ink-900 dark:text-ink-300">
+                    <div className="flex justify-between text-ink-900">
                       <span>Employee SOCSO ({deductionLabels(previewEmployee).socso})</span>
-                      <span className="font-extrabold text-ink-950 dark:text-white">RM {previewPayslip.Employee_SOCSO.toFixed(2)}</span>
+                      <span className="font-extrabold text-ink-950">RM {previewPayslip.Employee_SOCSO.toFixed(2)}</span>
                     </div>
                     {(previewPayslip.Employee_SKBBK ?? 0) > 0 && (
-                      <div className="flex justify-between text-ink-900 dark:text-ink-300">
+                      <div className="flex justify-between text-ink-900">
                         <span>SKBBK / Lindung 24 Jam (0.75%)</span>
-                        <span className="font-extrabold text-ink-950 dark:text-white">RM {previewPayslip.Employee_SKBBK.toFixed(2)}</span>
+                        <span className="font-extrabold text-ink-950">RM {previewPayslip.Employee_SKBBK.toFixed(2)}</span>
                       </div>
                     )}
-                    <div className="flex justify-between text-ink-900 dark:text-ink-300">
+                    <div className="flex justify-between text-ink-900">
                       <span>Employee EIS / SIP ({deductionLabels(previewEmployee).eis})</span>
-                      <span className="font-extrabold text-ink-950 dark:text-white">RM {previewPayslip.Employee_EIS.toFixed(2)}</span>
+                      <span className="font-extrabold text-ink-950">RM {previewPayslip.Employee_EIS.toFixed(2)}</span>
                     </div>
                     {(() => {
                       let list: any[] = [];
@@ -1952,17 +1912,17 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       list = list.filter((item: any) => !('_bm_paid' in item) && (item.description?.trim() || item.amount > 0));
                       if (list.length > 0) {
                         return list.map((item: any, idx: number) => (
-                          <div key={idx} className="flex justify-between text-ink-900 dark:text-ink-200">
+                          <div key={idx} className="flex justify-between text-ink-900">
                             <span>{item.description || 'Custom Deduction'}</span>
-                            <span className="font-bold text-ink-950 dark:text-white">RM {item.amount.toFixed(2)}</span>
+                            <span className="font-bold text-ink-950">RM {item.amount.toFixed(2)}</span>
                           </div>
                         ));
                       }
                       if (previewPayslip.Custom_Deductions > 0) {
                         return (
-                          <div className="flex justify-between text-ink-900 dark:text-ink-400">
+                          <div className="flex justify-between text-ink-900">
                             <span>Custom Deductions</span>
-                            <span className="font-bold text-ink-950 dark:text-white font-mono">
+                            <span className="font-bold text-ink-950 font-mono">
                               RM {previewPayslip.Custom_Deductions.toFixed(2)}
                             </span>
                           </div>
@@ -1971,7 +1931,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       return null;
                     })()}
                   </div>
-                  <div className="flex justify-between text-xs font-black p-2 bg-rose-500/10 text-rose-800 dark:text-rose-400 rounded-lg">
+                  <div className="flex justify-between text-xs font-black p-2 bg-rose-500/10 text-rose-800 rounded-lg">
                     <span>Total Sum of Deductions</span>
                     <span>RM {(previewPayslip.Total_Statutory_Deductions + previewPayslip.Custom_Deductions).toFixed(2)}</span>
                   </div>
@@ -1985,12 +1945,12 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                   bonus would itself be subject to EPF/SOCSO in the month paid, which
                   this specifically is not intended to be. */}
               {previewPayslip.Employer_Statutory_Offset > 0 && (
-                <div className="p-3 rounded-xl bg-brand-500/10 border border-brand-300 dark:border-brand-800">
-                  <div className="flex justify-between text-xs font-black text-brand-700 dark:text-brand-400">
+                <div className="p-3 rounded-xl bg-brand-500/10 border border-brand-300">
+                  <div className="flex justify-between text-xs font-black text-brand-700">
                     <span>Employer-Borne Statutory Contribution (EPF + SOCSO + EIS)</span>
                     <span>RM {previewPayslip.Employer_Statutory_Offset.toFixed(2)}</span>
                   </div>
-                  <p className="text-2xs text-brand-600/80 dark:text-brand-400/70 mt-1">
+                  <p className="text-2xs text-brand-600/80 mt-1">
                     Employer pays this employee's own statutory share on their behalf, in addition
                     to the employer's own EPF/SOCSO/EIS contribution shown below. The deductions
                     above are still the real amounts contributed to this employee's EPF/SOCSO/EIS
@@ -2000,7 +1960,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               )}
 
               {/* Bold Outstanding Sum Net balance */}
-              <div className="p-4 rounded-xl bg-[#f0fdf4] border-2 border-emerald-500 text-ink-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="p-4 rounded-xl bg-[#f0fdf4] border-2 border-emerald-500 text-ink-900 flex items-center justify-between gap-4">
                 <div>
                   <h5 className="text-2xs font-bold text-emerald-600 uppercase tracking-widest">Employee Final Net Pay</h5>
                   <p className="text-2xs text-ink-600">
@@ -2016,36 +1976,36 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
 
               {/* Employer Statutory Metrics */}
               <div className={`p-3.5 rounded-lg border border-dashed text-xs mt-3 ${
-                isDarkMode 
-                  ? 'border-ink-700 bg-ink-900/40 text-ink-500' 
-                  : 'border-ink-200 bg-ink-50/50 text-ink-500'
+                'border-ink-200 bg-ink-50/50 text-ink-500'
               }`}>
                 <div className={`font-bold uppercase tracking-wider text-2xs mb-2 ${
-                  isDarkMode ? 'text-ink-300' : 'text-ink-700'
+                  'text-ink-700'
                 }`}>
                   Employer Statutory Audits (Employer Contributions in RM)
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-2xs">
-                  <div>Employer EPF: <strong className={isDarkMode ? 'text-ink-200' : 'text-ink-700'}>RM {previewPayslip.Employer_EPF.toFixed(2)}</strong></div>
-                  <div>Employer SOCSO: <strong className={isDarkMode ? 'text-ink-200' : 'text-ink-700'}>RM {previewPayslip.Employer_SOCSO.toFixed(2)}</strong></div>
-                  <div>Employer EIS (SIP): <strong className={isDarkMode ? 'text-ink-200' : 'text-ink-700'}>RM {previewPayslip.Employer_EIS.toFixed(2)}</strong></div>
+                  <div>Employer EPF: <strong className={'text-ink-700'}>RM {previewPayslip.Employer_EPF.toFixed(2)}</strong></div>
+                  <div>Employer SOCSO: <strong className={'text-ink-700'}>RM {previewPayslip.Employer_SOCSO.toFixed(2)}</strong></div>
+                  <div>Employer EIS (SIP): <strong className={'text-ink-700'}>RM {previewPayslip.Employer_EIS.toFixed(2)}</strong></div>
                 </div>
               </div>
 
               {/* Signature line */}
               <div className="flex justify-end mt-10">
                 <div className="text-center w-64">
-                  <div className={`border-t pt-3 ${isDarkMode ? 'border-ink-600' : 'border-ink-300'}`}>
-                    <p className={`text-2xs font-bold ${isDarkMode ? 'text-ink-300' : 'text-ink-700'}`}>
+                  <div className={`border-t pt-3 border-ink-300`}>
+                    <p className={`text-2xs font-bold text-ink-700`}>
                       Received By: Employee Signature
                     </p>
-                    <div className={`mt-4 border-b ${isDarkMode ? 'border-ink-500' : 'border-ink-400'}`} />
-                    <p className={`text-2xs mt-2 ${isDarkMode ? 'text-ink-500' : 'text-ink-500'}`}>
+                    <div className={`mt-4 border-b border-ink-400`} />
+                    <p className={`text-2xs mt-2 text-ink-500`}>
                       Date
                     </p>
                   </div>
                 </div>
               </div>
+            </div>
+            </div>
             </div>
 
             {/* Action buttons footer */}
@@ -2098,7 +2058,8 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               </div>
             </div>
           </div>{/* end A4 card */}
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Mark Payment Made modal ── */}
