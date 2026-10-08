@@ -217,7 +217,7 @@ export const listKiosks = (): Promise<Kiosk[]> => kiosk('listDevices');
 export const registerKiosk = (name: string, branch: string): Promise<Kiosk & { token: string }> =>
   kiosk('registerDevice', { name, branch });
 export const revokeKiosk = (id: string) => kiosk('revokeDevice', { id });
-export const KIOSK_ENDPOINT = `${(import.meta as any).env?.VITE_SUPABASE_URL || 'https://tckbrppvsojrftaymjbf.supabase.co'}/functions/v1/kiosk`;
+export const KIOSK_ENDPOINT = `${(import.meta as any).env?.VITE_BIZ_SUPABASE_URL || 'https://tckbrppvsojrftaymjbf.supabase.co'}/functions/v1/kiosk`;
 
 /** Live refresh: any new scan or leave change in the company calls back. */
 export function watchTeam(onChange: () => void): () => void {

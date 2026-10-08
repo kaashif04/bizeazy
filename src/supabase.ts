@@ -8,8 +8,8 @@ import { createClient } from '@supabase/supabase-js';
 
 // The shared Biz database (BizPos, BizEazy Hub, BizWallet). The old BizEazy
 // project (rtleeehglawquekygfoh) is kept read-only as the fallback.
-const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://tckbrppvsojrftaymjbf.supabase.co';
-const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_KEY || 'sb_publishable_Iq-flWl3xvnqQEWca4GBwg_-achqBfC';
+const SUPABASE_URL = import.meta.env?.VITE_BIZ_SUPABASE_URL || 'https://tckbrppvsojrftaymjbf.supabase.co';
+const SUPABASE_KEY = import.meta.env?.VITE_BIZ_SUPABASE_KEY || 'sb_publishable_Iq-flWl3xvnqQEWca4GBwg_-achqBfC';
 
 const REMEMBER_KEY = 'bizeazy_remember';
 

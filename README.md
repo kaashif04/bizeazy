@@ -15,7 +15,7 @@ npm run build
 ```
 
 The Supabase URL and publishable key are built in (`src/supabase.ts`); set
-`VITE_SUPABASE_URL` / `VITE_SUPABASE_KEY` to point a build at another project.
+`VITE_BIZ_SUPABASE_URL` / `VITE_BIZ_SUPABASE_KEY` to point a build at another project.
 
 ## Architecture
 
