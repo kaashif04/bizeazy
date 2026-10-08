@@ -50,7 +50,7 @@ import { CONFIRMED_EVENT, Confirmation } from './utils/confirm';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 // BizPos, for companies that use it too (company_apps has 'pos').
-const POS_URL = (import.meta as any).env?.VITE_POS_URL || 'https://bizpos.vercel.app';
+const POS_URL = (import.meta as any).env?.VITE_POS_URL || 'https://bizpos-bice.vercel.app';
 
 type AppView = 'hub' | 'invoicing' | 'payroll' | 'quotations' | 'reports' | 'team';
 type AuthStatus = 'loading' | 'unauthenticated' | 'authenticated';
