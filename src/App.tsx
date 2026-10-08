@@ -43,12 +43,15 @@ const preloadModules = () => { loadInvoicing(); loadQuotations(); loadPayroll();
 import {
   LayoutDashboard, FileText, Users, LogOut, Moon, Sun, RefreshCw,
   Building2, TrendingUp, Clock, Loader2, X, AlertTriangle, ArrowRight,
-  CreditCard, Settings, Menu, Upload, CalendarRange, UserCog, BarChart3, Info, UserCheck,
+  CreditCard, Settings, Menu, Upload, CalendarRange, UserCog, BarChart3, Info, UserCheck, MonitorSmartphone,
 } from 'lucide-react';
 import { HubOverview, DrawnTick, Money } from './components/HubOverview';
 import { CONFIRMED_EVENT, Confirmation } from './utils/confirm';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+// BizPos, for companies that use it too (company_apps has 'pos').
+const POS_URL = (import.meta as any).env?.VITE_POS_URL || 'https://bizpos.vercel.app';
+
 type AppView = 'hub' | 'invoicing' | 'payroll' | 'quotations' | 'reports' | 'team';
 type AuthStatus = 'loading' | 'unauthenticated' | 'authenticated';
 
@@ -399,7 +402,7 @@ const NAV_ITEMS: { view: AppView; Icon: React.FC<React.SVGProps<SVGSVGElement>>;
 function Sidebar({
   activeView, setActiveView, profiles, activeBranchLocation, setActiveBranchLocation,
   isDark, setIsDark, isDataLoading, onRefresh, onSignOut, onOpenSettings, onOpenProfiles,
-  onOpenUsers, user, companyName, allowed,
+  onOpenUsers, user, companyName, allowed, posUrl,
   isMobileOpen, onMobileClose,
 }: {
   activeView: AppView;
@@ -418,6 +421,8 @@ function Sidebar({
   user: SessionUser | null;
   companyName: string;
   allowed: (v: AppView | ModuleName) => boolean;
+  /** Set when the company also uses BizPos. */
+  posUrl?: string;
   isMobileOpen: boolean;
   onMobileClose: () => void;
 }) {
@@ -494,6 +499,15 @@ function Sidebar({
 
       {/* Utility actions */}
       <div className="px-3 py-2 border-t border-ink-100 dark:border-ink-800 space-y-0.5 flex-shrink-0">
+        {posUrl && (
+          <a
+            href={posUrl} target="_blank" rel="noopener"
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-brand-950/40 transition-colors cursor-pointer"
+          >
+            <MonitorSmartphone className="w-3.5 h-3.5 flex-shrink-0" />
+            Open POS
+          </a>
+        )}
         <button
           onClick={onRefresh}
           disabled={isDataLoading}
@@ -849,6 +863,7 @@ export default function App() {
           user={session.user}
           companyName={session.company.company_name}
           allowed={allowed}
+          posUrl={session.apps?.includes('pos') ? POS_URL : undefined}
           isMobileOpen={isMobileNavOpen}
           onMobileClose={() => setIsMobileNavOpen(false)}
         />

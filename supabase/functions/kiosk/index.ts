@@ -47,7 +47,7 @@ async function signedInManager(req: Request): Promise<Manager> {
   const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
   const { data, error } = token ? await db.auth.getUser(token) : { data: { user: null }, error: null };
   if (error || !data.user) throw new Refusal('Your session has expired. Please sign in again.');
-  const { data: me } = await db.from('profiles').select('user_id, company_id, role, modules, active')
+  const { data: me } = await db.from('hub_users').select('user_id, company_id, role, modules, active')
     .eq('user_id', data.user.id).maybeSingle();
   if (!me || !me.active) throw new Refusal('Your session has expired. Please sign in again.');
   if (me.role !== 'admin' && !(me.role === 'member' && (me.modules || []).includes('team'))) {
@@ -105,7 +105,7 @@ const today = () => new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 1
 
 /** Everyone still employed: no end date, or one that has not passed. */
 async function roster(d: Device) {
-  const { data, error } = await db.from('records').select('id, data')
+  const { data, error } = await db.from('hub_records').select('id, data')
     .eq('company_id', d.company_id).eq('kind', 'employees');
   if (error) throw error;
   return (data || [])

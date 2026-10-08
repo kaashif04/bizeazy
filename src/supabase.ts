@@ -6,8 +6,10 @@
  */
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://rtleeehglawquekygfoh.supabase.co';
-const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_KEY || 'sb_publishable_THbbwo1H7tOpEf2sRxn0cg_zIUWROuC';
+// The shared Biz database (BizPos, BizEazy Hub, BizWallet). The old BizEazy
+// project (rtleeehglawquekygfoh) is kept read-only as the fallback.
+const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://tckbrppvsojrftaymjbf.supabase.co';
+const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_KEY || 'sb_publishable_Iq-flWl3xvnqQEWca4GBwg_-achqBfC';
 
 const REMEMBER_KEY = 'bizeazy_remember';
 
@@ -41,5 +43,12 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { storage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
 });
 
-/** People sign in with a User ID; Supabase Auth needs an address. Mirrors supabase/functions/accounts. */
-export const loginEmail = (userId: string) => `${userId.trim().toLowerCase()}@users.bizeazy.invalid`;
+/**
+ * Hub logins use a User ID, mapped to an internal address (mirrors
+ * supabase/functions/accounts). BizPos owners sign in with their real email,
+ * so anything with an @ is used as it is — the same rule as BizPos's login.
+ */
+export const loginEmail = (userId: string) => {
+  const id = userId.trim().toLowerCase();
+  return id.includes('@') ? id : `${id}@users.bizeazy.invalid`;
+};

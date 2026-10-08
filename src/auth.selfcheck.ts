@@ -66,6 +66,8 @@ ok(!remembered(), 'remember off');
 
 // User IDs map to one internal address however they are typed.
 ok(loginEmail('  Kaashif.04 ') === 'kaashif.04@users.bizeazy.invalid', `login address, got ${loginEmail('  Kaashif.04 ')}`);
+// BizPos owners sign in with their real email: used as typed (lower-cased), never wrapped.
+ok(loginEmail(' Owner@Cafe.my ') === 'owner@cafe.my', `an email is used as it is, got ${loginEmail(' Owner@Cafe.my ')}`);
 
 // Module gating.
 const member = make();

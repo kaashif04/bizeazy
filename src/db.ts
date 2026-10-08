@@ -90,7 +90,7 @@ export async function loadAll(): Promise<DatabaseState> {
   const PAGE = 1000;   // the API's default row cap per request
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
-      .from('records').select('kind, id, data')
+      .from('hub_records').select('kind, id, data')
       .order('kind').order('id')
       .range(from, from + PAGE - 1);
     if (error) throw friendly(error);
@@ -106,7 +106,7 @@ async function apply(changes: Changes) {
   const BATCH = 500;
   const total = Math.max(changes.upserts.length, changes.deletes.length);
   for (let i = 0; i === 0 || i < total; i += BATCH) {
-    const { error } = await supabase.rpc('apply_changes', {
+    const { error } = await supabase.rpc('hub_apply_changes', {
       p_upserts: changes.upserts.slice(i, i + BATCH),
       p_deletes: changes.deletes.slice(i, i + BATCH),
     });
@@ -149,14 +149,14 @@ export async function saveCompanySettings(patch: Record<string, any>): Promise<R
 }
 
 export async function loadConfig(): Promise<Record<string, any>> {
-  const { data, error } = await supabase.from('config').select('key, value');
+  const { data, error } = await supabase.from('hub_config').select('key, value');
   if (error) throw friendly(error);
   return Object.fromEntries((data || []).map(r => [r.key, r.value]));
 }
 
 /** Saves the whole set: keys left out are removed. */
 export async function saveConfig(config: Record<string, any>): Promise<void> {
-  const { error } = await supabase.rpc('replace_config', { p_config: config });
+  const { error } = await supabase.rpc('hub_replace_config', { p_config: config });
   if (error) throw friendly(error);
 }
 
@@ -239,8 +239,8 @@ export interface Change { kind: Kind; id: string; at: string; by: string }
  */
 export async function recentChanges(limit = 30): Promise<Change[]> {
   const [{ data: rows, error }, { data: people }] = await Promise.all([
-    supabase.from('records').select('kind, id, updated_at, updated_by').order('updated_at', { ascending: false }).limit(limit),
-    supabase.from('profiles').select('user_id, display_id, full_name'),
+    supabase.from('hub_records').select('kind, id, updated_at, updated_by').order('updated_at', { ascending: false }).limit(limit),
+    supabase.from('hub_users').select('user_id, display_id, full_name'),
   ]);
   if (error) throw friendly(error);
   const names = new Map((people || []).map(p => [p.user_id, p.full_name || p.display_id]));

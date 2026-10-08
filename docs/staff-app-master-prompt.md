@@ -73,7 +73,7 @@ a custom `storage` adapter passed to `createClient`.
   payslip PDFs.**
 - Environment:
   ```
-  VITE_SUPABASE_URL=https://rtleeehglawquekygfoh.supabase.co
+  VITE_SUPABASE_URL=https://tckbrppvsojrftaymjbf.supabase.co
   VITE_SUPABASE_KEY=sb_publishable_THbbwo1H7tOpEf2sRxn0cg_zIUWROuC
   ```
   The key is a publishable key, safe in the browser by design. Never use or ask

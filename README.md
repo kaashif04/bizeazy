@@ -20,12 +20,16 @@ The Supabase URL and publishable key are built in (`src/supabase.ts`); set
 ## Architecture
 
 - **Frontend** — `src/`, deployed to Vercel (auto-deploys on push to `main`).
-- **Database** — Supabase project `BizEazy` (`rtleeehglawquekygfoh`, Singapore). Schema
-  and access rules in `supabase/migrations/`.
+- **Database** — the shared Biz database (Supabase `tckbrppvsojrftaymjbf`, Singapore),
+  also used by BizPos and BizWallet. Its schema lives **only** in `~/biz-platform`
+  (BizEazy's part: `supabase/migrations/20261009000010_bizeazy_hub.sql`). Here, BizEazy's
+  tables are `hub_users`, `hub_config`, `hub_records`, the attendance/leave/shift tables,
+  and every function is `hub_*`. `supabase/migrations_legacy/` is the old project's
+  schema (`rtleeehglawquekygfoh`, kept read-only as a fallback): never apply it.
 - **Accounts** — `supabase/functions/accounts`, the only code holding the service key:
   company registration, user-ID availability, and admin user management.
 
-Every business record lives in one `records` table, keyed by company, kind and id, with
+Every business record lives in one `hub_records` table, keyed by company, kind and id, with
 the record stored whole as JSON. A field the app adds later is kept without a schema
 change, so no save can silently drop one. Settings (branch profiles) are rows in
 `config`, one per key.
@@ -54,12 +58,13 @@ disabled or deleted.
 
 ## Backend setup (one time)
 
-1. **Schema** — Supabase dashboard ▸ SQL Editor ▸ paste
-   `supabase/migrations/20261005000000_bizeazy_core.sql` ▸ Run.
-2. **Accounts function** — with the Supabase CLI:
+1. **Schema** — changed only in `~/biz-platform` (`supabase migration new …`,
+   `npm run check`, `supabase db push --linked`). Never from this repo.
+2. **Functions** — with the Supabase CLI:
    ```bash
    supabase login
-   supabase functions deploy accounts --project-ref rtleeehglawquekygfoh --no-verify-jwt
+   supabase functions deploy accounts --project-ref tckbrppvsojrftaymjbf --no-verify-jwt
+   supabase functions deploy kiosk    --project-ref tckbrppvsojrftaymjbf --no-verify-jwt
    ```
    (`--no-verify-jwt` because registration is public; the admin actions check the
    caller's token themselves.)

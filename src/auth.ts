@@ -41,7 +41,20 @@ export interface SessionCompany {
 export interface Session {
   user: SessionUser;
   company: SessionCompany;
+  /** Which Biz apps the company uses: 'hub', 'pos', 'wallet'. */
+  apps?: string[];
 }
+
+/**
+ * A BizPos owner signed in who has no Hub login yet. The sign-in screen offers
+ * "Use <company>" (linkFromPos); nothing is created until they accept.
+ */
+export class LinkOffer extends Error {
+  constructor(public companyName: string) {
+    super(`${companyName} uses BizPos. Use it in BizEazy Hub too?`);
+  }
+}
+const NO_HUB = 'This sign-in has no BizEazy Hub account. Ask your company administrator.';
 
 // ── The cached copy ───────────────────────────────────────────
 const SESSION_KEY = 'bizeazy_session';
@@ -102,14 +115,17 @@ async function fetchSession(): Promise<Session> {
   const { data: { session: auth } } = await supabase.auth.getSession();
   if (!auth) throw new Error(EXPIRED);
 
-  const { data: p, error } = await supabase
-    .from('profiles')
-    .select('display_id, full_name, email, role, modules, active, company_id, companies ( name )')
-    .eq('user_id', auth.user.id)
-    .maybeSingle();
+  // One call: the Hub login, its company and the company's apps (the shared
+  // core tables are only readable through it).
+  const { data: s, error } = await supabase.rpc('hub_session');
   if (error) throw new Error(error.message);
-  // Row-level security hides an inactive person's own profile from them.
-  if (!p || !p.active) {
+  if (s?.linkable) throw new LinkOffer(s.linkable.name);
+  const p = s?.user;
+  if (!p) {
+    await supabase.auth.signOut();
+    throw new Error(NO_HUB);
+  }
+  if (!p.active) {
     await supabase.auth.signOut();
     throw new Error(DEACTIVATED);
   }
@@ -117,7 +133,6 @@ async function fetchSession(): Promise<Session> {
     await supabase.auth.signOut();
     throw new Error(STAFF_ONLY);
   }
-  const company: any = Array.isArray(p.companies) ? p.companies[0] : p.companies;
   const role = p.role === 'admin' ? 'admin' : 'member';
   return {
     user: {
@@ -128,7 +143,8 @@ async function fetchSession(): Promise<Session> {
       modules: (role === 'admin' ? ALL_MODULES : (p.modules || [])) as ModuleName[],
       active: p.active,
     },
-    company: { company_id: p.company_id, company_name: company?.name || '' },
+    company: { company_id: p.company_id, company_name: s.company?.name || '' },
+    apps: s.apps || [],
   };
 }
 
@@ -142,6 +158,15 @@ export async function login(userId: string, password: string, remember: boolean)
     // Same message either way: "no such user" would hand out valid user IDs.
     throw new Error('Incorrect user ID or password.');
   }
+  const session = await fetchSession();
+  saveSession(session, remember);
+  return session;
+}
+
+/** A BizPos owner accepts the LinkOffer: an admin Hub login in their own company. */
+export async function linkFromPos(remember: boolean): Promise<Session> {
+  const { error } = await supabase.rpc('hub_link_from_pos');
+  if (error) throw new Error(error.message);
   const session = await fetchSession();
   saveSession(session, remember);
   return session;
@@ -178,7 +203,7 @@ export async function refreshSession(): Promise<Session> {
     return session;
   } catch (err) {
     // Offline is not signed out: keep the cached copy and let the next call retry.
-    if (!/expired|deactivated|Staff app/i.test((err as Error).message)) throw err;
+    if (!(err instanceof LinkOffer) && !/expired|deactivated|Staff app|no BizEazy Hub/i.test((err as Error).message)) throw err;
     signalSignedOut();
     throw err;
   }

@@ -9,7 +9,7 @@ import {
   Building2, AlertTriangle, Loader2, Eye, EyeOff, Check, X, ArrowLeft,
 } from 'lucide-react';
 import {
-  login, registerCompany, checkUserId, recoverAccount, Session,
+  login, registerCompany, checkUserId, recoverAccount, Session, LinkOffer, linkFromPos, logout,
 } from '../auth';
 
 const CARD =
@@ -154,19 +154,52 @@ export function LoginScreen({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [recovering, setRecovering] = useState(false);
+  // A BizPos owner with no Hub login yet: offer their own company, no new signup.
+  const [offer, setOffer] = useState<string | null>(null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userId.trim() || !password) { setError('Enter your user ID and password.'); return; }
+    if (!userId.trim() || !password) { setError('Enter your user ID or email, and password.'); return; }
     setBusy(true); setError('');
     try {
       onSignedIn(await login(userId.trim(), password, remember));
     } catch (err: any) {
-      setError(err.message || 'Sign in failed.');
+      if (err instanceof LinkOffer) setOffer(err.companyName);
+      else setError(err.message || 'Sign in failed.');
     } finally {
       setBusy(false);
     }
   };
+
+  const acceptOffer = async () => {
+    setBusy(true); setError('');
+    try { onSignedIn(await linkFromPos(remember)); }
+    catch (err: any) { setError(err.message || 'That did not work.'); }
+    finally { setBusy(false); }
+  };
+
+  if (offer) {
+    return (
+      <Shell title="BizEazy Hub" subtitle="Restaurant Operations Center">
+        <div className={CARD}>
+          {error && <ErrorNote message={error} />}
+          <p className="text-sm font-bold text-ink-900 dark:text-white">Use {offer} in BizEazy Hub?</p>
+          <p className="text-xs text-ink-600 dark:text-ink-300 mt-1.5 leading-relaxed">
+            You run {offer} on BizPos. The Hub adds invoices, quotations, payroll and staff for the same company
+            and branches. You'll be its Hub admin; nothing new to sign up for.
+          </p>
+          <button type="button" onClick={acceptOffer} disabled={busy} className={`${BUTTON} mt-4`}>
+            {busy && <Loader2 className="w-4 h-4 animate-spin" />}
+            {busy ? 'Setting up…' : `Use ${offer}`}
+          </button>
+          <button type="button" onClick={() => { logout(); setOffer(null); setPassword(''); }}
+            className="block mx-auto mt-2 min-h-11 px-2 text-xs font-semibold text-ink-600 dark:text-ink-300 hover:underline cursor-pointer">
+            Not now
+          </button>
+        </div>
+      </Shell>
+    );
+  }
 
   if (recovering) {
     return (
@@ -182,7 +215,7 @@ export function LoginScreen({
         {error && <ErrorNote message={error} />}
         <form onSubmit={submit} className="space-y-3.5">
           <div>
-            <label htmlFor="login-user" className={LABEL}>User ID</label>
+            <label htmlFor="login-user" className={LABEL}>User ID or email</label>
             <input
               id="login-user"
               type="text"

@@ -12,6 +12,12 @@
  *
  * Deployed with verify_jwt off because registerCompany and checkUserId are
  * public; the admin actions verify the caller's token below.
+ *
+ * Shared database: logins are BizEazy's `hub_users` (BizPos staff are
+ * `profiles`, never read here). Every account created here is marked
+ * user_metadata.app = 'hub'. A new company's first branch (hub_config 'main')
+ * becomes a shared outlet, and its first login adds company_apps 'hub', both by
+ * trigger (biz-platform migration 20261009000010_bizeazy_hub).
  */
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
@@ -87,10 +93,10 @@ async function employeeLink(admin: Profile, role: Role, value: unknown, self?: s
     if (role === 'staff') throw new Refusal('Choose the employee this staff login belongs to.');
     return null;
   }
-  const { data: emp } = await db.from('records').select('id')
+  const { data: emp } = await db.from('hub_records').select('id')
     .eq('company_id', admin.company_id).eq('kind', 'employees').eq('id', id).maybeSingle();
   if (!emp) throw new Refusal('That employee is not in your payroll.');
-  const { data: taken } = await db.from('profiles').select('user_id, display_id')
+  const { data: taken } = await db.from('hub_users').select('user_id, display_id')
     .eq('company_id', admin.company_id).eq('employee_id', id).maybeSingle();
   if (taken && taken.user_id !== self) throw new Refusal(`That employee already has a login (${taken.display_id}).`);
   return id;
@@ -100,7 +106,7 @@ async function signedInAdmin(req: Request): Promise<Profile> {
   const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
   const { data, error } = token ? await db.auth.getUser(token) : { data: { user: null }, error: null };
   if (error || !data.user) throw new Refusal('Your session has expired. Please sign in again.');
-  const { data: me } = await db.from('profiles').select('*').eq('user_id', data.user.id).maybeSingle();
+  const { data: me } = await db.from('hub_users').select('*').eq('user_id', data.user.id).maybeSingle();
   if (!me || !me.active) throw new Refusal('Your session has expired. Please sign in again.');
   if (me.role !== 'admin') throw new Refusal('Admin access required.');
   return me as Profile;
@@ -108,14 +114,14 @@ async function signedInAdmin(req: Request): Promise<Profile> {
 
 /** Someone in the admin's own company; anyone else is simply not found. */
 async function colleague(admin: Profile, userId: unknown): Promise<Profile> {
-  const { data } = await db.from('profiles').select('*')
+  const { data } = await db.from('hub_users').select('*')
     .eq('company_id', admin.company_id).eq('user_code', String(userId ?? '').trim().toLowerCase()).maybeSingle();
   if (!data) throw new Refusal('User not found.');
   return data as Profile;
 }
 
 async function activeAdmins(companyId: string): Promise<number> {
-  const { count } = await db.from('profiles').select('*', { count: 'exact', head: true })
+  const { count } = await db.from('hub_users').select('*', { count: 'exact', head: true })
     .eq('company_id', companyId).eq('role', 'admin').eq('active', true);
   return count ?? 0;
 }
@@ -153,7 +159,7 @@ function sameText(a: string, b: string): boolean {
 async function checkUserId(p: any) {
   let code: string;
   try { code = userCode(p.userId); } catch (e) { return { available: false, reason: (e as Error).message }; }
-  const { data } = await db.from('profiles').select('user_id').eq('user_code', code).maybeSingle();
+  const { data } = await db.from('hub_users').select('user_id').eq('user_code', code).maybeSingle();
   return { available: !data };
 }
 
@@ -177,7 +183,7 @@ async function registerCompany(p: any) {
 
   // Undo in reverse if any step fails, so a half-made company never lingers.
   const { data: created, error: userError } = await db.auth.admin.createUser({
-    email: loginEmail(code), password: pw, email_confirm: true,
+    email: loginEmail(code), password: pw, email_confirm: true, user_metadata: { app: 'hub' },
   });
   if (userError || !created.user) {
     await db.from('companies').delete().eq('id', company.id);
@@ -185,7 +191,7 @@ async function registerCompany(p: any) {
     throw userError ?? new Error('Could not create the account.');
   }
 
-  const { error: profileError } = await db.from('profiles').insert({
+  const { error: profileError } = await db.from('hub_users').insert({
     user_id: created.user.id, company_id: company.id, user_code: code,
     display_id: String(p.userId).trim(), full_name: String(p.fullName ?? '').trim() || String(p.userId).trim(),
     email, role: 'admin', modules: ALL_MODULES, active: true,
@@ -198,7 +204,7 @@ async function registerCompany(p: any) {
   }
 
   // One branch to start with; the admin adds more under Branches & Documents.
-  await db.from('config').insert({
+  await db.from('hub_config').insert({
     company_id: company.id, key: 'main',
     value: {
       store_name: companyName, company_name: companyName, address: '', email, phone: '',
@@ -231,7 +237,7 @@ async function recoverAccount(p: any) {
   const nope = new Refusal('That user ID and recovery code do not match.');
   const code = userCode(p.userId);
   const pw = password(p.newPassword);
-  const { data: profile } = await db.from('profiles').select('*').eq('user_code', code).maybeSingle();
+  const { data: profile } = await db.from('hub_users').select('*').eq('user_code', code).maybeSingle();
   if (!profile) throw nope;
   const { data } = await db.auth.admin.getUserById(profile.user_id);
   const rec = data.user?.app_metadata?.recovery;
@@ -244,7 +250,7 @@ async function recoverAccount(p: any) {
 }
 
 async function listUsers(admin: Profile) {
-  const { data, error } = await db.from('profiles').select('*')
+  const { data, error } = await db.from('hub_users').select('*')
     .eq('company_id', admin.company_id).order('created_at');
   if (error) throw error;
   return (data as Profile[]).map(publicUser);
@@ -257,7 +263,7 @@ async function createUser(admin: Profile, p: any) {
   const employee_id = await employeeLink(admin, role, p.employeeId);
   if ((await checkUserId({ userId: code })).available === false) throw new Refusal('That user ID is already taken.');
 
-  const { data: created, error } = await db.auth.admin.createUser({ email: loginEmail(code), password: pw, email_confirm: true });
+  const { data: created, error } = await db.auth.admin.createUser({ email: loginEmail(code), password: pw, email_confirm: true, user_metadata: { app: 'hub' } });
   if (error || !created.user) {
     if (error && isTaken(error.message)) throw new Refusal('That user ID is already taken.');
     throw error ?? new Error('Could not create the account.');
@@ -268,7 +274,7 @@ async function createUser(admin: Profile, p: any) {
     email: String(p.email ?? '').trim(), role, modules: role === 'staff' ? [] : cleanModules(p.modules), active: true,
     employee_id,
   };
-  const { error: profileError } = await db.from('profiles').insert(row);
+  const { error: profileError } = await db.from('hub_users').insert(row);
   if (profileError) {
     await db.auth.admin.deleteUser(created.user.id);
     if (isTaken(profileError.message)) throw new Refusal('That user ID is already taken.');
@@ -296,7 +302,7 @@ async function updateUser(admin: Profile, p: any) {
   if (p.employeeId !== undefined || (role === 'staff' && !user.employee_id)) {
     patch.employee_id = await employeeLink(admin, role, p.employeeId ?? user.employee_id, user.user_id);
   }
-  const { data, error } = await db.from('profiles').update(patch).eq('user_id', user.user_id).select('*').single();
+  const { data, error } = await db.from('hub_users').update(patch).eq('user_id', user.user_id).select('*').single();
   if (error) throw error;
 
   // Deactivating also blocks sign-in itself, not just the data behind it.

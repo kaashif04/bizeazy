@@ -181,12 +181,12 @@ export async function loadShifts(): Promise<Shifts> {
   return out;
 }
 export const saveShift = (employeeId: string, week: ShiftDay[]) =>
-  call('set_shift', { p_employee_id: employeeId, p_days: week });
+  call('hub_set_shift', { p_employee_id: employeeId, p_days: week });
 
 export const addMissedScan = (employeeId: string, iso: string, note: string) =>
-  call('add_manual_event', { p_employee_id: employeeId, p_occurred_at: iso, p_note: note });
+  call('hub_add_manual_event', { p_employee_id: employeeId, p_occurred_at: iso, p_note: note });
 export const removeScan = (eventId: string, reason: string) =>
-  call('void_event', { p_event_id: eventId, p_reason: reason });
+  call('hub_void_event', { p_event_id: eventId, p_reason: reason });
 
 export const leaveTypes = () =>
   rows<LeaveType>(supabase.from('leave_types').select('id, name, days_per_year, paid, active').order('name'));
@@ -204,7 +204,7 @@ export const leaveRequests = () =>
 export const leaveBalances = () =>
   rows<LeaveBalance>(supabase.from('leave_balances').select('employee_id, leave_type_id, entitled, taken, pending, remaining'));
 export const decideLeave = (id: string, approve: boolean, note: string) =>
-  call('decide_leave', { p_id: id, p_approve: approve, p_note: note });
+  call('hub_decide_leave', { p_id: id, p_approve: approve, p_note: note });
 
 // Kiosks are registered through the kiosk edge function: their tokens never touch the browser's tables.
 async function kiosk(action: string, body: Record<string, unknown> = {}): Promise<any> {
@@ -217,7 +217,7 @@ export const listKiosks = (): Promise<Kiosk[]> => kiosk('listDevices');
 export const registerKiosk = (name: string, branch: string): Promise<Kiosk & { token: string }> =>
   kiosk('registerDevice', { name, branch });
 export const revokeKiosk = (id: string) => kiosk('revokeDevice', { id });
-export const KIOSK_ENDPOINT = `${(import.meta as any).env?.VITE_SUPABASE_URL || 'https://rtleeehglawquekygfoh.supabase.co'}/functions/v1/kiosk`;
+export const KIOSK_ENDPOINT = `${(import.meta as any).env?.VITE_SUPABASE_URL || 'https://tckbrppvsojrftaymjbf.supabase.co'}/functions/v1/kiosk`;
 
 /** Live refresh: any new scan or leave change in the company calls back. */
 export function watchTeam(onChange: () => void): () => void {
