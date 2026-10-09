@@ -5,6 +5,7 @@
  * nothing to configure here: a User ID, a password, and the choice to stay signed in.
  */
 import React, { useEffect, useState } from 'react';
+import { LogoMark } from './ui/Logo';
 import {
   Building2, AlertTriangle, Loader2, Eye, EyeOff, Check, X, ArrowLeft,
 } from 'lucide-react';
@@ -26,9 +27,7 @@ function Shell({ title, subtitle, children }: { title: string; subtitle: string;
     <div className="min-h-screen bg-ink-50 dark:bg-ink-950 flex items-center justify-center p-6">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 bg-brand-600 rounded-xl mb-4 shadow-sm">
-            <Building2 className="w-6 h-6 text-white" />
-          </div>
+          <LogoMark className="inline-block w-16 h-16 mb-4 drop-shadow-lg" />
           <h1 className="text-2xl font-black tracking-tight text-ink-900 dark:text-white">{title}</h1>
           <p className="text-sm text-ink-500 dark:text-ink-400 mt-1">{subtitle}</p>
         </div>
