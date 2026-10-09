@@ -43,7 +43,7 @@ const preloadModules = () => { loadInvoicing(); loadQuotations(); loadPayroll();
 import {
   LayoutDashboard, FileText, Users, LogOut, Moon, Sun, RefreshCw,
   Building2, TrendingUp, Clock, Loader2, X, AlertTriangle, ArrowRight,
-  CreditCard, Settings, Menu, Upload, CalendarRange, UserCog, BarChart3, Info, UserCheck, MonitorSmartphone,
+  CreditCard, Settings, Menu, Upload, CalendarRange, UserCog, BarChart3, Info, UserCheck, MonitorSmartphone, ChevronUp,
 } from 'lucide-react';
 import { HubOverview, DrawnTick, Money } from './components/HubOverview';
 import { CONFIRMED_EVENT, Confirmation } from './utils/confirm';
@@ -426,16 +426,37 @@ function Sidebar({
   isMobileOpen: boolean;
   onMobileClose: () => void;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  // The account menu closes on any click outside it, and on Escape.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const away = (e: MouseEvent) => { if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false); };
+    document.addEventListener('mousedown', away);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('mousedown', away); document.removeEventListener('keydown', esc); };
+  }, [menuOpen]);
+  useEffect(() => { if (!isMobileOpen) setMenuOpen(false); }, [isMobileOpen]);
+  const pick = (action: () => void) => () => { setMenuOpen(false); action(); };
+
+  const MENU_ITEM = 'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold text-left transition-colors cursor-pointer';
+  const ICON_BTN = 'w-9 h-9 flex items-center justify-center rounded-full text-ink-500 dark:text-ink-400 hover:bg-ink-100 dark:hover:bg-ink-800 hover:text-ink-900 dark:hover:text-white transition-colors cursor-pointer disabled:opacity-50';
+
   return (
+    // Sized to the visible screen (dvh), so on a phone nothing hides behind the
+    // browser's toolbar. Three parts: a compact header, ONE scrolling middle
+    // (menu first, then branches) and a slim footer, so the menu is always the
+    // first thing in view at any height and nothing overlaps.
     <aside className={`
-      fixed inset-y-0 left-0 z-50 w-60
+      fixed inset-y-0 left-0 z-50 w-64 md:w-60
       transform transition-transform duration-300 ease-in-out
       ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
       md:relative md:translate-x-0 md:flex-shrink-0
-      bg-white dark:bg-ink-950 border-r border-ink-200 dark:border-ink-800 flex flex-col h-screen md:sticky md:top-0
+      bg-white dark:bg-ink-950 border-r border-ink-200 dark:border-ink-800 flex flex-col h-dvh md:sticky md:top-0 pt-safe
     `}>
-      {/* Brand: the world's confirming tick, in cobalt */}
-      <div className="px-4 pt-5 pb-4 flex-shrink-0">
+      {/* Brand */}
+      <div className="px-4 pt-4 pb-3 flex-shrink-0">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 bg-brand-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md">
             <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="none" aria-hidden="true">
@@ -449,126 +470,109 @@ function Sidebar({
         </div>
       </div>
 
-      {/* Nav items */}
-      <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
-        {NAV_ITEMS.filter(({ view }) => allowed(view)).map(({ view, Icon, label }) => {
-          const active = activeView === view;
-          return (
-            <button
-              key={view}
-              onClick={() => setActiveView(view)}
-              aria-current={active ? 'page' : undefined}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors duration-150 cursor-pointer ${
-                active
-                  ? 'bg-brand-600 text-white shadow-md'
-                  : 'text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800/70 hover:text-ink-900 dark:hover:text-white'
-              }`}
-            >
-              <Icon className="w-[18px] h-[18px] flex-shrink-0" />
-              {label}
-            </button>
-          );
-        })}
-      </nav>
-
-      {/* Branch selector */}
-      <div className="px-3 py-3 border-t border-ink-100 dark:border-ink-800 flex-shrink-0">
-        <div className="text-xs font-bold text-ink-500 dark:text-ink-400 px-2 mb-1.5">Branch</div>
-        <div className="space-y-0.5">
-          {profiles.map((p, idx) => {
-            const branchName = outletLabel(p);
-            const isActive = activeBranchLocation.toLowerCase() === branchName.toLowerCase();
+      {/* Menu and branches: the one part that scrolls, only if it has to. */}
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 pb-3">
+        <nav aria-label="Modules" className="space-y-1">
+          {NAV_ITEMS.filter(({ view }) => allowed(view)).map(({ view, Icon, label }) => {
+            const active = activeView === view;
             return (
               <button
-                key={p.id}
-                onClick={() => setActiveBranchLocation(branchName)}
-                aria-pressed={isActive}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs transition-colors cursor-pointer ${
-                  isActive
-                    ? 'bg-brand-50 dark:bg-brand-950/70 text-brand-800 dark:text-brand-200 font-bold'
-                    : 'text-ink-600 dark:text-ink-300 font-semibold hover:bg-ink-100 dark:hover:bg-ink-800'
+                key={view}
+                onClick={() => setActiveView(view)}
+                aria-current={active ? 'page' : undefined}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors duration-150 cursor-pointer ${
+                  active
+                    ? 'bg-brand-600 text-white shadow-md'
+                    : 'text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800/70 hover:text-ink-900 dark:hover:text-white'
                 }`}
               >
-                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: outletColor(p, idx) }} />
-                <span className="truncate">{branchName}</span>
+                <Icon className="w-[18px] h-[18px] flex-shrink-0" />
+                {label}
               </button>
             );
           })}
+          {posUrl && (
+            <a
+              href={posUrl} target="_blank" rel="noopener"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-brand-950/40 transition-colors cursor-pointer"
+            >
+              <MonitorSmartphone className="w-[18px] h-[18px] flex-shrink-0" />
+              Open POS
+            </a>
+          )}
+        </nav>
+
+        <div className="mt-4 pt-3 border-t border-ink-100 dark:border-ink-800">
+          <div className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-ink-500 dark:text-ink-400 px-3 mb-1.5">Branch</div>
+          <div className="space-y-0.5">
+            {profiles.map((p, idx) => {
+              const branchName = outletLabel(p);
+              const isActive = activeBranchLocation.toLowerCase() === branchName.toLowerCase();
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => setActiveBranchLocation(branchName)}
+                  aria-pressed={isActive}
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-colors cursor-pointer ${
+                    isActive
+                      ? 'bg-brand-50 dark:bg-brand-950/70 text-brand-800 dark:text-brand-200 font-bold'
+                      : 'text-ink-600 dark:text-ink-300 font-semibold hover:bg-ink-100 dark:hover:bg-ink-800'
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: outletColor(p, idx) }} />
+                  <span className="truncate">{branchName}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      {/* Utility actions */}
-      <div className="px-3 py-2 border-t border-ink-100 dark:border-ink-800 space-y-0.5 flex-shrink-0">
-        {posUrl && (
-          <a
-            href={posUrl} target="_blank" rel="noopener"
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-brand-950/40 transition-colors cursor-pointer"
-          >
-            <MonitorSmartphone className="w-3.5 h-3.5 flex-shrink-0" />
-            Open POS
-          </a>
+      {/* Account: one slim row. Settings and sign-out live in its menu. */}
+      <div ref={menuRef} className="relative flex-shrink-0 border-t border-ink-100 dark:border-ink-800 px-2 py-2 pb-safe">
+        {menuOpen && (
+          <div role="menu" aria-label="Account"
+            className="absolute bottom-full left-2 right-2 mb-2 p-1.5 rounded-2xl bg-white dark:bg-ink-900 border border-ink-100 dark:border-ink-800 shadow-xl confirm-in">
+            <button role="menuitem" onClick={pick(onOpenSettings)} className={`${MENU_ITEM} text-ink-700 dark:text-ink-200 hover:bg-ink-100 dark:hover:bg-ink-800`}>
+              <Settings className="w-4 h-4 flex-shrink-0" />Data & Import
+            </button>
+            {allowed('settings') && (
+              <button role="menuitem" onClick={pick(onOpenProfiles)} className={`${MENU_ITEM} text-ink-700 dark:text-ink-200 hover:bg-ink-100 dark:hover:bg-ink-800`}>
+                <Building2 className="w-4 h-4 flex-shrink-0" />Company Profiles
+              </button>
+            )}
+            <button role="menuitem" onClick={pick(onOpenUsers)} className={`${MENU_ITEM} text-ink-700 dark:text-ink-200 hover:bg-ink-100 dark:hover:bg-ink-800`}>
+              <UserCog className="w-4 h-4 flex-shrink-0" />{user?.role === 'admin' ? 'Users & Access' : 'My Password'}
+            </button>
+            <div className="my-1 border-t border-ink-100 dark:border-ink-800" />
+            <button role="menuitem" onClick={pick(onSignOut)} className={`${MENU_ITEM} text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30`}>
+              <LogOut className="w-4 h-4 flex-shrink-0" />Sign out
+            </button>
+          </div>
         )}
-        <button
-          onClick={onRefresh}
-          disabled={isDataLoading}
-          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800/70 transition-colors cursor-pointer disabled:opacity-50"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 flex-shrink-0 ${isDataLoading ? 'animate-spin' : ''}`} />
-          {isDataLoading ? 'Syncing…' : 'Refresh Data'}
-        </button>
-        <button
-          onClick={onOpenSettings}
-          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800/70 transition-colors cursor-pointer"
-        >
-          <Settings className="w-3.5 h-3.5 flex-shrink-0" />
-          Data & Import
-        </button>
-        {allowed('settings') && (
+        <div className="flex items-center gap-1">
           <button
-            onClick={onOpenProfiles}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800/70 transition-colors cursor-pointer"
+            onClick={() => setMenuOpen(o => !o)}
+            aria-haspopup="menu" aria-expanded={menuOpen}
+            className="flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors cursor-pointer text-left"
           >
-            <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
-            Company Profiles
+            <span className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-950 flex items-center justify-center text-xs font-black text-brand-700 dark:text-brand-300 flex-shrink-0 uppercase">
+              {(user?.full_name || user?.user_id || '?').charAt(0)}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold text-ink-900 dark:text-white truncate">{user?.full_name || user?.user_id || 'User'}</span>
+              <span className="block text-xs text-ink-500 dark:text-ink-400 truncate">{user?.role === 'admin' ? 'Admin' : 'Member'}</span>
+            </span>
+            <ChevronUp className={`w-4 h-4 text-ink-400 flex-shrink-0 transition-transform ${menuOpen ? '' : 'rotate-180'}`} />
           </button>
-        )}
-        <button
-          onClick={onOpenUsers}
-          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800/70 transition-colors cursor-pointer"
-        >
-          <UserCog className="w-3.5 h-3.5 flex-shrink-0" />
-          {user?.role === 'admin' ? 'Users & Access' : 'My Password'}
-        </button>
-        <button
-          onClick={() => setIsDark(!isDark)}
-          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800/70 transition-colors cursor-pointer"
-        >
-          {isDark ? <Sun className="w-3.5 h-3.5 flex-shrink-0" /> : <Moon className="w-3.5 h-3.5 flex-shrink-0" />}
-          {isDark ? 'Light Mode' : 'Dark Mode'}
-        </button>
-        <button
-          onClick={onSignOut}
-          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-ink-500 dark:text-ink-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer"
-        >
-          <LogOut className="w-3.5 h-3.5 flex-shrink-0" />
-          Sign Out
-        </button>
-      </div>
-
-      {/* User chip */}
-      <div className="px-3 py-2.5 border-t border-ink-100 dark:border-ink-800 bg-ink-50/50 dark:bg-ink-900/50 flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-brand-100 dark:bg-brand-950 flex items-center justify-center text-2xs font-black text-brand-700 dark:text-brand-300 flex-shrink-0 uppercase">
-            {(user?.full_name || user?.user_id || '?').charAt(0)}
-          </div>
-          <div className="min-w-0">
-            <div className="text-2xs font-semibold text-ink-900 dark:text-white truncate">
-              {user?.full_name || user?.user_id || 'User'}
-            </div>
-            <div className="text-2xs text-ink-500 dark:text-ink-400 truncate">
-              {user?.role === 'admin' ? 'Admin' : 'Member'} · {companyName}
-            </div>
-          </div>
+          <button onClick={onRefresh} disabled={isDataLoading} className={ICON_BTN}
+            aria-label={isDataLoading ? 'Syncing' : 'Refresh data'} title={isDataLoading ? 'Syncing…' : 'Refresh data'}>
+            <RefreshCw className={`w-4 h-4 ${isDataLoading ? 'animate-spin' : ''}`} />
+          </button>
+          <button onClick={() => setIsDark(!isDark)} className={ICON_BTN}
+            aria-label={isDark ? 'Light mode' : 'Dark mode'} title={isDark ? 'Light mode' : 'Dark mode'}>
+            {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
         </div>
       </div>
     </aside>
