@@ -12,6 +12,7 @@ import {
 } from './auth';
 import { LoginScreen, RegisterScreen } from './components/AuthScreens';
 import { UsersModal } from './components/UsersModal';
+import { KaidaConnectModal } from './components/KaidaConnectModal';
 import { CompanyProfilesModal, DEFAULT_TEMPLATE } from './components/CompanyProfilesModal';
 import { NotificationBell } from './components/NotificationBell';
 import { BottomNav } from './components/ui/BottomNav';
@@ -43,7 +44,7 @@ const preloadModules = () => { loadInvoicing(); loadQuotations(); loadPayroll();
 import {
   LayoutDashboard, FileText, Users, LogOut, Moon, Sun, RefreshCw,
   Building2, TrendingUp, Clock, Loader2, X, AlertTriangle, ArrowRight,
-  CreditCard, Settings, Menu, Upload, CalendarRange, UserCog, BarChart3, Info, UserCheck, MonitorSmartphone, ChevronUp,
+  CreditCard, CalendarCheck, Settings, Menu, Upload, CalendarRange, UserCog, BarChart3, Info, UserCheck, MonitorSmartphone, ChevronUp,
 } from 'lucide-react';
 import { HubOverview, DrawnTick, Money } from './components/HubOverview';
 import { LogoMark } from './components/ui/Logo';
@@ -403,7 +404,7 @@ const NAV_ITEMS: { view: AppView; Icon: React.FC<React.SVGProps<SVGSVGElement>>;
 function Sidebar({
   activeView, setActiveView, profiles, activeBranchLocation, setActiveBranchLocation,
   isDark, setIsDark, isDataLoading, onRefresh, onSignOut, onOpenSettings, onOpenProfiles,
-  onOpenUsers, user, companyName, allowed, posUrl,
+  onOpenUsers, onOpenKaida, user, companyName, allowed, posUrl,
   isMobileOpen, onMobileClose,
 }: {
   activeView: AppView;
@@ -419,6 +420,8 @@ function Sidebar({
   onOpenSettings: () => void;
   onOpenProfiles: () => void;
   onOpenUsers: () => void;
+  /** Admins only: link the owner's Kaida planner. */
+  onOpenKaida?: () => void;
   user: SessionUser | null;
   companyName: string;
   allowed: (v: AppView | ModuleName) => boolean;
@@ -541,6 +544,11 @@ function Sidebar({
             <button role="menuitem" onClick={pick(onOpenUsers)} className={`${MENU_ITEM} text-ink-700 dark:text-ink-200 hover:bg-ink-100 dark:hover:bg-ink-800`}>
               <UserCog className="w-4 h-4 flex-shrink-0" />{user?.role === 'admin' ? 'Users & Access' : 'My Password'}
             </button>
+            {onOpenKaida && (
+              <button role="menuitem" onClick={pick(onOpenKaida)} className={`${MENU_ITEM} text-ink-700 dark:text-ink-200 hover:bg-ink-100 dark:hover:bg-ink-800`}>
+                <CalendarCheck className="w-4 h-4 flex-shrink-0" />Connect Kaida
+              </button>
+            )}
             <div className="my-1 border-t border-ink-100 dark:border-ink-800" />
             <button role="menuitem" onClick={pick(onSignOut)} className={`${MENU_ITEM} text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30`}>
               <LogOut className="w-4 h-4 flex-shrink-0" />Sign out
@@ -617,6 +625,7 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isProfilesOpen, setIsProfilesOpen] = useState(false);
   const [isUsersOpen, setIsUsersOpen] = useState(false);
+  const [isKaidaOpen, setIsKaidaOpen] = useState(false);
   /** Set by a Hub quick action: the module opens straight into its new-item form. */
   const [createIn, setCreateIn] = useState<AppView | null>(null);
 
@@ -861,6 +870,7 @@ export default function App() {
           onOpenSettings={() => { setIsSettingsOpen(true); setIsMobileNavOpen(false); }}
           onOpenProfiles={() => { setIsProfilesOpen(true); setIsMobileNavOpen(false); }}
           onOpenUsers={() => { setIsUsersOpen(true); setIsMobileNavOpen(false); }}
+          onOpenKaida={session.user.role === 'admin' ? () => { setIsKaidaOpen(true); setIsMobileNavOpen(false); } : undefined}
           user={session.user}
           companyName={session.company.company_name}
           allowed={allowed}
@@ -1077,6 +1087,7 @@ export default function App() {
           onImported={() => loadData(spreadsheetId)}
         />
       )}
+      {isKaidaOpen && <KaidaConnectModal onClose={() => setIsKaidaOpen(false)} onToast={triggerToast} />}
       {isUsersOpen && (
         <UsersModal session={session} isDark={isDark} onClose={() => setIsUsersOpen(false)} onToast={triggerToast} initialTab={needsRecoveryCode ? 'password' : undefined}
           employees={db.employees.map(e => ({ id: e.Employee_ID, name: e.Employee_Name }))} />
