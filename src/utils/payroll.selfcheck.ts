@@ -10,11 +10,11 @@ const monthly: Employee = { ...base, Basic_Salary: 2000 };
 const hourly: Employee = { ...base, Basic_Salary: 0, Pay_Type: 'hourly', Hourly_Rate: 9 };
 
 ok(!isHourly(monthly) && isHourly(hourly), 'pay type defaults to monthly');
-ok(basicPayFor(monthly, { fraction: 1 }) === 2000, 'a full month pays the salary');
-ok(basicPayFor(monthly, { fraction: 0.5 }, 99) === 1000, 'a half month pays half; hours are ignored for monthly staff');
-ok(basicPayFor(hourly, { fraction: 0.5 }, 38.5) === 346.5, '38.5 h × RM 9 = RM 346.50, whatever part of the month');
-ok(basicPayFor(hourly, { fraction: 1 }, 0) === 0 && basicPayFor(hourly, { fraction: 1 }, -3) === 0, 'no hours, no pay');
-ok(basicPayFor({ ...hourly, Hourly_Rate: 8.72 }, { fraction: 1 }, 10.25) === 89.38, 'cents round to 2 places');
+ok(basicPayFor(monthly, { daysWorked: 30, daysInPeriod: 30 }) === 2000, 'a full month pays the salary');
+ok(basicPayFor(monthly, { daysWorked: 15, daysInPeriod: 30 }, 99) === 1000, 'a half month pays half; hours are ignored for monthly staff');
+ok(basicPayFor(hourly, { daysWorked: 15, daysInPeriod: 30 }, 38.5) === 346.5, '38.5 h × RM 9 = RM 346.50, whatever part of the month');
+ok(basicPayFor(hourly, { daysWorked: 30, daysInPeriod: 30 }, 0) === 0 && basicPayFor(hourly, { daysWorked: 30, daysInPeriod: 30 }, -3) === 0, 'no hours, no pay');
+ok(basicPayFor({ ...hourly, Hourly_Rate: 8.72 }, { daysWorked: 30, daysInPeriod: 30 }, 10.25) === 89.38, 'cents round to 2 places');
 ok(hourlyLabel(38.5, 9) === '38.5 h × RM 9.00' && hourlyLabel(40, 8.72) === '40 h × RM 8.72', 'payslip line');
 ok(payRateText(hourly) === 'RM 9.00 / hour' && payRateText(monthly) === 'RM 2,000.00', 'rate shown in the roster');
 // Part-timers contribute too: statutory amounts follow the wage actually paid.

@@ -168,8 +168,37 @@ export const isHourly = (emp: Pick<Employee, 'Pay_Type'>): boolean => emp.Pay_Ty
  * Basic pay for a period. Monthly staff: salary × the share of the period they
  * were employed. Hourly staff: the hours they worked × their rate.
  */
-export const basicPayFor = (emp: Employee, period: { fraction: number }, hours = 0): number =>
-  isHourly(emp) ? round2(Math.max(0, hours) * (emp.Hourly_Rate || 0)) : round2(emp.Basic_Salary * period.fraction);
+type Days = Pick<PayPeriod, 'daysWorked' | 'daysInPeriod'>;
+export const basicPayFor = (emp: Employee, period: Days, hours = 0, unpaidDays = 0): number =>
+  isHourly(emp) ? round2(Math.max(0, hours) * (emp.Hourly_Rate || 0))
+    : round2(emp.Basic_Salary * (period.daysWorked - clampUnpaid(period, unpaidDays)) / period.daysInPeriod);
+
+/** Unpaid leave can't be negative or more than the days they were employed. */
+const clampUnpaid = (p: Days, days: number): number => Math.min(Math.max(0, days || 0), p.daysWorked);
+
+/**
+ * Days of approved unpaid leave inside the part of the period this person was
+ * employed. Calendar days, the same pro rata as a part month (s.18A): monthly
+ * salary ÷ days in the period × days not on unpaid leave. A half day counts 0.5.
+ */
+export function unpaidLeaveDays(p: PayPeriod, leave: { start_date: string; end_date: string; half_day?: boolean }[]): number {
+  let days = 0;
+  for (const l of leave) {
+    const s = parseLocalDate(l.start_date), e = parseLocalDate(l.end_date);
+    if (!s || !e) continue;
+    const from = s > p.from ? s : p.from, to = e < p.to ? e : p.to;
+    if (from <= to) days += l.half_day ? 0.5 : dayCount(from, to);
+  }
+  return clampUnpaid(p, days);
+}
+
+/** The line under Basic Pay: the period, and the unpaid leave taken off it. */
+export const describePay = (p: PayPeriod, unpaidDays = 0): string => {
+  const unpaid = clampUnpaid(p, unpaidDays);
+  if (!unpaid) return describePeriod(p);
+  return `${shortDate(p.from)} – ${shortDate(p.to)} ${p.to.getFullYear()} · ${unpaid} day${unpaid === 1 ? '' : 's'} unpaid leave` +
+    ` · paid ${p.daysWorked - unpaid} of ${p.daysInPeriod} days`;
+};
 
 /** "38.5 h × RM 9.00", the line under Basic Pay on an hourly payslip. */
 export const hourlyLabel = (hours: number, rate: number): string =>

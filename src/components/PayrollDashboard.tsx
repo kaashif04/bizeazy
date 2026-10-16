@@ -8,12 +8,12 @@ import { DatabaseState, Employee, Payslip, CompanyProfile, SalaryAdvance } from 
 import { activeOutlet as resolveActiveOutlet, outletLabel } from '../utils/outlets';
 import { salaryDeadline, salaryDue, normaliseMonthLabel } from '../utils/notifications';
 import {
-  payPeriodForLabel, periodLabelFor, isRemindable, describePeriod, round2, isoDate,
+  payPeriodForLabel, periodLabelFor, isRemindable, round2, isoDate,
   parseLocalDate, monthLabel, statutory, deductionLabels, residencyOf, residencyLabel, Residency, PayBasis,
-  isHourly, basicPayFor, hourlyLabel, payRateText, MIN_HOURLY_WAGE, MIN_MONTHLY_WAGE,
+  isHourly, basicPayFor, hourlyLabel, unpaidLeaveDays, describePay, payRateText, MIN_HOURLY_WAGE, MIN_MONTHLY_WAGE,
   ageOn, statutoryAge, dobFromIC, payslipRate,
 } from '../utils/payroll';
-import { daysBetween } from '../team';
+import { daysBetween, unpaidLeave } from '../team';
 import { Sheet, sheetBtn } from './ui/Sheet';
 import { EmptyState } from './ui/States';
 import { PayslipArchive } from './PayslipArchive';
@@ -100,6 +100,9 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
   /** Hourly staff: hours to pay this month, and where the figure came from. */
   const [hoursMap, setHoursMap] = useState<Record<string, number>>({});
   const [hoursFromClock, setHoursFromClock] = useState<Record<string, number | null>>({});
+  /** Monthly staff: unpaid leave days to take off this month, and what approved leave says. */
+  const [unpaidMap, setUnpaidMap] = useState<Record<string, number>>({});
+  const [unpaidFromLeave, setUnpaidFromLeave] = useState<Record<string, number> | null>(null);
   const [selectedMonthYear, setSelectedMonthYear] = useState(() => {
     const d = new Date();
     const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -535,6 +538,28 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
     return () => { live = false; };
   }, [isGeneratorOpen, selectedMonthYear, scopeEmployees]);
 
+  // Monthly staff: start each month from their approved unpaid leave.
+  useEffect(() => {
+    if (!isGeneratorOpen) return;
+    let live = true;
+    const monthly = scopeEmployees.flatMap(e => {
+      const p = !isHourly(e) && payPeriodForLabel(e, selectedMonthYear);
+      return p ? [[e.Employee_ID, p] as const] : [];
+    });
+    setUnpaidMap({}); setUnpaidFromLeave(null);
+    if (!monthly.length) return;
+    const from = isoDate(new Date(Math.min(...monthly.map(([, p]) => p.from.getTime()))));
+    const to = isoDate(new Date(Math.max(...monthly.map(([, p]) => p.to.getTime()))));
+    unpaidLeave(from, to).then(leave => {
+      if (!live) return;
+      const found = Object.fromEntries(monthly.map(([id, p]) =>
+        [id, unpaidLeaveDays(p, leave.filter(l => l.employee_id === id))]));
+      setUnpaidFromLeave(found);
+      setUnpaidMap(found);
+    }).catch(() => {});   // Team not set up: type the days in
+    return () => { live = false; };
+  }, [isGeneratorOpen, selectedMonthYear, scopeEmployees]);
+
   // Create payslips and generate previews inside local states
   const processCalculateSelectedPayslip = (emp: Employee) => {
     const period = payPeriodForLabel(emp, selectedMonthYear);
@@ -547,7 +572,8 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       triggerToast(`Enter the hours ${emp.Employee_Name} worked in ${selectedMonthYear}.`, "warning");
       return;
     }
-    const basicPay = basicPayFor(emp, period, hours);
+    const unpaid = isHourly(emp) ? 0 : unpaidMap[emp.Employee_ID] || 0;
+    const basicPay = basicPayFor(emp, period, hours, unpaid);
     const allowancesList = allowancesMap[emp.Employee_ID] || [];
     const deductionsList = deductionsMap[emp.Employee_ID] || [];
     const allowanceSum = allowancesList.reduce((acc, curr) => acc + (curr.amount || 0), 0);
@@ -582,7 +608,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       Month_Year: selectedMonthYear,
       Basic_Pay: basicPay,
       Pay_Period: isHourly(emp) ? hourlyLabel(hours, emp.Hourly_Rate || 0)
-        : period.fraction < 1 || emp.Pay_Basis === 'anniversary' ? describePeriod(period) : '',
+        : period.fraction < 1 || unpaid > 0 || emp.Pay_Basis === 'anniversary' ? describePay(period, unpaid) : '',
       ...(isHourly(emp) ? { Hours_Worked: hours, Hourly_Rate: emp.Hourly_Rate || 0 } : {}),
       Employee_Age: age,
       Custom_Allowances: allowanceSum,
@@ -1611,7 +1637,8 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
 
                       return eligible.map((emp) => {
                       const period = payPeriodForLabel(emp, selectedMonthYear)!;
-                      const basicPay = basicPayFor(emp, period, hoursMap[emp.Employee_ID] || 0);
+                      const unpaid = isHourly(emp) ? 0 : unpaidMap[emp.Employee_ID] || 0;
+                      const basicPay = basicPayFor(emp, period, hoursMap[emp.Employee_ID] || 0, unpaid);
                       // Countdown only once the period has ended, and only where a
                       // reminder would chase it: years of back pay are not "overdue".
                       const _dl = salaryDeadline(period.end, _today);
@@ -1673,9 +1700,27 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                               </div>
                             )}
                             RM {basicPay.toFixed(2)}
-                            {!isHourly(emp) && (period.fraction < 1 || emp.Pay_Basis === 'anniversary') && (
+                            {!isHourly(emp) && (period.fraction < 1 || unpaid > 0 || emp.Pay_Basis === 'anniversary') && (
                               <div className="text-2xs font-sans font-semibold text-amber-700 dark:text-amber-400 mt-0.5 whitespace-nowrap">
-                                {describePeriod(period)}
+                                {describePay(period, unpaid)}
+                              </div>
+                            )}
+                            {!isHourly(emp) && (
+                              <div className="font-sans mt-1">
+                                <label className="flex items-center gap-1 text-2xs font-semibold text-ink-600 dark:text-ink-300 whitespace-nowrap">
+                                  <input
+                                    type="number" min="0" max={period.daysWorked} step="0.5" aria-label={`Days of unpaid leave ${emp.Employee_Name} took`}
+                                    value={unpaidMap[emp.Employee_ID] ?? 0}
+                                    onChange={e => setUnpaidMap(m => ({ ...m, [emp.Employee_ID]: Number(e.target.value) }))}
+                                    className={`w-16 px-1.5 py-1 text-2xs font-mono font-bold rounded border ${isDarkMode ? 'bg-ink-950 border-ink-800 text-ink-100' : 'bg-white border-ink-300 text-ink-900'}`}
+                                  />
+                                  days unpaid leave
+                                </label>
+                                {unpaidFromLeave && (
+                                  <div className="text-2xs font-medium text-ink-500 dark:text-ink-400 mt-0.5 whitespace-nowrap">
+                                    {`Approved unpaid leave: ${unpaidFromLeave[emp.Employee_ID] || 0} d`}
+                                  </div>
+                                )}
                               </div>
                             )}
                           </td>

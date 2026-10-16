@@ -201,6 +201,11 @@ export async function saveLeaveType(t: Partial<LeaveType> & { name: string }, co
 
 export const leaveRequests = () =>
   rows<LeaveRequest>(supabase.from('leave_requests').select('*').order('created_at', { ascending: false }).limit(200));
+/** Approved leave of unpaid types touching from–to: what payroll takes off a monthly salary. */
+export const unpaidLeave = (from: string, to: string) =>
+  rows<{ employee_id: string; start_date: string; end_date: string; half_day: boolean }>(
+    supabase.from('leave_requests').select('employee_id, start_date, end_date, half_day, leave_types!inner(paid)')
+      .eq('status', 'approved').eq('leave_types.paid', false).lte('start_date', to).gte('end_date', from));
 export const leaveBalances = () =>
   rows<LeaveBalance>(supabase.from('leave_balances').select('employee_id, leave_type_id, entitled, taken, pending, remaining'));
 export const decideLeave = (id: string, approve: boolean, note: string) =>

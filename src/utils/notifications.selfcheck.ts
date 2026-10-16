@@ -11,7 +11,7 @@ import {
   buildNotifications, salaryDeadline, salaryDue, parseLocalDate,
   normaliseMonthLabel, monthLabel, SALARY_DEADLINE_DAYS,
 } from './notifications';
-import { payPeriod, periodLabelFor, describePeriod, epfEmployee, epfEmployer, residencyOf, statutory } from './payroll';
+import { payPeriod, periodLabelFor, describePeriod, unpaidLeaveDays, basicPayFor, describePay, epfEmployee, epfEmployer, residencyOf, statutory } from './payroll';
 
 const ok = (cond: boolean, msg: string) => { if (!cond) throw new Error(`SELF-CHECK FAILED: ${msg}`); };
 
@@ -87,6 +87,13 @@ ok(feb.start.getDate() === 28 && feb.end.getMonth() === 2 && feb.end.getDate() =
 const leaver = emp({ Employee_ID: 'P5', Joining_Date: '2020-01-01', End_Date: '2026-10-10' });
 ok(payPeriod(leaver, 2026, 9)!.daysWorked === 10, 'a leaver on 10 Oct is paid 10 of 31 days');
 ok(payPeriod(leaver, 2026, 10) === null, 'and nothing after');
+// Unpaid leave: calendar days inside the period, prorated like a part month.
+const oct = payPeriod(emp({ Employee_ID: 'P7', Joining_Date: '2020-01-01', Basic_Salary: 3100 }), 2026, 9)!;
+const trip = [{ start_date: '2026-09-25', end_date: '2026-10-10' }, { start_date: '2026-10-20', end_date: '2026-10-20', half_day: true }];
+ok(unpaidLeaveDays(oct, trip) === 10.5, 'only the October days of a trip home count, plus a half day');
+ok(basicPayFor(emp({ Employee_ID: 'P7', Basic_Salary: 3100 }), oct, 0, 10.5) === 2050, 'RM3,100 less 10.5 of 31 days is RM2,050');
+ok(basicPayFor(emp({ Employee_ID: 'P7', Basic_Salary: 3100 }), oct, 0, 99) === 0, 'a whole month away pays nothing, never less');
+ok(describePay(oct, 10.5).includes('paid 20.5 of 31 days'), describePay(oct, 10.5));
 const annLeaver = emp({ Employee_ID: 'P6', Joining_Date: '2026-09-15', Pay_Basis: 'anniversary', End_Date: '2026-09-24' });
 ok(payPeriod(annLeaver, 2026, 8)!.daysWorked === 10, 'anniversary leaver is prorated over their final period');
 
