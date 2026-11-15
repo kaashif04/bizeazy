@@ -1,0 +1,129 @@
+{
+  "title": "Choose the new look for BizEazy Hub",
+  "question": "The roll assigned the expressway-signage world. Keep it, take an alternate, or re-roll.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Expressway Signage",
+      "kicker": "THE ROLL",
+      "lineage": "Malaysian JKR and expressway direction signs",
+      "thesis": "Read your business like the highway: what's ahead, how far away, and the next exit.",
+      "palette": ["#0B6E4F", "#F7F7F2", "#FFC72C", "#1F2A30", "#C8102E"],
+      "materials": ["retroreflective sign panels with an inset white border", "exit-number tabs", "kilometre-post markers"],
+      "viewport": "A green direction panel opens the Hub: RM owed and RM collected this month in heavy white figures; below, a yellow 'needs you' strip ranked by days left (Salary · 2 days); quick actions as exit tabs: New invoice, New quote, Run payroll.",
+      "risk": "Tips into theme-park kitsch if sign shapes become decoration, and its green must not read like the old pine.",
+      "raised": [
+        { "from": "challenger-metro", "raise": "Colour carries state, not borders: a green, yellow or red panel IS the status, so outlines and boxes go." },
+        { "from": "challenger-saville", "raise": "Every record leads with its reference number, set like an exit number." },
+        { "from": "challenger-atlas", "raise": "Figure size follows importance on one fixed ramp: what you are owed is always the biggest number on screen." },
+        { "from": "challenger-folio", "raise": "Lifecycles read on one fixed strip: quote, invoice, part paid, paid, in the same positions everywhere." }
+      ]
+    },
+    {
+      "id": "model-pick",
+      "label": "Kitchen Ticket Rail",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "order tickets clipped at the pass, thermal receipts",
+      "thesis": "Everything that needs you hangs on the rail like orders waiting at the pass.",
+      "palette": ["#FBFAF6", "#161616", "#D7263D", "#9AA0A6"],
+      "materials": ["thermal paper", "perforated tear edges", "steel ticket rail"],
+      "viewport": "Today's tickets clipped along a rail across the top (Salary due, Invoice overdue), with this month's money printed below like a receipt's total line.",
+      "risk": "Receipt paper and monospace are a familiar retro-POS trope, and long lists can feel cramped."
+    },
+    {
+      "id": "challenger-splitflap",
+      "label": "Departures Board",
+      "verdict": "competitive",
+      "lineage": "airport and rail split-flap departure boards",
+      "thesis": "Deadlines as departures: rows ranked by time, each one boarding, delayed or gone.",
+      "palette": ["#0E0E0E", "#F2F2F2", "#FFB000", "#B3261E"],
+      "materials": ["matte flap faces", "brushed steel frame", "amber row lamps"],
+      "viewport": "A board of rows (SALARY SEPT · DUE 7 OCT · BOARDING) ranked by time, with money in the header strip.",
+      "case": "Fuses well on clarity, as deadlines map onto departures; loses on recognition and on reading money on a black board in daylight.",
+      "risk": "A dark board is hard to read in a bright restaurant, and flap animation must never slow anything down.",
+      "hero": "https://impeccable.style/worlds/cards/signals-instruments-split-flap-concourse-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/signals-instruments-split-flap-concourse.webp"
+    },
+    {
+      "id": "challenger-streaming",
+      "label": "Streaming Rows",
+      "verdict": "competitive",
+      "lineage": "streaming-app title walls",
+      "thesis": "Rows you swipe sideways: branches, customers and staff as tiles that grow when you land on them.",
+      "palette": ["#141414", "#FFFFFF", "#E50914", "#2F2F2F"],
+      "materials": ["full-bleed tiles", "row lift and dim"],
+      "viewport": "Horizontal rows (Owed to you, Due this week, Your branches) with the focused tile expanding to show its figures.",
+      "case": "Everyone knows the gesture; but restaurant records have no artwork, so tiles go empty and lose on clarity.",
+      "risk": "Sideways scrolling hides money and deadlines off screen.",
+      "hero": "https://impeccable.style/worlds/cards/pop-culture-shelf-streaming-title-card-wall-hero.webp"
+    },
+    {
+      "id": "challenger-metro",
+      "label": "Metro Tiles",
+      "verdict": "declined",
+      "lineage": "flat tile phone interfaces",
+      "thesis": "Giant lowercase type and flat colour tiles, no chrome.",
+      "palette": ["#000000", "#1BA1E2", "#FFFFFF"],
+      "materials": ["flat colour fields"],
+      "viewport": "Tiles as doors to each module.",
+      "case": "Cropped giant type fights legible money.",
+      "risk": "Reads as a dated phone OS.",
+      "kept": "Colour fields carry state; boxes and outlines go.",
+      "hero": "https://impeccable.style/worlds/cards/digital-design-canon-metro-typographic-tiles-hero.webp"
+    },
+    {
+      "id": "challenger-saville",
+      "label": "Catalog Sleeve",
+      "verdict": "declined",
+      "lineage": "record-label catalog identities",
+      "thesis": "Everything numbered, meaning coded in colour strips.",
+      "palette": ["#0A0A0A", "#FFFFFF", "#E4572E", "#17BEBB"],
+      "materials": ["matte black", "hairline plots"],
+      "viewport": "A numbered index as the only map.",
+      "case": "Coded meaning hides what an owner must read at a glance.",
+      "risk": "Too cryptic for a busy owner.",
+      "kept": "The reference number leads every record.",
+      "hero": "https://impeccable.style/worlds/cards/brand-identity-canon-saville-catalog-sleeve-hero.webp"
+    },
+    {
+      "id": "challenger-atlas",
+      "label": "Star Atlas",
+      "verdict": "declined",
+      "lineage": "celestial charts",
+      "thesis": "Importance drawn as size on a fixed scale.",
+      "palette": ["#0B1A33", "#F4F1E8", "#E2A33D"],
+      "materials": ["navy chart ground", "magnitude dots"],
+      "viewport": "Customers plotted by what they owe.",
+      "case": "Beautiful, but nobody runs a restaurant by star chart.",
+      "risk": "Night-sky darkness in daylight.",
+      "kept": "Figure size follows importance on one fixed ramp.",
+      "hero": "https://impeccable.style/worlds/cards/notation-diagram-systems-star-atlas-hero.webp"
+    },
+    {
+      "id": "challenger-folio",
+      "label": "Botanical Folio",
+      "verdict": "declined",
+      "lineage": "botanical plate sequences",
+      "thesis": "One subject followed through its stages at a fixed scale.",
+      "palette": ["#F3EDE0", "#3E5C3A", "#B5302A"],
+      "materials": ["cream plates", "sepia rules"],
+      "viewport": "A quotation followed from draft to paid.",
+      "case": "Cream and serif is the default look this round must avoid.",
+      "risk": "Precious and slow for a working tool.",
+      "kept": "Lifecycles on one fixed-position stage strip.",
+      "hero": "https://impeccable.style/worlds/cards/editorial-sequence-montage-botanical-folio-season-hero.webp"
+    }
+  ],
+  "reroll": { "registers": ["safer", "bolder"] },
+  "buildPath": { "value": "code" },
+  "canon": true,
+  "canonCard": {
+    "label": "Modern business-app standard",
+    "thesis": "What well-made business apps ship: clean, calm, familiar.",
+    "palette": ["#FFFFFF", "#0F172A", "#4F46E5", "#F1F5F9"],
+    "materials": ["white cards", "soft shadows", "one accent colour"],
+    "viewport": "Summary cards for owed and collected, a to-do list, and buttons for quick actions.",
+    "risk": "Looks like every other business app by design."
+  },
+  "steer": true
+}

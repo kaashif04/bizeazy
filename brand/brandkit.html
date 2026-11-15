@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BizEazy Brand Kit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cobalt:#1450E6; --cobalt-deep:#0E40C2; --cobalt-wash:#DCE6FF; --cobalt-tint:#EEF3FF;
+    --mint:#7CF0C8; --paid:#008A62; --paid-text:#006E4F; --amber:#F09A00; --amber-text:#7A4800;
+    --coral:#F04438; --coral-text:#B42318;
+    --paper:#F2EFE9; --card:#FBFAF7; --track:#E9E5DD; --border:#DCD6CB;
+    --mute:#9C958A; --ink2:#6A645B; --ink:#3E3A35; --charcoal:#1C1B19; --night:#121110;
+    --hl:#FFFFFF; --sh:#D3CCBF;
+    --raised:-6px -6px 14px var(--hl), 7px 7px 18px var(--sh);
+    --pressed:inset 3px 3px 7px var(--sh), inset -3px -3px 7px var(--hl);
+  }
+  * { box-sizing:border-box; margin:0; }
+  body { width:1600px; height:1200px; background:#0B0A09; font-family:Inter,system-ui,sans-serif; color:var(--charcoal);
+         font-feature-settings:"tnum","cv11"; -webkit-font-smoothing:antialiased; letter-spacing:-0.011em; }
+  .board { display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr); gap:14px; padding:36px; height:100%; }
+  .p { position:relative; border-radius:20px; overflow:hidden; background:var(--paper); padding:28px; }
+  .lab { position:absolute; left:28px; bottom:22px; font-size:10.5px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--ink2); }
+  .num { position:absolute; right:28px; bottom:22px; font-size:10.5px; font-weight:600; letter-spacing:.08em; color:var(--ink2); }
+  .dark .lab, .dark .num { color:#A8A196; }
+  .blue .lab, .blue .num { color:rgba(255,255,255,.78); }
+  .center { display:flex; align-items:center; justify-content:center; }
+
+  /* 1 cover */
+  .cover { flex-direction:column; gap:22px; }
+  .tile { width:118px; height:118px; border-radius:34px; box-shadow:var(--raised); }
+  .word { font-size:52px; font-weight:800; letter-spacing:-0.045em; line-height:1; }
+  .word b { color:var(--cobalt); font-weight:800; }
+
+  /* 2 construction */
+  .dark { background:var(--night); color:#EDE9E2; }
+  .grid-bg { position:absolute; inset:0; background-image:linear-gradient(#ffffff0a 1px,transparent 1px),linear-gradient(90deg,#ffffff0a 1px,transparent 1px); background-size:22px 22px; }
+  .callout { position:absolute; font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:#A8A196; }
+  .callout i { font-style:normal; color:#EDE9E2; letter-spacing:-0.01em; text-transform:none; font-size:13px; font-weight:600; display:block; margin-top:3px; }
+
+  /* 3 phone */
+  .phone { position:absolute; left:50%; top:30px; transform:translateX(-50%); width:250px; height:400px; border-radius:38px; background:var(--paper);
+           box-shadow:0 0 0 7px var(--charcoal), 0 30px 60px -20px #2A201655; padding:20px 16px; }
+  .ph-top { display:flex; align-items:center; gap:8px; margin-bottom:16px; }
+  .ph-top span { font-weight:700; font-size:14px; letter-spacing:-0.025em; }
+  .ph-top .av { margin-left:auto; width:26px; height:26px; border-radius:50%; background:var(--card); box-shadow:var(--raised); }
+  .card { background:var(--card); border-radius:18px; box-shadow:var(--raised); padding:14px; }
+  .k { font-size:9px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--ink2); }
+  .amt { font-size:25px; font-weight:700; letter-spacing:-0.03em; margin-top:6px; }
+  .amt small { font-size:13px; color:var(--ink2); font-weight:600; margin-right:3px; }
+  .bar { height:7px; border-radius:9px; background:var(--track); box-shadow:var(--pressed); margin-top:12px; overflow:hidden; }
+  .bar i { display:block; height:100%; width:64%; background:var(--cobalt); border-radius:9px; }
+  .rows { margin-top:12px; display:grid; gap:8px; }
+  .row { display:flex; align-items:center; justify-content:space-between; font-size:11.5px; font-weight:600; background:var(--card); border-radius:14px; padding:9px 11px; box-shadow:var(--raised); }
+
+  /* pills */
+  .pill { display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:700; border-radius:99px; padding:3px 8px; }
+  .pill::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
+  .paid { background:#E6FAF3; color:var(--paid-text); } .paid::before{background:#00A877}
+  .wait { background:#FFF7E6; color:var(--amber-text); } .wait::before{background:var(--amber)}
+  .late { background:#FFF1F0; color:var(--coral-text); } .late::before{background:var(--coral)}
+
+  /* 4 tagline */
+  .blue { background:var(--cobalt); color:#fff; }
+  .tag { font-size:46px; font-weight:700; letter-spacing:-0.04em; line-height:1.02; }
+  .tag em { font-style:normal; color:var(--mint); }
+  .sub { margin-top:16px; font-size:14px; color:rgba(255,255,255,.72); max-width:300px; line-height:1.45; }
+
+  /* 5 colour */
+  .sw { display:grid; grid-template-columns:1.5fr 1fr 1fr; grid-template-rows:1.4fr 1fr; gap:10px; height:calc(100% - 34px); }
+  .s { border-radius:14px; padding:12px; display:flex; flex-direction:column; justify-content:flex-end; font-size:11px; font-weight:700; letter-spacing:-0.01em; }
+  .s span { font-weight:500; opacity:.7; font-size:10px; margin-top:2px; font-family:ui-monospace,Menlo,monospace; }
+  .s.big { grid-row:span 2; }
+  .status3 { display:grid; grid-template-rows:repeat(3,1fr); gap:6px; }
+  .status3 .s { padding:6px 10px; flex-direction:row; align-items:center; justify-content:space-between; }
+
+  /* 6 type */
+  .aa { font-size:132px; font-weight:700; letter-spacing:-0.06em; line-height:.9; }
+  .aa span { color:var(--cobalt); }
+  .spec { margin-top:16px; display:grid; gap:10px; }
+  .spec .fig { font-size:28px; font-weight:700; letter-spacing:-0.03em; }
+  .spec .fig small{ font-size:15px; color:var(--ink2); margin-right:4px; }
+  .roles { display:flex; gap:16px; font-size:11px; color:var(--ink2); }
+  .roles b { color:var(--charcoal); }
+  .side { position:absolute; right:28px; top:28px; text-align:right; font-size:11px; color:var(--ink2); line-height:1.6; }
+  .side b { color:var(--charcoal); font-size:13px; }
+
+  /* 7 physical */
+  .bcard { position:absolute; width:250px; height:150px; border-radius:12px; }
+  .bcard.back { background:var(--cobalt); padding:18px; align-items:flex-start; justify-content:flex-start; left:60px; top:48px; transform:rotate(-7deg); box-shadow:0 24px 40px -18px #0E40C288; }
+  .bcard.front { background:var(--card); left:150px; top:110px; transform:rotate(4deg); box-shadow:0 24px 44px -16px #2A201644; padding:18px; }
+  .bcard .nm { font-size:15px; font-weight:700; letter-spacing:-0.025em; margin-top:34px; }
+  .bcard .rl { font-size:10px; color:var(--ink2); margin-top:2px; }
+  .bcard .url { position:absolute; right:18px; bottom:16px; font-size:10px; font-weight:600; color:var(--cobalt); }
+
+  /* 8 image */
+  .img { padding:0; background:#2A2622 url(after-the-rush.webp) center/cover; }
+  .img::after { content:""; position:absolute; inset:0; background:linear-gradient(180deg,transparent 45%,#121110cc); }
+  .img .cap { position:absolute; left:28px; bottom:48px; z-index:1; color:#fff; font-size:22px; font-weight:700; letter-spacing:-0.03em; }
+  .img .lab, .img .num { z-index:1; color:rgba(255,255,255,.6); }
+  .toast { position:absolute; z-index:1; right:22px; top:22px; background:var(--card); border-radius:99px; padding:8px 14px 8px 10px; display:flex; gap:8px; align-items:center;
+           font-size:12px; font-weight:700; box-shadow:0 14px 30px -10px #0008; }
+  .toast .d { width:20px; height:20px; border-radius:50%; background:#E6FAF3; display:grid; place-items:center; }
+  .toast .d i { width:8px; height:8px; border-radius:50%; background:#00A877; }
+
+  /* 9 system */
+  .sys { display:grid; gap:16px; }
+  .qa { display:flex; gap:14px; }
+  .q { width:52px; height:52px; border-radius:50%; background:var(--card); box-shadow:var(--raised); display:grid; place-items:center; }
+  .q svg { width:20px; height:20px; stroke:var(--cobalt); fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+  .field { height:44px; border-radius:12px; background:var(--card); box-shadow:var(--pressed); display:flex; align-items:center; padding:0 14px; font-size:13px; color:var(--ink2); }
+  .field b { color:var(--charcoal); font-weight:600; margin-right:6px; }
+  .btns { display:flex; gap:10px; align-items:center; }
+  .btn { background:var(--cobalt); color:#fff; font-size:12px; font-weight:700; border-radius:99px; padding:10px 18px; box-shadow:0 8px 18px -8px #1450E6aa; }
+  .btn.o { background:transparent; color:var(--ink); box-shadow:inset 0 0 0 1.5px var(--border); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4C82FF"/><stop offset=".55" stop-color="#1450E6"/><stop offset="1" stop-color="#0B34A8"/></linearGradient>
+    <symbol id="mark" viewBox="0 0 48 48"><rect width="48" height="48" rx="14" fill="url(#g)"/><path d="M17 11v26" stroke="#fff" stroke-width="5.4" stroke-linecap="round"/><circle cx="25.5" cy="28.5" r="7.2" fill="none" stroke="#fff" stroke-width="5.4"/><circle cx="34.5" cy="13.5" r="3" fill="#7CF0C8"/></symbol>
+  </defs>
+</svg>
+
+<div class="board">
+
+  <!-- 1 cover -->
+  <section class="p center cover">
+    <svg class="tile"><use href="#mark"/></svg>
+    <div class="word">Biz<b>Eazy</b></div>
+    <div class="lab">Identity · Hub</div><div class="num">01</div>
+  </section>
+
+  <!-- 2 construction -->
+  <section class="p dark">
+    <div class="grid-bg"></div>
+    <svg viewBox="0 0 48 48" style="position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);width:228px;height:228px;overflow:visible">
+      <rect width="48" height="48" rx="14" fill="none" stroke="#ffffff22" stroke-width=".3"/>
+      <line x1="17" y1="2" x2="17" y2="46" stroke="#5A86F7" stroke-width=".2" stroke-dasharray="1 1"/>
+      <line x1="2" y1="28.5" x2="46" y2="28.5" stroke="#5A86F7" stroke-width=".2" stroke-dasharray="1 1"/>
+      <circle cx="25.5" cy="28.5" r="11.5" fill="none" stroke="#5A86F7" stroke-width=".2" stroke-dasharray="1 1"/>
+      <circle cx="34.5" cy="13.5" r="6" fill="none" stroke="#7CF0C8" stroke-width=".2" stroke-dasharray="1 1"/>
+      <path d="M17 11v26" stroke="#EDE9E2" stroke-width="5.4" stroke-linecap="round"/>
+      <circle cx="25.5" cy="28.5" r="7.2" fill="none" stroke="#EDE9E2" stroke-width="5.4"/>
+      <circle cx="34.5" cy="13.5" r="3" fill="#7CF0C8"/>
+    </svg>
+    <div class="callout" style="left:28px;top:28px">Stem<i>The ledger</i></div>
+    <div class="callout" style="right:28px;top:28px;text-align:right">Spark<i>Paid, in mint</i></div>
+    <div class="callout" style="left:28px;top:232px">Bowl<i>The till</i></div>
+    <div class="lab">Construction · 48 grid</div><div class="num">02</div>
+  </section>
+
+  <!-- 3 digital -->
+  <section class="p" style="background:var(--track)">
+    <div class="phone">
+      <div class="ph-top"><svg width="24" height="24"><use href="#mark"/></svg><span>Hub</span><div class="av"></div></div>
+      <div class="card">
+        <div class="k">Owed to you</div>
+        <div class="amt"><small>RM</small>4,280.00</div>
+        <div class="bar"><i></i></div>
+      </div>
+      <div class="rows">
+        <div class="row">Catering · Wong <span class="pill paid">Paid</span></div>
+        <div class="row">INV-0412 <span class="pill wait">Waiting</span></div>
+        <div class="row">INV-0398 <span class="pill late">Late</span></div>
+      </div>
+    </div>
+    <div class="lab">Product</div><div class="num">03</div>
+  </section>
+
+  <!-- 4 tagline -->
+  <section class="p blue" style="display:flex;flex-direction:column;justify-content:center">
+    <div class="tag">The phone<br>is the <em>office.</em></div>
+    <div class="sub">Invoices, quotations and payroll, settled between service rushes.</div>
+    <div class="lab">Essence</div><div class="num">04</div>
+  </section>
+
+  <!-- 5 colour -->
+  <section class="p">
+    <div class="sw">
+      <div class="s big" style="background:var(--cobalt);color:#fff">Cobalt<span>#1450E6</span></div>
+      <div class="s" style="background:var(--card);box-shadow:var(--raised)">Ivory card<span>#FBFAF7</span></div>
+      <div class="s" style="background:var(--charcoal);color:#EDE9E2">Charcoal<span>#1C1B19</span></div>
+      <div class="s" style="background:var(--paper);box-shadow:var(--pressed)">Ivory paper<span>#F2EFE9</span></div>
+      <div class="status3">
+        <div class="s" style="background:var(--paid);color:#fff">Paid<span>#008A62</span></div>
+        <div class="s" style="background:var(--amber);color:var(--charcoal)">Waiting<span>#F09A00</span></div>
+        <div class="s" style="background:var(--coral);color:#fff">Late<span>#F04438</span></div>
+      </div>
+    </div>
+    <div class="lab">Colour · One accent</div><div class="num">05</div>
+  </section>
+
+  <!-- 6 type -->
+  <section class="p">
+    <div class="aa">A<span>a</span></div>
+    <div class="side"><b>Inter</b><br>400 · 600 · 700<br>Tabular figures</div>
+    <div class="spec">
+      <div class="fig"><small>RM</small>12,480.50</div>
+      <div class="roles"><span><b>Headline</b> 36/700</span><span><b>Body</b> 14/400</span><span><b>LABEL</b> 11/600</span></div>
+    </div>
+    <div class="lab">Typography</div><div class="num">06</div>
+  </section>
+
+  <!-- 7 physical -->
+  <section class="p" style="background:var(--track)">
+    <div class="bcard back center"><svg width="48" height="48"><use href="#mark"/></svg></div>
+    <div class="bcard front">
+      <svg width="30" height="30"><use href="#mark"/></svg>
+      <div class="nm">Nur Aisyah</div>
+      <div class="rl">Owner · Restoran Selera</div>
+      <div class="url">bizeazy.my</div>
+    </div>
+    <div class="lab">Print · Card</div><div class="num">07</div>
+  </section>
+
+  <!-- 8 image -->
+  <section class="p img">
+    <div class="toast"><span class="d"><i></i></span>INV-0412 paid · RM 860.00</div>
+    <div class="cap">After the rush.</div>
+    <div class="lab">Image direction</div><div class="num">08</div>
+  </section>
+
+  <!-- 9 system -->
+  <section class="p">
+    <div class="sys">
+      <div class="qa">
+        <div class="q"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
+        <div class="q"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M10 12h5M10 16h5"/></svg></div>
+        <div class="q"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5"/></svg></div>
+        <div class="q"><svg viewBox="0 0 24 24"><path d="M5 19V10M12 19V5M19 19v-6"/></svg></div>
+      </div>
+      <div class="field"><b>RM</b>0.00</div>
+      <div class="btns"><span class="btn">Record payment</span><span class="btn o">Later</span></div>
+      <div style="display:flex;gap:8px"><span class="pill paid">Paid</span><span class="pill wait">Waiting</span><span class="pill late">Late</span></div>
+    </div>
+    <div class="lab">System · Raised &amp; pressed</div><div class="num">09</div>
+  </section>
+
+</div>
+</body>
+</html>

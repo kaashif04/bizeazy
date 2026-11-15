@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "undersized-ui-text",
+        "value": "*",
+        "files": [
+          "brand/brandkit.html"
+        ],
+        "createdAt": "2026-10-15T10:23:15.267Z",
+        "reason": "Claude: static brand board rendered at 2x to a 3200px PNG; 10-11px CSS labels print at 20-22px and nothing is interactive"
+      }
+    ]
+  }
+}

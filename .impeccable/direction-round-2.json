@@ -1,0 +1,113 @@
+{
+  "title": "Choose the new look for BizEazy Hub (more modern)",
+  "question": "The roll assigned the order-tracking world. Keep it, take an alternate, or re-roll.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Order Tracker",
+      "kicker": "THE ROLL",
+      "lineage": "the live order tracking every restaurant owner watches in delivery apps",
+      "thesis": "Every invoice, quote and payslip moves like an order you're tracking: placed, on its way, done.",
+      "palette": ["#FF4D2E", "#0F1419", "#F6F7F9", "#12B76A", "#F79009"],
+      "materials": ["big rounded live cards", "step trackers that fill as things progress", "bottom sheets that rise from the thumb"],
+      "viewport": "A live 'This month' card on top: RM collected large, owed beneath, one bar from invoiced to collected. Below, 'Needs you' cards each with a step tracker (Salary Sept: generated, sent, paid · 2 days left). A chilli-red New button opens a bottom sheet: invoice, quote, payslip.",
+      "risk": "Borrowing app grammar can feel generic if the step trackers and live cards are done half-heartedly.",
+      "raised": [
+        { "from": "challenger-timetable", "raise": "Status is a mark in a fixed cell: filled is done, hollow is not yet, in the same positions on every record." },
+        { "from": "challenger-cassette", "raise": "Every amount sits right-aligned in tabular figures, so money lines up like a tally." },
+        { "from": "challenger-catalog", "raise": "Lists reflow in whole cards, never squeezed columns, at every width." }
+      ]
+    },
+    {
+      "id": "model-pick",
+      "label": "Payment Confirmed",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "e-wallet and DuitNow QR payment screens",
+      "thesis": "Every number is a receipt you can trust at a glance, as clear as a payment-success screen.",
+      "palette": ["#1463FF", "#FFFFFF", "#0B1B3F", "#00C48C"],
+      "materials": ["oversized amounts", "success ticks", "soft blue fields"],
+      "viewport": "RM owed and collected as two huge amounts on a blue field, a to-do list beneath, quick actions as round icon buttons.",
+      "risk": "The familiar fintech look; blue and white edges toward the bank feeling you said would be wrong."
+    },
+    {
+      "id": "challenger-zoo",
+      "label": "Guide Map",
+      "verdict": "competitive",
+      "lineage": "zoo and gardens guide maps",
+      "thesis": "Each part of the business is a flat colour region you step into.",
+      "palette": ["#8ED462", "#F5F1E4", "#2C2E2A", "#F5E211", "#FF705D"],
+      "materials": ["flat colour lobes", "capsule controls", "bouncy 0.4s motion"],
+      "viewport": "A green Money region swells across the screen with capsule buttons pinned to its edge.",
+      "case": "Modern, friendly and memorable; loses on clarity because shapes compete with figures.",
+      "risk": "Can read playful, close to the childish feel you ruled out.",
+      "hero": "https://impeccable.style/worlds/cards/aww2-zoo-gardens-guide-map-hero.webp"
+    },
+    {
+      "id": "challenger-console",
+      "label": "Graphite Console",
+      "verdict": "competitive",
+      "lineage": "dark-first professional tools",
+      "thesis": "A calm graphite workspace with hairline seams and panels that stay put.",
+      "palette": ["#1B1D21", "#E6E8EB", "#7C9CFF", "#3DDC97"],
+      "materials": ["hairline seams", "one step of elevation", "monospaced figures"],
+      "viewport": "Panels for money, needs-you and quick actions tiled across a dark surface.",
+      "case": "Great for month-end desk work; loses on recognition and on reading in a bright restaurant.",
+      "risk": "Dark-first is hard in daylight and feels like a developer tool.",
+      "hero": "https://impeccable.style/worlds/cards/digital-design-canon-dark-first-developer-console-hero.webp"
+    },
+    {
+      "id": "challenger-timetable",
+      "label": "Timetable Rack",
+      "verdict": "declined",
+      "lineage": "pocket airline timetables",
+      "thesis": "One type size; rank carried by weight and case.",
+      "palette": ["#DAA520", "#1E1E1E", "#F8F4E3", "#D3402B"],
+      "materials": ["tinted glass slides"],
+      "viewport": "Slanted slides you move sideways.",
+      "case": "Too stylised for quick money checks.",
+      "risk": "Slanted panels slow reading.",
+      "kept": "Status as a filled or hollow mark in a fixed cell.",
+      "hero": "https://impeccable.style/worlds/cards/rw-timetable-slide-rack-hero.webp"
+    },
+    {
+      "id": "challenger-cassette",
+      "label": "Mixtape Card",
+      "verdict": "declined",
+      "lineage": "hand-lettered cassette inlays",
+      "thesis": "Totals tallied tight to the margin.",
+      "palette": ["#FFFFFF", "#1F3A93", "#C0392B"],
+      "materials": ["ballpoint on lined stock"],
+      "viewport": "Side A and B lists.",
+      "case": "Handwriting is nostalgic, not modern.",
+      "risk": "Feels like a scrapbook.",
+      "kept": "Right-aligned tabular amounts that line up like a tally.",
+      "hero": "https://impeccable.style/worlds/cards/vernacular-ephemera-cassette-j-card-hero.webp"
+    },
+    {
+      "id": "challenger-catalog",
+      "label": "Event Catalog Grid",
+      "verdict": "declined",
+      "lineage": "convention catalogs",
+      "thesis": "Thousands of stamp-size cells in one grid.",
+      "palette": ["#EDEDE6", "#111111", "#E83F6F"],
+      "materials": ["newsprint", "biro circles"],
+      "viewport": "A packed grid of records.",
+      "case": "Too dense: cramped is what you ruled out.",
+      "risk": "Cramped.",
+      "kept": "Lists reflow in whole cards, never squeezed.",
+      "hero": "https://impeccable.style/worlds/cards/pop-culture-shelf-doujin-event-catalog-hero.webp"
+    }
+  ],
+  "reroll": { "registers": ["safer", "bolder"] },
+  "buildPath": { "value": "code" },
+  "canon": true,
+  "canonCard": {
+    "label": "Modern business-app standard",
+    "thesis": "What well-made business apps ship: clean, calm, familiar.",
+    "palette": ["#FFFFFF", "#0F172A", "#4F46E5", "#F1F5F9"],
+    "materials": ["white cards", "soft shadows", "one accent colour"],
+    "viewport": "Summary cards for owed and collected, a to-do list, and buttons for quick actions.",
+    "risk": "Looks like every other business app by design."
+  },
+  "steer": true
+}
