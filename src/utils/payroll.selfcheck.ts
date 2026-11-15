@@ -1,7 +1,7 @@
 /**
  * Hourly and monthly basic pay: `npx tsx src/utils/payroll.selfcheck.ts`
  */
-import { basicPayFor, hourlyLabel, payRateText, isHourly, statutory, ageOn, statutoryAge, dobFromIC, payslipRate } from './payroll';
+import { basicPayFor, hourlyLabel, payRateText, isHourly, statutory, ageOn, statutoryAge, dobFromIC, payslipRate, withEarlyPaid } from './payroll';
 import type { Employee } from '../types';
 
 const ok = (cond: boolean, msg: string) => { if (!cond) throw new Error(`SELF-CHECK FAILED: ${msg}`); };
@@ -30,5 +30,12 @@ ok(dobFromIC('A1234567') === '' && dobFromIC('901301145566') === '', 'not a MyKa
 const over60 = statutory(2000, { Citizenship: 'Malaysian', Age: statutoryAge({ Date_Of_Birth: '1960-01-01' }, new Date(2026, 8, 1)) });
 ok(over60.eisEmployee === 0 && over60.socsoEmployee === 0, 'at 66 no employee SOCSO or EIS');
 ok(payslipRate('11%') === ' (11%)' && payslipRate('none from age 60') === '' && payslipRate('none from age 60, employer pays') === '', 'payslip shows rates only');
+
+// Allowances paid before payday are deducted once, never twice.
+const early = withEarlyPaid(
+  [{ description: 'Bonus', amount: 200, paid_on: '2026-11-10' }, { description: 'Overtime', amount: 50 }],
+  [{ description: 'Advance', amount: 100 }, { description: 'Bonus paid 2026-11-01', amount: 999, early_paid: true }],
+);
+ok(early.length === 2 && early[1].description === 'Bonus paid 2026-11-10' && early[1].amount === 200, 'only the early-paid allowance is deducted, stale lines replaced');
 
 console.log('All payroll pay self-checks passed.');

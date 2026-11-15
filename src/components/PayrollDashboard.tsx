@@ -11,15 +11,15 @@ import {
   payPeriodForLabel, periodLabelFor, isRemindable, round2, isoDate,
   parseLocalDate, monthLabel, statutory, deductionLabels, residencyOf, residencyLabel, Residency, PayBasis,
   isHourly, basicPayFor, hourlyLabel, unpaidLeaveDays, describePay, payRateText, MIN_HOURLY_WAGE, MIN_MONTHLY_WAGE,
-  ageOn, statutoryAge, dobFromIC, payslipRate,
+  ageOn, statutoryAge, dobFromIC, payslipRate, withEarlyPaid,
 } from '../utils/payroll';
 import { daysBetween, unpaidLeave } from '../team';
 import { Sheet, sheetBtn } from './ui/Sheet';
-import { EmptyState } from './ui/States';
+import { EmptyState, CARD_LIST } from './ui/States';
 import { PayslipArchive } from './PayslipArchive';
 import { confirmMoment } from '../utils/confirm';
-import { createPortal } from 'react-dom';
-import { attachA4Scale } from '../utils/a4scale';
+import { DocumentViewer } from './ui/DocumentViewer';
+import { pdfName } from '../utils/docPdf';
 import { publishPayslipPdf } from '../utils/payslipPdf';
 
 interface PayrollDashboardProps {
@@ -119,6 +119,10 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
     amount: number;
     /** Set on a deduction that recovers a salary advance, so it is never added twice. */
     advance_id?: string;
+    /** On an allowance: the date it was handed over, when that was before payday. */
+    paid_on?: string;
+    /** On a deduction generated from such an allowance (see withEarlyPaid); rebuilt, never edited. */
+    early_paid?: boolean;
   }
   const [allowancesMap, setAllowancesMap] = useState<Record<string, ItemizedItem[]>>({});
   const [deductionsMap, setDeductionsMap] = useState<Record<string, ItemizedItem[]>>({});
@@ -490,7 +494,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
         try {
           const parsed = JSON.parse(savedSlip.Deductions_JSON);
           freshDeductions[e.Employee_ID] = Array.isArray(parsed)
-            ? parsed.filter((d: any) => !('_bm_paid' in d))
+            ? parsed.filter((d: any) => !('_bm_paid' in d) && !d.early_paid)
             : parsed;
         } catch {
           freshDeductions[e.Employee_ID] = [{ description: 'Custom Deduction', amount: savedSlip.Custom_Deductions }];
@@ -575,7 +579,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
     const unpaid = isHourly(emp) ? 0 : unpaidMap[emp.Employee_ID] || 0;
     const basicPay = basicPayFor(emp, period, hours, unpaid);
     const allowancesList = allowancesMap[emp.Employee_ID] || [];
-    const deductionsList = deductionsMap[emp.Employee_ID] || [];
+    const deductionsList = withEarlyPaid(allowancesList, deductionsMap[emp.Employee_ID] || []);
     const allowanceSum = allowancesList.reduce((acc, curr) => acc + (curr.amount || 0), 0);
     const customDeductionSum = deductionsList.reduce((acc, curr) => acc + (curr.amount || 0), 0);
     
@@ -981,7 +985,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
         <div className={`rounded-xl border ${isDarkMode ? 'border-ink-800 bg-ink-900' : 'border-ink-200 bg-white shadow-sm'}`}>
           {/* Phone: one card per employee. Six columns of horizontal scroll is
               not a roster anyone can check during service. */}
-          <ul className="xl:hidden divide-y divide-ink-100 dark:divide-ink-800">
+          <ul className={CARD_LIST}>
             {filteredEmployees.map((employee) => (
               <li key={employee.Employee_ID} className="p-4">
                 <div className="flex items-start gap-3">
@@ -1646,9 +1650,9 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       const _overdue = _daysLeft !== null && _dl.overdue;
                       const allowancesList = allowancesMap[emp.Employee_ID] || [];
                       const deductionsList = deductionsMap[emp.Employee_ID] || [];
-                      
+
                       const allowanceSum = allowancesList.reduce((acc, curr) => acc + (curr.amount || 0), 0);
-                      const customDeductionSum = deductionsList.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+                      const customDeductionSum = withEarlyPaid(allowancesList, deductionsList).reduce((acc, curr) => acc + (curr.amount || 0), 0);
                       
                       const grossPayBase = basicPay + allowanceSum;
                       const citizenship = emp.Citizenship;
@@ -1727,7 +1731,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                           <td className="px-4 py-3 min-w-[280px]">
                             <div className="space-y-1.5 max-h-[160px] overflow-y-auto">
                               {allowancesList.map((item, idx) => (
-                                <div key={idx} className="flex items-center gap-1">
+                                <div key={idx} className="flex flex-wrap items-center gap-1">
                                   <input
                                     type="text"
                                     placeholder="e.g. Overtime"
@@ -1750,6 +1754,22 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                                       }`}
                                     />
                                   </div>
+                                  <input
+                                    type="date"
+                                    aria-label="Paid on, if before payday"
+                                    title="Paid before payday? Pick the date and it will not be paid again with the wage. Leave blank if paid with the wage."
+                                    value={item.paid_on || ''}
+                                    onChange={(e) => setAllowancesMap(prev => ({
+                                      ...prev,
+                                      [emp.Employee_ID]: (prev[emp.Employee_ID] || []).map((a, i) => i === idx ? { ...a, paid_on: e.target.value || undefined } : a),
+                                    }))}
+                                    className={`w-28 p-1 text-2xs rounded border dark:[color-scheme:dark] ${
+                                      item.paid_on ? 'text-amber-800 dark:text-amber-300' : 'text-ink-500 dark:text-ink-400'
+                                    } ${isDarkMode ? 'bg-ink-950 border-ink-800' : 'bg-white border-ink-300'}`}
+                                  />
+                                  {item.paid_on && (
+                                    <span className="w-full text-2xs font-semibold text-amber-800 dark:text-amber-300">Already paid · deducted from this wage</span>
+                                  )}
                                 </div>
                               ))}
                             </div>
@@ -1843,68 +1863,48 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       )}
 
       {/* --- MODAL 3: PAYSLIP PREVIEW TEMPLATE --- */}
-      {previewPayslip && previewEmployee && createPortal(
-        <div id="payslip-preview-overlay" data-document className="fixed inset-0 z-[60] bg-black/70 flex overlay-center justify-center p-2 sm:p-4 overflow-y-auto">
-          <style dangerouslySetInnerHTML={{__html: `
+      {previewPayslip && previewEmployee && (() => {
+        const monthLabel = (() => {
+          const raw = previewPayslip.Month_Year || '';
+          if (raw.includes('T') || /^\d{4}-\d{2}/.test(raw)) {
+            const d = new Date(raw);
+            if (!isNaN(d.getTime())) return d.toLocaleDateString('en-MY', { month: 'long', year: 'numeric' });
+          }
+          return raw || '-';
+        })();
+        const saved = db.payslips.some(p => p.Payslip_ID === previewPayslip.Payslip_ID && p.Is_Saved);
+        return (
+        <DocumentViewer
+          title={`Payslip · ${monthLabel}`}
+          fileName={pdfName('Payslip', previewEmployee.Employee_Name, monthLabel)}
+          onClose={() => { setPreviewPayslip(null); setPreviewEmployee(null); }}
+          footer={
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {saved ? (
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-300">
+                  <CheckCircle className="w-4 h-4" /> Saved
+                </span>
+              ) : (
+                <span className="text-xs font-semibold text-ink-300">Draft, not saved yet</span>
+              )}
+              {!isStaff && !saved && (
+                <button
+                  onClick={() => handleSavePayslip(previewPayslip)}
+                  disabled={isSyncing}
+                  className="tap inline-flex items-center gap-1.5 px-4 bg-brand-500 hover:bg-brand-600 disabled:opacity-60 text-white font-bold text-xs rounded-full transition-colors cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  {isSyncing ? 'Saving…' : 'Save Payslip'}
+                </button>
+              )}
+            </div>
+          }
+        >
+          <style>{`
             /* Amounts never wrap; labels take the remaining width. */
             #printable-payslip .flex.justify-between { gap: 0.75rem; }
             #printable-payslip .flex.justify-between > span:last-child { white-space: nowrap; }
-            @media print {
-              @page { size: A4 portrait; margin: 0mm; }
-              /* Same recipe as the invoice and quotation previews: pin the print
-                 viewport to A4 so phones print 1:1, and drop every other body child
-                 from layout so no blank second page is left behind. */
-              html, body {
-                width: 210mm !important; min-width: 210mm !important; max-width: 210mm !important;
-                -webkit-text-size-adjust: 100% !important; text-size-adjust: 100% !important;
-              }
-              body, html { margin: 0 !important; padding: 0 !important; background: white !important; }
-              body > * { display: none !important; }
-              body > #payslip-preview-overlay { display: block !important; }
-              .no-print { display: none !important; }
-              #payslip-preview-overlay, #payslip-preview-dialog, #payslip-stage-container {
-                position: static !important; height: auto !important;
-                max-height: none !important; overflow: visible !important;
-                padding: 0 !important; margin: 0 !important; display: block !important;
-                background: white !important; box-shadow: none !important; border-radius: 0 !important;
-              }
-              .a4-spacer { width: auto !important; height: auto !important; margin: 0 !important; }
-              #printable-payslip {
-                width: 210mm !important; min-height: 297mm !important; height: auto !important;
-                transform: none !important; margin: 0 !important; box-shadow: none !important;
-                -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
-              }
-            }
-          `}} />
-          <div id="payslip-preview-dialog" className="w-full max-w-4xl h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col bg-white dark:bg-ink-900">
-              <div className={`flex items-center justify-between px-6 py-4 no-print ${isDarkMode ? 'bg-ink-900 border-b border-ink-800' : 'bg-white border-b border-ink-100'}`}>
-              <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-brand-500" />
-                <h3 className="text-sm font-bold uppercase tracking-wider text-brand-500">
-                  Payslip Preview: {(() => {
-                    const raw = previewPayslip.Month_Year || '';
-                    if (raw.includes('T') || /^\d{4}-\d{2}/.test(raw)) {
-                      const d = new Date(raw);
-                      if (!isNaN(d.getTime())) return d.toLocaleDateString('en-MY', { month: 'long', year: 'numeric' });
-                    }
-                    return raw || '-';
-                  })()}
-                </h3>
-              </div>
-              <button 
-                onClick={() => {
-                  setPreviewPayslip(null);
-                  setPreviewEmployee(null);
-                }}
-                className="p-1.5 hover:bg-ink-100 dark:hover:bg-ink-800 rounded-lg cursor-pointer text-ink-500"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* A4 page at true width, scaled to fit the screen (utils/a4scale). */}
-            <div id="payslip-stage-container" ref={attachA4Scale} className="flex-1 bg-ink-800 p-2 sm:p-8 overflow-auto w-full">
-            <div className="a4-spacer mx-auto">
+          `}</style>
             <div id="printable-payslip" className="a4-page bg-white text-ink-900 w-[794px] min-h-[1123px] p-12 space-y-6 shadow-2xl">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -2185,62 +2185,9 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                 </div>
               </div>
             </div>
-            </div>
-            </div>
-
-            {/* Action buttons footer */}
-            <div className={`px-6 py-4 border-t flex flex-wrap items-center justify-between gap-3 no-print ${isDarkMode ? 'bg-ink-900 border-ink-800' : 'bg-white border-ink-100'}`}>
-              <div>
-                {/* Saved Indicator Badge */}
-                {db.payslips.some(p => p.Payslip_ID === previewPayslip.Payslip_ID && p.Is_Saved) ? (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                    <CheckCircle className="w-4 h-4" /> Locked & Finalized in Database
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-brand-500/10 text-brand-500">
-                    Unsaved Draft State Preview
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                {/* Save Payslip (writes to database and synchronizes sheets) */}
-                {!isStaff && !db.payslips.some(p => p.Payslip_ID === previewPayslip.Payslip_ID && p.Is_Saved) && (
-                  <button
-                    onClick={() => handleSavePayslip(previewPayslip)}
-                    disabled={isSyncing}
-                    className="flex items-center gap-1 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-full transition-all duration-150 cursor-pointer shadow-sm"
-                    title="Write this payroll slip permanently to the database ledger."
-                  >
-                    <Save className="w-3.5 h-3.5" />
-                    <span>{isSyncing ? "Saving Record..." : "Save Payslip"}</span>
-                  </button>
-                )}
-
-                {/* Print button */}
-                <button
-                  onClick={() => window.print()}
-                  className="flex items-center gap-1 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-full cursor-pointer transition-colors"
-                  title="Print or save as A4 PDF."
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Print / Save A4</span>
-                </button>
-
-                <button 
-                  onClick={() => {
-                    setPreviewPayslip(null);
-                    setPreviewEmployee(null);
-                  }}
-                  className="px-4 py-2 text-xs font-bold rounded-xl bg-ink-100 border border-ink-300 hover:bg-ink-200 text-ink-900 dark:bg-ink-800 dark:text-ink-100 dark:hover:bg-ink-700 cursor-pointer"
-                >
-                  Close Preview
-                </button>
-              </div>
-            </div>
-          </div>{/* end A4 card */}
-        </div>,
-        document.body
-      )}
+        </DocumentViewer>
+        );
+      })()}
 
       {/* ── Mark Payment Made modal ── */}
       {markPaymentPayslip && (

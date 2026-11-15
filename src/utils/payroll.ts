@@ -121,6 +121,22 @@ export const describePeriod = (p: PayPeriod): string =>
 /** Same rounding the statutory calculators always used, so existing amounts do not move. */
 export const round2 = (n: number): number => Number(n.toFixed(2));
 
+type PayLine = { description: string; amount: number; paid_on?: string; early_paid?: boolean };
+
+/**
+ * The deductions plus one "paid <date>" line for each allowance handed over
+ * before payday (`paid_on` set): it stays in gross pay, so EPF/SOCSO still
+ * count it, but is not paid a second time with the wage.
+ */
+export const withEarlyPaid = <D extends PayLine>(allowances: PayLine[], deductions: D[]): (D | PayLine)[] => [
+  ...deductions.filter(d => !d.early_paid),
+  ...allowances.filter(a => a.paid_on && a.amount > 0).map(a => ({
+    description: `${a.description.trim() || 'Allowance'} paid ${a.paid_on}`,
+    amount: a.amount,
+    early_paid: true,
+  })),
+];
+
 /** Whole years old on a date. */
 export function ageOn(dob: string, on: Date): number {
   const b = parseLocalDate(dob);
