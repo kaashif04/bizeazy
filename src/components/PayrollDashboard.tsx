@@ -11,7 +11,7 @@ import {
   payPeriodForLabel, periodLabelFor, isRemindable, round2, isoDate,
   parseLocalDate, monthLabel, statutory, deductionLabels, residencyOf, residencyLabel, Residency, PayBasis,
   isHourly, basicPayFor, hourlyLabel, unpaidLeaveDays, describePay, payRateText, MIN_HOURLY_WAGE, MIN_MONTHLY_WAGE,
-  ageOn, statutoryAge, dobFromIC, payslipRate, withEarlyPaid,
+  ageOn, statutoryAge, dobFromIC, payslipRate, withEarlyPaid, advanceMonth, advanceMonthOptions,
 } from '../utils/payroll';
 import { daysBetween, unpaidLeave } from '../team';
 import { Sheet, sheetBtn } from './ui/Sheet';
@@ -94,6 +94,8 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
   const [advDate, setAdvDate] = useState('');
   const [advAmount, setAdvAmount] = useState<number>(0);
   const [advNote, setAdvNote] = useState('');
+  /** Payslip month chosen for the advance being recorded; '' = the period it was taken in. */
+  const [advMonth, setAdvMonth] = useState('');
 
   // Payslip Generator Workspace State
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
@@ -123,6 +125,8 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
     paid_on?: string;
     /** On a deduction generated from such an allowance (see withEarlyPaid); rebuilt, never edited. */
     early_paid?: boolean;
+    /** On a deduction: the date it is for, printed beside it. Record only. */
+    date?: string;
   }
   const [allowancesMap, setAllowancesMap] = useState<Record<string, ItemizedItem[]>>({});
   const [deductionsMap, setDeductionsMap] = useState<Record<string, ItemizedItem[]>>({});
@@ -393,6 +397,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
     setAdvDate(isoDate(new Date()));
     setAdvAmount(0);
     setAdvNote('');
+    setAdvMonth('');
   };
 
   /** Saved payslips already recovering this advance — it cannot be deleted under them. */
@@ -434,11 +439,13 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       date: advDate,
       amount: round2(advAmount),
       note: advNote.trim() || undefined,
+      deduct_from: advanceMonthOptions(advancesFor, taken).includes(advMonth) ? advMonth : undefined,
     };
     saveAdvances(advancesFor, [...(advancesFor.Advances || []), advance],
-      `Advance recorded. It will be deducted from the ${periodLabelFor(advancesFor, taken)} payslip.`);
+      `Advance recorded. It will be deducted from the ${advanceMonth(advancesFor, advance)} payslip.`);
     setAdvAmount(0);
     setAdvNote('');
+    setAdvMonth('');
   };
 
   const handleRemoveAdvance = (advance: SalaryAdvance) => {
@@ -509,8 +516,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       const saved = freshDeductions[e.Employee_ID];
       const list = (Array.isArray(saved) ? saved : []).filter(d => d.description?.trim() || d.amount > 0);
       (e.Advances || []).forEach(a => {
-        const taken = parseLocalDate(a.date);
-        if (!taken || periodLabelFor(e, taken) !== monthForLookup) return;
+        if (advanceMonth(e, a) !== monthForLookup) return;
         if (list.some(d => d.advance_id === a.id)) return;
         list.push({ description: `Salary advance ${a.date}${a.note ? ` (${a.note})` : ''}`, amount: a.amount, advance_id: a.id });
       });
@@ -1767,6 +1773,14 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                                       item.paid_on ? 'text-amber-800 dark:text-amber-300' : 'text-ink-500 dark:text-ink-400'
                                     } ${isDarkMode ? 'bg-ink-950 border-ink-800' : 'bg-white border-ink-300'}`}
                                   />
+                                  <button
+                                    type="button"
+                                    onClick={() => removeAllowanceItem(emp.Employee_ID, idx)}
+                                    aria-label="Remove allowance"
+                                    className="p-1 text-rose-500 hover:bg-rose-500/10 rounded cursor-pointer transition-colors"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
                                   {item.paid_on && (
                                     <span className="w-full text-2xs font-semibold text-amber-800 dark:text-amber-300">Already paid · deducted from this wage</span>
                                   )}
@@ -1785,7 +1799,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                           <td className="px-4 py-3 min-w-[280px]">
                             <div className="space-y-1.5 max-h-[160px] overflow-y-auto">
                               {deductionsList.map((item, idx) => (
-                                <div key={idx} className="flex items-center gap-1">
+                                <div key={idx} className="flex flex-wrap items-center gap-1">
                                   <input 
                                     type="text"
                                     placeholder="e.g. Advance"
@@ -1808,8 +1822,25 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                                       }`}
                                     />
                                   </div>
-                                  <button 
+                                  {/* Advance lines already name their date. */}
+                                  {!item.advance_id && (
+                                    <input
+                                      type="date"
+                                      aria-label="Date of this deduction (optional)"
+                                      title="Optional: the date this deduction is for, printed on the payslip."
+                                      value={item.date || ''}
+                                      onChange={(e) => setDeductionsMap(prev => ({
+                                        ...prev,
+                                        [emp.Employee_ID]: (prev[emp.Employee_ID] || []).map((d, i) => i === idx ? { ...d, date: e.target.value || undefined } : d),
+                                      }))}
+                                      className={`w-28 p-1 text-2xs rounded border dark:[color-scheme:dark] ${
+                                        item.date ? 'text-ink-900 dark:text-ink-100' : 'text-ink-500 dark:text-ink-400'
+                                      } ${isDarkMode ? 'bg-ink-950 border-ink-800' : 'bg-white border-ink-300'}`}
+                                    />
+                                  )}
+                                  <button
                                     type="button"
+                                    aria-label="Remove deduction"
                                     onClick={() => removeDeductionItem(emp.Employee_ID, idx)}
                                     className="p-1 text-rose-500 hover:bg-rose-500/10 rounded cursor-pointer transition-colors"
                                   >
@@ -2093,7 +2124,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                       if (list.length > 0) {
                         return list.map((item: any, idx: number) => (
                           <div key={idx} className="flex justify-between text-ink-900">
-                            <span>{item.description || 'Custom Deduction'}</span>
+                            <span>{item.description || 'Custom Deduction'}{item.date ? ` · ${item.date}` : ''}</span>
                             <span className="font-bold text-ink-950">RM {item.amount.toFixed(2)}</span>
                           </div>
                         ));
@@ -2305,7 +2336,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
           <form id="advance-form" onSubmit={handleAddAdvance} className="space-y-3">
             <p className="text-xs text-ink-600 dark:text-ink-300 leading-relaxed">
               Money paid ahead of payday: an advance, or emergency funds. It is deducted
-              automatically from the payslip for the period it was taken in.
+              automatically from the payslip month you choose below.
             </p>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -2347,11 +2378,24 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                 className="w-full px-3 py-2.5 text-xs rounded-lg border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-950 text-ink-900 dark:text-ink-100"
               />
             </div>
-            {parseLocalDate(advDate) && (
-              <p className="text-2xs font-semibold text-amber-800 dark:text-amber-300">
-                Deducted from the {periodLabelFor(advancesFor, parseLocalDate(advDate)!)} payslip.
-              </p>
-            )}
+            {parseLocalDate(advDate) && (() => {
+              const options = advanceMonthOptions(advancesFor, parseLocalDate(advDate)!);
+              return (
+                <div>
+                  <label htmlFor="adv-month" className="block text-2xs font-bold uppercase tracking-wider text-ink-600 dark:text-ink-300 mb-1">Deduct from payslip</label>
+                  <select
+                    id="adv-month"
+                    value={options.includes(advMonth) ? advMonth : ''}
+                    onChange={e => setAdvMonth(e.target.value)}
+                    className="w-full px-3 py-2.5 text-xs rounded-lg border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-950 text-ink-900 dark:text-ink-100"
+                  >
+                    {options.map((label, i) => (
+                      <option key={label} value={i === 0 ? '' : label}>{label}{i === 0 ? ' (month it was paid)' : ''}</option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })()}
           </form>
 
           <div className="mt-5">
@@ -2362,7 +2406,6 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               <ul className="divide-y divide-ink-100 dark:divide-ink-800 border border-ink-100 dark:border-ink-800 rounded-lg">
                 {[...(advancesFor.Advances || [])].sort((a, b) => b.date.localeCompare(a.date)).map(a => {
                   const slip = advanceOnPayslip(a.id);
-                  const taken = parseLocalDate(a.date);
                   return (
                     <li key={a.id} className="flex items-center gap-3 px-3 py-2.5">
                       <div className="min-w-0 flex-1">
@@ -2371,7 +2414,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                           {a.date}{a.note ? ` · ${a.note}` : ''}
                         </p>
                         <p className={`text-2xs font-semibold ${slip ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-800 dark:text-amber-300'}`}>
-                          {slip ? `Deducted · ${normaliseMonthLabel(slip.Month_Year)}` : `Pending · ${taken ? periodLabelFor(advancesFor, taken) : ''} payslip`}
+                          {slip ? `Deducted · ${normaliseMonthLabel(slip.Month_Year)}` : `Pending · ${advanceMonth(advancesFor, a)} payslip`}
                         </p>
                       </div>
                       {!slip && (

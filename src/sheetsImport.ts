@@ -370,7 +370,7 @@ function parseAdvances(raw: unknown): SalaryAdvance[] {
     const list = JSON.parse(String(raw || '[]'));
     return Array.isArray(list)
       ? list.filter(a => a && a.id && a.date && Number(a.amount) > 0)
-            .map(a => ({ id: String(a.id), date: String(a.date), amount: Number(a.amount), note: a.note ? String(a.note) : undefined }))
+            .map(a => ({ id: String(a.id), date: String(a.date), amount: Number(a.amount), note: a.note ? String(a.note) : undefined, deduct_from: a.deduct_from ? String(a.deduct_from) : undefined }))
       : [];
   } catch {
     return [];

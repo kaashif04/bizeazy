@@ -1,7 +1,7 @@
 /**
  * Hourly and monthly basic pay: `npx tsx src/utils/payroll.selfcheck.ts`
  */
-import { basicPayFor, hourlyLabel, payRateText, isHourly, statutory, ageOn, statutoryAge, dobFromIC, payslipRate, withEarlyPaid } from './payroll';
+import { basicPayFor, hourlyLabel, payRateText, isHourly, statutory, ageOn, statutoryAge, dobFromIC, payslipRate, withEarlyPaid, advanceMonth, advanceMonthOptions } from './payroll';
 import type { Employee } from '../types';
 
 const ok = (cond: boolean, msg: string) => { if (!cond) throw new Error(`SELF-CHECK FAILED: ${msg}`); };
@@ -37,5 +37,11 @@ const early = withEarlyPaid(
   [{ description: 'Advance', amount: 100 }, { description: 'Bonus paid 2026-11-01', amount: 999, early_paid: true }],
 );
 ok(early.length === 2 && early[1].description === 'Bonus paid 2026-11-10' && early[1].amount === 200, 'only the early-paid allowance is deducted, stale lines replaced');
+
+// Advances: recovered in their own month unless another is chosen; choices stop at the end date.
+ok(advanceMonth(monthly, { id: 'A', date: '2026-11-16', amount: 100 }) === 'November 2026', 'default: the month it was taken');
+ok(advanceMonth(monthly, { id: 'A', date: '2026-11-16', amount: 100, deduct_from: 'January 2027' }) === 'January 2027', 'a chosen month wins');
+const opts = advanceMonthOptions({ ...monthly, End_Date: '2027-01-31' }, new Date(2026, 10, 16));
+ok(opts.join() === 'November 2026,December 2026,January 2027', `months offered while employed, got ${opts.join()}`);
 
 console.log('All payroll pay self-checks passed.');

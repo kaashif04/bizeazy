@@ -23,7 +23,7 @@ function lines(json: string | undefined, fallbackLabel: string, fallbackAmount: 
   let list: any[] = [];
   try { list = json ? JSON.parse(json) : []; } catch { list = []; }
   list = list.filter(i => !('_bm_paid' in i) && (i.description?.trim() || i.amount > 0));
-  if (list.length) return list.map(i => [String(i.description || fallbackLabel), Number(i.amount) || 0]);
+  if (list.length) return list.map(i => [`${i.description || fallbackLabel}${i.date ? ` · ${i.date}` : ''}`, Number(i.amount) || 0]);
   return fallbackAmount > 0 ? [[fallbackLabel, fallbackAmount]] : [];
 }
 

@@ -5,7 +5,7 @@
  * Code.gs re-derives payPeriod/periodBounds for its email reminder (Apps Script
  * cannot import this). notifications.selfcheck.ts runs both and fails on drift.
  */
-import { Employee } from '../types';
+import { Employee, SalaryAdvance } from '../types';
 
 export const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -98,6 +98,19 @@ export const payPeriodForLabel = (emp: Employee, label: string): PayPeriod | nul
 export function periodLabelFor(emp: Employee, date: Date): string {
   const { start } = periodBounds(emp, date.getFullYear(), date.getMonth());
   return monthLabel(date >= start ? start : new Date(date.getFullYear(), date.getMonth() - 1, 1));
+}
+
+/** The payslip an advance is recovered on: the one chosen when it was recorded, else its own period. */
+export function advanceMonth(emp: Employee, a: SalaryAdvance): string {
+  const taken = parseLocalDate(a.date);
+  return a.deduct_from || (taken ? periodLabelFor(emp, taken) : '');
+}
+
+/** Payslips an advance taken on `date` can be recovered from: its own period and the next five, while employed. */
+export function advanceMonthOptions(emp: Employee, date: Date): string[] {
+  const first = parseMonthLabel(periodLabelFor(emp, date))!;
+  return Array.from({ length: 6 }, (_, i) => monthLabel(new Date(first.year, first.month + i, 1)))
+    .filter(label => payPeriodForLabel(emp, label));
 }
 
 /**

@@ -143,6 +143,8 @@ export interface SalaryAdvance {
   date: string;     // YYYY-MM-DD
   amount: number;
   note?: string;
+  /** Payslip month it is recovered on ("December 2026"); unset = the period it was taken in. */
+  deduct_from?: string;
 }
 
 export interface Payslip {
