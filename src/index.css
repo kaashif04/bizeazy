@@ -350,11 +350,13 @@
   @keyframes grow-x     { from { transform: scaleX(0); } }
 
   /* Every screen change rises into place; 180ms is felt, not waited for. */
-  .view-enter { animation: view-enter 180ms var(--ease-out-quint) both; }
-  .toast-in   { animation: row-enter 220ms var(--ease-out-quint) both; }
+  /* backwards, not both: a transform left applied after the animation would
+     contain every position:fixed popup inside the page instead of the window. */
+  .view-enter { animation: view-enter 180ms var(--ease-out-quint) backwards; }
+  .toast-in   { animation: row-enter 220ms var(--ease-out-quint) backwards; }
   @keyframes confirm-in { from { opacity: 0; transform: scale(0.94); } 60% { opacity: 1; } to { opacity: 1; transform: none; } }
-  .confirm-in { animation: confirm-in 200ms var(--ease-out-quint) both; }
-  .row-enter  { animation: row-enter 260ms var(--ease-out-quint) both; }
+  .confirm-in { animation: confirm-in 200ms var(--ease-out-quint) backwards; }
+  .row-enter  { animation: row-enter 260ms var(--ease-out-quint) backwards; }
   .tick-draw  { stroke-dasharray: 1; stroke-dashoffset: 0; animation: tick-draw 300ms 60ms var(--ease-out-quint) both; }
 
 
