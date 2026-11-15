@@ -7,7 +7,7 @@
  * own payslips newest first, by year. Unpaid people sort to the top.
  */
 import React, { useMemo, useState } from 'react';
-import { ChevronDown, FileText, Search, Check } from 'lucide-react';
+import { ChevronDown, FileText, Search, Check, Pencil } from 'lucide-react';
 import { Employee, Payslip } from '../types';
 import { normaliseMonthLabel } from '../utils/notifications';
 import { parseMonthLabel } from '../utils/payroll';
@@ -27,7 +27,7 @@ interface Person {
 }
 
 export function PayslipArchive({
-  payslips, employees, showBranch, canMarkPaid, onView, onMarkPaid,
+  payslips, employees, showBranch, canMarkPaid, onView, onMarkPaid, onEdit,
 }: {
   payslips: Payslip[];          // saved payslips in scope
   employees: Employee[];        // everyone, to name people across branches
@@ -35,6 +35,8 @@ export function PayslipArchive({
   canMarkPaid: boolean;
   onView: (slip: Payslip, employee?: Employee) => void;
   onMarkPaid: (slip: Payslip) => void;
+  /** Reopen as a draft in the generator. Offered only until the pay is marked transferred. */
+  onEdit: (slip: Payslip) => void;
 }) {
   const [query, setQuery] = useState('');
   const [unpaidOnly, setUnpaidOnly] = useState(false);
@@ -174,6 +176,13 @@ export function PayslipArchive({
                                 className="tap shrink-0 inline-flex items-center justify-center gap-1 px-2.5 rounded-lg text-2xs font-bold bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300 hover:bg-brand-100 dark:hover:bg-brand-950/70 cursor-pointer">
                                 <FileText className="w-3.5 h-3.5" /><span className="hidden sm:inline">View</span>
                               </button>
+                              {canMarkPaid && !slip.Payment_Transferred && (
+                                <button type="button" onClick={() => onEdit(slip)}
+                                  aria-label={`Edit ${normaliseMonthLabel(slip.Month_Year)} payslip`}
+                                  className="tap shrink-0 inline-flex items-center justify-center gap-1 px-2.5 rounded-lg text-2xs font-bold bg-ink-100 dark:bg-ink-800 text-ink-700 dark:text-ink-200 hover:bg-ink-200 dark:hover:bg-ink-700 cursor-pointer">
+                                  <Pencil className="w-3.5 h-3.5" /><span className="hidden sm:inline">Edit</span>
+                                </button>
+                              )}
                               {canMarkPaid && !slip.Payment_Transferred && (
                                 <button type="button" onClick={() => onMarkPaid(slip)}
                                   aria-label={`Mark ${normaliseMonthLabel(slip.Month_Year)} as paid`}

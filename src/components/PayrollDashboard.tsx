@@ -8,7 +8,7 @@ import { DatabaseState, Employee, Payslip, CompanyProfile, SalaryAdvance } from 
 import { activeOutlet as resolveActiveOutlet, outletLabel } from '../utils/outlets';
 import { salaryDeadline, salaryDue, normaliseMonthLabel } from '../utils/notifications';
 import {
-  payPeriodForLabel, periodLabelFor, isRemindable, round2, isoDate,
+  payPeriodForLabel, periodLabelFor, isRemindable, round2, isoDate, parseMonthLabel,
   parseLocalDate, monthLabel, statutory, deductionLabels, residencyOf, residencyLabel, Residency, PayBasis,
   isHourly, basicPayFor, hourlyLabel, unpaidLeaveDays, describePay, payRateText, MIN_HOURLY_WAGE, MIN_MONTHLY_WAGE,
   ageOn, statutoryAge, dobFromIC, payslipRate, withEarlyPaid, advanceMonth, advanceMonthOptions,
@@ -401,8 +401,16 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
   };
 
   /** Saved payslips already recovering this advance — it cannot be deleted under them. */
-  const slipSaved = (emp: Employee) => (label: string) =>
-    db.payslips.some(p => p.Is_Saved && p.Employee_ID === emp.Employee_ID && normaliseMonthLabel(p.Month_Year) === label);
+  const slipPaid = (emp: Employee) => (label: string) =>
+    db.payslips.some(p => p.Is_Saved && p.Payment_Transferred && p.Employee_ID === emp.Employee_ID && normaliseMonthLabel(p.Month_Year) === label);
+  /** The month an advance taken on `taken` will come off: the one picked, else its own if still open, else the next open one. */
+  const advanceTarget = (emp: Employee, taken: Date): string | undefined => {
+    const options = advanceMonthOptions(emp, taken, slipPaid(emp));
+    const own = periodLabelFor(emp, taken);
+    if (options.includes(advMonth)) return advMonth;
+    const key = (l: string) => { const m = parseMonthLabel(l)!; return m.year * 12 + m.month; };
+    return options.find(l => key(l) >= key(own)) ?? options[options.length - 1];
+  };
 
   const advanceOnPayslip = (advanceId: string) =>
     db.payslips.find(p => p.Is_Saved && (p.Deductions_JSON || '').includes(advanceId));
@@ -437,12 +445,17 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       triggerToast(`${advancesFor.Employee_Name} was not employed on ${advDate}.`, "warning");
       return;
     }
+    const target = advanceTarget(advancesFor, taken);
+    if (!target) {
+      triggerToast("Every payslip it could come off is already paid. Add it as an allowance or deduction on a later payslip.", "warning");
+      return;
+    }
     const advance: SalaryAdvance = {
       id: `ADV-${Date.now().toString(36)}`,
       date: advDate,
       amount: round2(advAmount),
       note: advNote.trim() || undefined,
-      deduct_from: advanceMonthOptions(advancesFor, taken, slipSaved(advancesFor)).includes(advMonth) ? advMonth : undefined,
+      deduct_from: target === periodLabelFor(advancesFor, taken) ? undefined : target,
     };
     saveAdvances(advancesFor, [...(advancesFor.Advances || []), advance],
       `Advance recorded. It will be deducted from the ${advanceMonth(advancesFor, advance)} payslip.`);
@@ -762,6 +775,30 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       await syncStateToSheets(spreadsheetId, accessToken, nextDb, profiles, activeBranchLocation);
       triggerToast(`Payslip ${finalizedSlips.Payslip_ID} stored successfully!`, "success");
       publishPdf(finalizedSlips);
+    } catch (err: any) {
+      triggerToast(`Not saved yet: ${err.message}`, "error");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // A saved payslip goes back to draft: its employee reappears in the generator
+  // with every line it had (handleOpenGenerator loads them), ready to fix and
+  // save again under the same Payslip_ID. Once the pay is marked transferred it
+  // is a record of money sent, so the archive no longer offers this.
+  const handleReopenPayslip = async (slip: Payslip) => {
+    const name = db.employees.find(e => e.Employee_ID === slip.Employee_ID)?.Employee_Name || 'this employee';
+    const month = normaliseMonthLabel(slip.Month_Year);
+    if (!window.confirm(`Reopen ${name}'s ${month} payslip to edit it? It becomes a draft until you save it again.`)) return;
+    const nextDb = {
+      ...db,
+      payslips: db.payslips.map(p => p.Payslip_ID === slip.Payslip_ID ? { ...p, Is_Saved: false } : p),
+    };
+    setDb(nextDb);
+    handleOpenGenerator(month);
+    try {
+      setIsSyncing(true);
+      await syncStateToSheets(spreadsheetId, accessToken, nextDb, profiles, activeBranchLocation);
     } catch (err: any) {
       triggerToast(`Not saved yet: ${err.message}`, "error");
     } finally {
@@ -1213,6 +1250,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
           setPreviewEmployee(employee);
           setPreviewPayslip(slip);
         }}
+        onEdit={handleReopenPayslip}
         onMarkPaid={(slip) => {
           setMarkPaymentPayslip(slip);
           setTransferDateInput(new Date().toISOString().slice(0, 10));
@@ -2383,18 +2421,18 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
             </div>
             {parseLocalDate(advDate) && (() => {
               const own = periodLabelFor(advancesFor, parseLocalDate(advDate)!);
-              const options = advanceMonthOptions(advancesFor, parseLocalDate(advDate)!, slipSaved(advancesFor));
+              const options = advanceMonthOptions(advancesFor, parseLocalDate(advDate)!, slipPaid(advancesFor));
               return (
                 <div>
                   <label htmlFor="adv-month" className="block text-2xs font-bold uppercase tracking-wider text-ink-600 dark:text-ink-300 mb-1">Deduct from payslip</label>
                   <select
                     id="adv-month"
-                    value={options.includes(advMonth) ? advMonth : ''}
+                    value={advanceTarget(advancesFor, parseLocalDate(advDate)!) ?? ''}
                     onChange={e => setAdvMonth(e.target.value)}
                     className="w-full px-3 py-2.5 text-xs rounded-lg border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-950 text-ink-900 dark:text-ink-100"
                   >
                     {options.map(label => (
-                      <option key={label} value={label === own ? '' : label}>{label}{label === own ? ' (month it was paid)' : ''}</option>
+                      <option key={label} value={label}>{label}{label === own ? ' (month it was paid)' : ''}</option>
                     ))}
                   </select>
                 </div>
