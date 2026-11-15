@@ -160,7 +160,7 @@ components:
 
 BizEazy is ivory paper shaped into relief. Surfaces are not drawn with lines; they are raised off the paper or pressed into it, lit from the top-left with a pale highlight and shaded to the bottom-right with a warm umber shade. Cards and the round quick actions float; fields, icon wells and the Hub's mini-stat wells sit in. Charcoal ink carries every figure, and cobalt is the single accent: primary actions, the active place, progress, focus.
 
-Density is phone-first: one column, 44px touch floors, a bottom tab bar on phones and a sidebar from `md` up. Desktop adds room, never features. One face (Inter) carries everything; weight, size and a tracked uppercase label role separate an amount from its name.
+Density is phone-first: one column, 44px touch floors, a bottom tab bar on phones and portrait tablets and a sidebar from `lg` up. Desktop adds room, never features. One face (Inter) carries everything; weight, size and a tracked uppercase label role separate an amount from its name.
 
 Motion is quick and additive: 150 to 300ms on ease-out-quint, transform and opacity only, never blocking input, fully suppressed under reduced motion.
 
@@ -230,7 +230,11 @@ Warm ivory neutrals, charcoal ink, one cobalt accent and three status hues.
 
 Phone-first single column with a 16px gutter (24px from `sm`), content capped at `max-w-6xl` on the Hub, sections 24px apart (32px from `sm`). The Hub reads top to bottom: the banner; four stat cards in two columns on phone and four from `lg` (12px gaps, 16px from `sm`); the four quick actions in normal flow, a four-column grid capped at `max-w-md`; the module cards, stacked on phone and three across from `md`; then "Recent invoices" (two-thirds) beside "Saved payslips" (one-third) from `lg`, stacked below it.
 
-Navigation: a fixed 64px bottom tab bar under `md`, content padded by 5rem plus the safe-area inset; a 240px sidebar from `md` up (off-canvas on phone for rare actions). The header is 56px on phone, 64px from `md`.
+Navigation: a fixed 64px bottom tab bar under `lg` (phones and portrait tablets; its tabs are capped at `max-w-xl` and centred), content padded by 5rem plus the safe-area inset; a 240px sidebar from `lg` up (off-canvas below it for branch and account actions). The header is sticky, 56px under `lg` and 64px from it; it and the tab bar are 90% ivory with a backdrop blur, the only translucent surfaces.
+
+Scrolling: the page scrolls, never an inner box, so phone browser bars collapse, a status-bar tap returns to top, and sticky elements inside modules stick. A section opens at its top. Lists that are tables from `xl` are cards below it: one column on phone, two from `md` (`CARD_LIST` in `ui/States`).
+
+Documents: every A4 document opens in `ui/DocumentViewer` (full screen under `lg`, a 5xl panel above), with two actions: Save PDF (Share PDF on touch, which opens the share sheet) and Print. The saved PDF is drawn from the page on screen by `utils/docPdf`, so it is identical on every device. Mark small blocks `print-keep-together`, day and session blocks `print-block`, and headings `print-keep-with-next`; both print and the PDF break pages by these marks.
 
 Touch: on coarse pointers every button, select and input holds 44px; form controls hold 38px everywhere; inputs stay at 16px text under 768px so iOS never zooms.
 
@@ -284,8 +288,8 @@ Soft and decisive.
 - **Focus:** keyboard focus gets the global 2px cobalt-focus outline at 2px offset (cobalt-light in dark), never on mouse click.
 
 ### Navigation
-- **Sidebar (md+):** ivory, 240px, bold 14px items at 16px radius; the active item is solid cobalt with ivory text and the md shadow; inactive items take a pressed-track hover. The brand mark is a 36px cobalt tile with a tick.
-- **Bottom tab bar (phone):** ivory with a hairline top rule, 64px tabs, micro labels; the active tab wears a cobalt-wash pill (56x32) behind a heavier-stroked icon, with a cobalt-deep label. A coral count badge marks Payroll.
+- **Sidebar (lg+):** ivory, 240px, bold 14px items at 16px radius; the active item is solid cobalt with ivory text and the md shadow; inactive items take a pressed-track hover. The brand mark is a 36px cobalt tile with a tick.
+- **Bottom tab bar (phone and portrait tablet):** ivory with a hairline top rule, 64px tabs, micro labels; the active tab wears a cobalt-wash pill (56x32) behind a heavier-stroked icon, with a cobalt-deep label. A coral count badge marks Payroll.
 
 ### Hub Overview (signature)
 - **Stat cards:** four raised ivory cards (24px, 16px padding, 20px from `sm`; charcoal in dark), "Total invoiced", "Collected", "Outstanding", "Active staff", entering with `row-enter` at a 40ms stagger. Each holds a 36px pressed round icon well (cobalt, mint or amber icon), the figure in charcoal semibold through `Money` (a plain count for staff), the uppercase label beneath it and a 12px secondary-ink sub-line ("3 unpaid").

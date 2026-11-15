@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import {
   Plus, Search, FileText, CheckCircle, X, Trash2,
   RefreshCw, Edit, Eye, CalendarPlus, Printer, ArrowRightCircle, ChefHat,
@@ -12,9 +11,10 @@ import {
   activeOutlet as resolveActiveOutlet, outletLabel, outletColor, outletInitials,
 } from '../utils/outlets';
 import { Sheet } from './ui/Sheet';
-import { EmptyState } from './ui/States';
+import { EmptyState, CARD_LIST } from './ui/States';
 import { generateInvoiceId } from './InvoicingModule';
-import { attachA4Scale } from '../utils/a4scale';
+import { DocumentViewer } from './ui/DocumentViewer';
+import { pdfName } from '../utils/docPdf';
 
 interface QuotationModuleProps {
   db: DatabaseState;
@@ -259,81 +259,8 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
     ? subtotal * (quotation.Discount_Value || 0) / 100
     : quotation.Discount_Type === 'fixed' ? (quotation.Discount_Value || 0) : 0;
 
-  // Portal straight to <body> so printing isn't constrained by any ancestor in the
-  // app's own layout (sidebar, page wrappers, etc.) — see print CSS below for why.
-  return createPortal(
-    <div id="quotation-preview-overlay" data-document className="fixed inset-0 bg-black/60 z-[60] flex overlay-center justify-center p-2 sm:p-4 overflow-y-auto w-full h-full">
-      <style dangerouslySetInnerHTML={{ __html: `
-        @media print {
-          @page { size: A4 portrait; margin: 0mm; }
-          /* Pin the print layout viewport to true A4 width so mobile Chrome prints
-             1:1 instead of shrinking the 210mm page (which needed a manual ~75% zoom). */
-          html, body {
-            width: 210mm !important; min-width: 210mm !important; max-width: 210mm !important;
-            -webkit-text-size-adjust: 100% !important; text-size-adjust: 100% !important;
-          }
-          body, html { margin: 0 !important; padding: 0 !important; background: white !important; }
-          /* Remove every body child from layout except our overlay — display:none
-             eliminates layout boxes entirely, preventing phantom page-height gaps
-             that visibility:hidden (which keeps boxes) would leave behind. */
-          body > * { display: none !important; }
-          body > #quotation-preview-overlay { display: block !important; }
-          #quotation-preview-header { display: none !important; }
-          /* Ancestors must not constrain height/overflow/padding/centering, or content
-             gets clipped to page 1 or pushed down by leftover flex spacing. */
-          #quotation-preview-overlay, #quotation-preview-dialog, #quotation-stage-container {
-            position: static !important; height: auto !important;
-            max-height: none !important; overflow: visible !important;
-            padding: 0 !important; margin: 0 !important; display: block !important;
-          }
-          .a4-spacer { width: auto !important; height: auto !important; margin: 0 !important; }
-          #quotation-print-area {
-            position: static !important;
-            width: 210mm !important; min-height: 297mm !important; height: auto !important;
-            overflow: visible !important;
-            /* justify-between pushes the footer to the bottom of the 297mm container,
-               causing a blank gap between the day tables and the totals block. */
-            justify-content: flex-start !important;
-            transform: none !important; background: white !important; border: none !important;
-            box-shadow: none !important; margin: 0 !important;
-            -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
-          }
-          /* Never split a day, a session's menu table, or the totals box across a page
-             boundary — push the whole block to the next page instead of cutting it off. */
-          .print-keep-together { break-inside: avoid-page; page-break-inside: avoid; }
-        }
-        /* On screen, just fill the available width up to a real A4 width and let it scroll
-           vertically — the Tailwind classes (w-full max-w-[210mm]) already do this. No
-           scale-down transform here: shrinking the whole page to fit a phone screen made
-           every line of text microscopic. Only @media print forces the literal 210mm size. */
-      `}} />
-
-      <div id="quotation-preview-dialog" className="bg-ink-100 text-ink-900 w-full max-w-5xl rounded-2xl shadow-2xl flex flex-col overflow-hidden text-left h-[90vh]">
-        {/* Header bar */}
-        <div id="quotation-preview-header" className="px-6 py-4 bg-ink-900 text-white flex justify-between items-center border-b border-ink-800 gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <h3 className="text-sm font-bold tracking-tight">Quotation Preview</h3>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => window.print()}
-              className="px-4 py-1.5 cursor-pointer bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-full flex items-center gap-1.5 transition-all shadow-md active:scale-95"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              Print / Save A4
-            </button>
-            <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded-lg transition-all text-ink-500 hover:text-white cursor-pointer">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* Paper canvas — no flex here on purpose; margin:auto on the page itself centers
-            it reliably on every browser without depending on any flexbox cross-axis sizing
-            behavior, which is what was leaving a side gap on real mobile browsers. */}
-        <div id="quotation-stage-container" ref={attachA4Scale} className="flex-1 bg-ink-800 p-2 sm:p-8 overflow-auto w-full">
-          <div className="a4-spacer mx-auto">
+return (
+    <DocumentViewer title={`Quotation ${quotation.Quotation_ID}`} fileName={pdfName('Quotation', quotation.Quotation_ID, quotation.Customer_Name)} onClose={onClose}>
           <div
             id="quotation-print-area"
             className={`a4-page @container bg-white w-[794px] text-ink-800 shadow-2xl relative overflow-hidden min-h-[1123px] flex flex-col justify-between border border-ink-300 ${customStyles.padding || 'p-8'} ${customStyles.body_size || 'text-xs'}`}
@@ -438,8 +365,8 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
                     group.rows.push(it);
                   });
                   return (
-                    <div key={day.Day_ID} className="print-keep-together border border-ink-200 rounded-xl overflow-hidden">
-                      <div className="px-3 py-2.5 flex flex-wrap items-center justify-between gap-2 text-white" style={{ backgroundColor: accent }}>
+                    <div key={day.Day_ID} className="print-block border border-ink-200 rounded-xl overflow-hidden">
+                      <div className="print-keep-with-next px-3 py-2.5 flex flex-wrap items-center justify-between gap-2 text-white" style={{ backgroundColor: accent }}>
                         <div>
                           <p className="text-2xs font-bold">{formatEventDate(day.Event_Date)}</p>
                           <p className="text-2xs opacity-90">{day.Pax} pax &middot; {day.Serving_Style}</p>
@@ -458,9 +385,9 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
                       {sessionGroups.map((group, gi) => {
                         const groupTotal = group.rows.reduce((s, it) => s + (it.Subtotal || it.Quantity * it.Price), 0);
                         return (
-                          <div key={gi} className={`print-keep-together ${gi > 0 ? 'border-t border-ink-200' : ''}`}>
+                          <div key={gi} className={`print-block ${gi > 0 ? 'border-t border-ink-200' : ''}`}>
                             {(group.label || group.time) && (
-                              <div className="px-3 py-2 bg-ink-50 flex items-center justify-between gap-2 border-l-[3px]" style={{ borderColor: accent }}>
+                              <div className="print-keep-with-next px-3 py-2 bg-ink-50 flex items-center justify-between gap-2 border-l-[3px]" style={{ borderColor: accent }}>
                                 <span className="text-2xs font-extrabold uppercase tracking-wide" style={{ color: accent }}>{group.label || 'Session'}</span>
                                 {group.time && <span className="text-2xs font-bold text-ink-700">{group.time}</span>}
                               </div>
@@ -470,8 +397,8 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
                                 <tr className="bg-ink-50 text-ink-500 text-2xs font-bold uppercase tracking-wide">
                                   <th className="py-1.5 px-3 text-left">Menu Item</th>
                                   <th className="py-1.5 px-2 text-center w-16">Qty</th>
-                                  {quotation.Pricing_Mode === 'itemized' && <th className="py-1.5 px-2 text-right w-20">Unit Price</th>}
-                                  {quotation.Pricing_Mode === 'itemized' && <th className="py-1.5 px-3 text-right w-20">Subtotal</th>}
+                                  {quotation.Pricing_Mode === 'itemized' && <th className="py-1.5 px-2 text-right w-28 whitespace-nowrap">Unit Price</th>}
+                                  {quotation.Pricing_Mode === 'itemized' && <th className="py-1.5 px-3 text-right w-28">Subtotal</th>}
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-ink-100">
@@ -479,8 +406,8 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
                                   <tr key={it.Item_ID}>
                                     <td className="py-1.5 px-3 font-medium text-ink-800 break-words">{it.Item_Name}</td>
                                     <td className="py-1.5 px-2 text-center text-ink-600">{it.Quantity}</td>
-                                    {quotation.Pricing_Mode === 'itemized' && <td className="py-1.5 px-2 text-right text-ink-600 font-mono">{currency} {it.Price.toFixed(2)}</td>}
-                                    {quotation.Pricing_Mode === 'itemized' && <td className="py-1.5 px-3 text-right font-bold text-ink-900 font-mono">{currency} {(it.Subtotal || it.Quantity * it.Price).toFixed(2)}</td>}
+                                    {quotation.Pricing_Mode === 'itemized' && <td className="py-1.5 px-2 text-right text-ink-600 font-mono whitespace-nowrap">{currency} {it.Price.toFixed(2)}</td>}
+                                    {quotation.Pricing_Mode === 'itemized' && <td className="py-1.5 px-3 text-right font-bold text-ink-900 font-mono whitespace-nowrap">{currency} {(it.Subtotal || it.Quantity * it.Price).toFixed(2)}</td>}
                                   </tr>
                                 ))}
                               </tbody>
@@ -544,11 +471,7 @@ function QuotationPreviewModal({ data, onClose }: { data: PreviewData; onClose: 
               <p className="text-[8px] font-mono text-ink-300 uppercase tracking-widest">Generated Securely by BizEazyInvoicing</p>
             </div>
           </div>
-          </div>
-        </div>
-      </div>
-    </div>,
-    document.body,
+    </DocumentViewer>
   );
 }
 
@@ -563,70 +486,8 @@ function KitchenSheetModal({ data, onClose }: { data: PreviewData; onClose: () =
   const storeName = profile?.store_name || profile?.name || quotation.Company;
   const sortedDays = [...days].sort((a, b) => a.Event_Date.localeCompare(b.Event_Date));
 
-  return createPortal(
-    <div id="kitchen-sheet-overlay" data-document className="fixed inset-0 bg-black/60 z-[60] flex overlay-center justify-center p-2 sm:p-4 overflow-y-auto w-full h-full">
-      <style dangerouslySetInnerHTML={{ __html: `
-        @media print {
-          @page { size: A4 portrait; margin: 0mm; }
-          /* Pin the print layout viewport to true A4 width so mobile Chrome prints
-             1:1 instead of shrinking the 210mm page (which needed a manual ~75% zoom). */
-          html, body {
-            width: 210mm !important; min-width: 210mm !important; max-width: 210mm !important;
-            -webkit-text-size-adjust: 100% !important; text-size-adjust: 100% !important;
-          }
-          body, html { margin: 0 !important; padding: 0 !important; background: white !important; }
-          /* Remove every body child from layout except our overlay — display:none
-             eliminates layout boxes entirely, preventing phantom page-height gaps
-             that visibility:hidden (which keeps boxes) would leave behind. */
-          body > * { display: none !important; }
-          body > #kitchen-sheet-overlay { display: block !important; }
-          #kitchen-sheet-header { display: none !important; }
-          #kitchen-sheet-overlay, #kitchen-sheet-dialog, #kitchen-sheet-stage {
-            position: static !important; height: auto !important;
-            max-height: none !important; overflow: visible !important;
-            padding: 0 !important; margin: 0 !important; display: block !important;
-          }
-          .a4-spacer { width: auto !important; height: auto !important; margin: 0 !important; }
-          #kitchen-sheet-print-area {
-            position: static !important;
-            width: 210mm !important; min-height: 297mm !important; height: auto !important;
-            overflow: visible !important;
-            justify-content: flex-start !important;
-            transform: none !important; background: white !important; border: none !important;
-            box-shadow: none !important; margin: 0 !important;
-            -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
-          }
-          .print-keep-together { break-inside: avoid-page; page-break-inside: avoid; }
-        }
-        /* On screen, just fill the available width up to a real A4 width and let it scroll
-           vertically — the Tailwind classes (w-full max-w-[210mm]) already do this. No
-           scale-down transform here: shrinking the whole page to fit a phone screen made
-           every line of text microscopic. Only @media print forces the literal 210mm size. */
-      `}} />
-
-      <div id="kitchen-sheet-dialog" className="bg-ink-100 text-ink-900 w-full max-w-5xl rounded-2xl shadow-2xl flex flex-col overflow-hidden text-left h-[90vh]">
-        <div id="kitchen-sheet-header" className="px-6 py-4 bg-ink-900 text-white flex justify-between items-center border-b border-ink-800 gap-3">
-          <div className="flex items-center gap-2.5">
-            <ChefHat className="w-4 h-4 text-amber-400" />
-            <h3 className="text-sm font-bold tracking-tight">Kitchen Prep Sheet</h3>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => window.print()}
-              className="px-4 py-1.5 cursor-pointer bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-full flex items-center gap-1.5 transition-all shadow-md active:scale-95"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              Print / Save A4
-            </button>
-            <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded-lg transition-all text-ink-500 hover:text-white cursor-pointer">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* No flex here on purpose — see Quotation preview for why */}
-        <div id="kitchen-sheet-stage" ref={attachA4Scale} className="flex-1 bg-ink-800 p-2 sm:p-8 overflow-auto w-full">
-          <div className="a4-spacer mx-auto">
+return (
+    <DocumentViewer title={`Kitchen sheet ${quotation.Quotation_ID}`} fileName={pdfName('Kitchen', quotation.Quotation_ID, quotation.Customer_Name)} onClose={onClose}>
           <div
             id="kitchen-sheet-print-area"
             className="a4-page bg-white w-[794px] text-ink-900 shadow-2xl relative overflow-hidden min-h-[1123px] flex flex-col border border-ink-300 p-8 text-xs"
@@ -686,8 +547,8 @@ function KitchenSheetModal({ data, onClose }: { data: PreviewData; onClose: () =
                   });
 
                   return (
-                    <div key={day.Day_ID} className="print-keep-together border border-ink-200 rounded-xl overflow-hidden">
-                      <div className="px-3 py-2.5 flex flex-wrap items-center justify-between gap-2 text-white" style={{ backgroundColor: accent }}>
+                    <div key={day.Day_ID} className="print-block border border-ink-200 rounded-xl overflow-hidden">
+                      <div className="print-keep-with-next px-3 py-2.5 flex flex-wrap items-center justify-between gap-2 text-white" style={{ backgroundColor: accent }}>
                         <p className="text-[12px] font-extrabold">{formatEventDate(day.Event_Date)}</p>
                         <div className="flex items-center gap-2">
                           <span className="text-2xs font-extrabold bg-white/20 px-2.5 py-1 rounded-lg uppercase">{day.Serving_Style}</span>
@@ -700,8 +561,8 @@ function KitchenSheetModal({ data, onClose }: { data: PreviewData; onClose: () =
                       )}
 
                       {sessionGroups.map((group, gi) => (
-                        <div key={gi} className="print-keep-together border-t border-ink-100 first:border-t-0">
-                          <div className="px-3 py-2 bg-ink-50 flex items-center justify-between gap-2 border-l-[3px]" style={{ borderColor: accent }}>
+                        <div key={gi} className="print-block border-t border-ink-100 first:border-t-0">
+                          <div className="print-keep-with-next px-3 py-2 bg-ink-50 flex items-center justify-between gap-2 border-l-[3px]" style={{ borderColor: accent }}>
                             <span className="text-2xs font-extrabold uppercase tracking-wide" style={{ color: accent }}>{group.label || 'Session'}</span>
                             {group.time && <span className="text-2xs font-bold text-ink-700">{group.time}</span>}
                           </div>
@@ -733,11 +594,7 @@ function KitchenSheetModal({ data, onClose }: { data: PreviewData; onClose: () =
               <p className="text-2xs font-bold text-ink-500 uppercase tracking-widest">Internal Kitchen Use Only — Not for Client Distribution</p>
             </div>
           </div>
-          </div>
-        </div>
-      </div>
-    </div>,
-    document.body,
+    </DocumentViewer>
   );
 }
 
@@ -1399,7 +1256,7 @@ export default function QuotationModule({
           </div>
 
           {/* Mobile card list */}
-          <div className="xl:hidden divide-y divide-ink-100 dark:divide-ink-800">
+          <div className={CARD_LIST}>
             {filtered.map(q => {
               const expired = isExpired(q.Valid_Until);
               return (

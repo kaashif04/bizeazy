@@ -87,3 +87,11 @@ export function EmptyState({
     </div>
   );
 }
+
+/**
+ * The card list that stands in for a table below xl: one column on a phone, two
+ * on a tablet, hairlines between cards in both.
+ */
+export const CARD_LIST =
+  'xl:hidden grid grid-cols-1 md:grid-cols-2 divide-y divide-ink-100 dark:divide-ink-800 md:divide-y-0 ' +
+  '[&>*]:border-ink-100 dark:[&>*]:border-ink-800 md:[&>*:nth-child(n+3)]:border-t md:[&>*:nth-child(odd)]:border-r';

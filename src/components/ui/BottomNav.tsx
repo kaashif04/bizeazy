@@ -1,7 +1,7 @@
 /**
  * BottomNav.tsx — primary navigation where the thumb already is.
  *
- * Phone only. On a phone the module switcher used to live behind a hamburger
+ * Phones and tablets in portrait (below lg). On a phone the module switcher used to live behind a hamburger
  * at the top-left, which is the furthest point from a thumb on a held device,
  * and in a second ad-hoc row of pills in the hub header. Both are replaced by
  * one bar. The off-canvas sidebar stays for the things you touch rarely:
@@ -38,9 +38,10 @@ export function BottomNav({
     <nav
       data-chrome
       aria-label="Main"
-      className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-ink-100 dark:border-ink-800 bg-white dark:bg-ink-950 pb-safe"
+      className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-ink-100 dark:border-ink-800 bg-white/90 dark:bg-ink-950/90 backdrop-blur-lg backdrop-saturate-150 pb-safe"
     >
-      <ul className="flex items-stretch">
+      {/* On a tablet the tabs stay a thumb's width apart, not spread across the screen. */}
+      <ul className="flex items-stretch max-w-xl mx-auto">
         {tabs.map(({ view, label, Icon }) => {
           const active = activeView === view;
           const showBadge = view === 'payroll' && badgeCount > 0;

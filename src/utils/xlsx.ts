@@ -79,7 +79,7 @@ export function buildXlsx(sheets: SheetData[]): Uint8Array {
 }
 
 /** Hand the browser a file to save. */
-export function download(name: string, data: Uint8Array | string, type: string) {
+export function download(name: string, data: BlobPart, type: string) {
   const url = URL.createObjectURL(new Blob([data], { type }));
   const a = Object.assign(document.createElement('a'), { href: url, download: name });
   document.body.appendChild(a);

@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
-import { createPortal } from 'react-dom';
 import {
   loadAll, saveChanges, loadConfig, saveConfig, importSheetExport, forgetLoaded, EMPTY_DB, KINDS,
   backupJson, workbookSheets, recentChanges, Change,
@@ -25,7 +24,8 @@ import {
   activeOutlet as resolveActiveOutlet, outletLabel, outletColor, outletInitials,
   newOutletId, outletUsage,
 } from './utils/outlets';
-import { attachA4Scale } from './utils/a4scale';
+import { DocumentViewer } from './components/ui/DocumentViewer';
+import { pdfName } from './utils/docPdf';
 // The modules (and the PDF library invoicing pulls in) load as their own
 // chunks, so the first screen paints from a small bundle. preloadModules()
 // fetches them all in the background right after the first load, so by the
@@ -172,7 +172,7 @@ function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: 
   };
   return (
     // Phone: centred just above the tab bar, under the thumb. Desktop: bottom right.
-    <div aria-live="polite" className="fixed z-[9999] left-3 right-3 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] md:left-auto md:right-5 md:bottom-5 flex flex-col items-center md:items-end gap-2 pointer-events-none">
+    <div aria-live="polite" className="fixed z-[9999] left-3 right-3 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] lg:left-auto lg:right-5 lg:bottom-5 flex flex-col items-center lg:items-end gap-2 pointer-events-none">
       {toasts.map(t => (
         <div
           key={t.id}
@@ -453,11 +453,11 @@ function Sidebar({
     // (menu first, then branches) and a slim footer, so the menu is always the
     // first thing in view at any height and nothing overlaps.
     <aside className={`
-      fixed inset-y-0 left-0 z-50 w-64 md:w-60
+      fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] lg:w-60
       transform transition-transform duration-300 ease-in-out
       ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
-      md:relative md:translate-x-0 md:flex-shrink-0
-      bg-white dark:bg-ink-950 border-r border-ink-200 dark:border-ink-800 flex flex-col h-dvh md:sticky md:top-0 pt-safe
+      lg:translate-x-0 lg:flex-shrink-0
+      bg-white dark:bg-ink-950 border-r border-ink-200 dark:border-ink-800 flex flex-col h-dvh lg:sticky lg:top-0 pt-safe
     `}>
       {/* Brand */}
       <div className="px-4 pt-4 pb-3 flex-shrink-0">
@@ -597,6 +597,8 @@ export default function App() {
   const [profiles, setProfiles] = useState<CompanyProfile[]>(DEFAULT_PROFILES);
   const [payrollScope, setPayrollScope] = useState<PayrollScope>('company');
   const [activeView, setActiveView] = useState<AppView>('hub');
+  // A new section starts at its top, not wherever the last one was scrolled to.
+  useEffect(() => { window.scrollTo({ top: 0 }); }, [activeView]);
   const [isDark, setIsDark] = useState(() => localStorage.getItem('bizeazy_dark') === 'true');
 
   // Keep DOM class and a lightweight localStorage flag in sync with the theme state
@@ -651,7 +653,7 @@ export default function App() {
   ) => {
     setPreviewInvoiceId(invoiceId);
     setIsPreviewOpen(true);
-    toast('Invoice preview opened. Use Print / Save A4 to export PDF.', 'info');
+    toast('Invoice opened. Use Save PDF or Print.', 'info');
   };
 
 
@@ -846,12 +848,12 @@ export default function App() {
   // ─── Hub Overview (standalone layout with own sidebar) ──────────────────────
   return (
     <div className={wrapClass}>
-      <div className="min-h-screen bg-ink-50 dark:bg-ink-950 flex">
+      <div className="min-h-dvh bg-ink-50 dark:bg-ink-950 flex">
 
         {/* Mobile overlay — tap outside to close */}
         {isMobileNavOpen && (
           <div
-            className="fixed inset-0 z-40 bg-black/50 md:hidden"
+            className="fixed inset-0 z-40 bg-black/50 lg:hidden animate-fade-in"
             onClick={() => setIsMobileNavOpen(false)}
           />
         )}
@@ -880,13 +882,14 @@ export default function App() {
         />
 
         <div className="flex-1 min-w-0 flex flex-col">
-          {/* Top bar */}
-          <header className="bg-white dark:bg-ink-950 border-b border-ink-100 dark:border-ink-800 px-4 md:px-6 h-14 md:h-16 flex items-center justify-between flex-shrink-0">
+          {/* Top bar: stays in view while the page scrolls under it. */}
+          <header className="sticky top-0 z-30 pt-safe bg-white/90 dark:bg-ink-950/90 backdrop-blur-lg backdrop-saturate-150 border-b border-ink-100 dark:border-ink-800 flex-shrink-0">
+          <div className="px-4 lg:px-6 h-14 lg:h-16 flex items-center justify-between">
             <div className="flex items-center gap-3 min-w-0">
               {/* Hamburger — mobile only */}
               <button
                 onClick={() => setIsMobileNavOpen(true)}
-                className="md:hidden p-1.5 -ml-1 rounded-lg text-ink-500 dark:text-ink-400 hover:bg-ink-100 dark:hover:bg-ink-800 cursor-pointer flex-shrink-0"
+                className="lg:hidden tap -ml-2.5 flex items-center justify-center rounded-lg text-ink-500 dark:text-ink-400 hover:bg-ink-100 dark:hover:bg-ink-800 cursor-pointer flex-shrink-0"
                 aria-label="Open navigation"
               >
                 <Menu className="w-5 h-5" />
@@ -907,10 +910,13 @@ export default function App() {
               )}
               <NotificationBell notifications={notifications} isDark={isDark} onOpenView={setActiveView} />
             </div>
+          </div>
           </header>
 
-          {/* Module content */}
-          <main className="flex-1 overflow-y-auto p-4 sm:p-6 pb-nav md:pb-6">
+          {/* Module content. The page itself scrolls (not an inner box), so the
+              browser bars collapse on a phone, a status-bar tap scrolls to top on
+              iOS, and sticky elements inside modules stick. */}
+          <main className="flex-1 min-w-0 p-4 sm:p-6 pb-nav lg:pb-6">
             <div key={activeView} className="view-enter">
             {activeView === 'hub' ? (
               <HubOverview
@@ -1130,113 +1136,14 @@ export default function App() {
             ? invoice.Customer_Address
             : (matchedCust?.Address && matchedCust.Address !== '-' ? matchedCust.Address : '');
 
-          // Portal straight to <body> so printing isn't constrained by any ancestor in
-          // the app's own layout (sidebar, page wrappers, etc.) — see print CSS below.
-          return createPortal(
-            <div id="preview-studio-overlay" data-document className="fixed inset-0 bg-black/60 z-[60] flex overlay-center justify-center p-2 sm:p-4 overflow-y-auto w-full h-full">
-              <style dangerouslySetInnerHTML={{__html: `
-                @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Playfair+Display:ital,wght@0,600;1,400&family=Space+Grotesk:wght@500;700&display=swap');
-                @media print {
-                  @page { size: A4 portrait; margin: 0mm; }
-                  /* Force the print layout viewport itself to exactly A4 width. Without
-                     this, mobile Chrome keeps the body at the phone's ~360px width and
-                     shrinks the 210mm print area to fit — which is why it printed small
-                     and needed a manual ~75% zoom. Pinning body to 210mm makes every
-                     device (desktop + mobile) render the page 1:1 at true A4. */
-                  html, body {
-                    width: 210mm !important;
-                    min-width: 210mm !important;
-                    max-width: 210mm !important;
-                    -webkit-text-size-adjust: 100% !important;
-                    text-size-adjust: 100% !important;
-                  }
-                  body, html { margin: 0 !important; padding: 0 !important; background: white !important; }
-                  /* Remove every body child from layout except our overlay — display:none
-                     eliminates layout boxes entirely, preventing phantom page-height gaps
-                     that visibility:hidden (which keeps boxes) would leave behind. */
-                  body > * { display: none !important; }
-                  body > #preview-studio-overlay { display: block !important; }
-                  #preview-studio-header, #preview-studio-footer { display: none !important; }
-                  /* Ancestors must not constrain height/overflow/padding/centering, or
-                     content gets clipped to page 1 or pushed down by leftover flex spacing.
-                     #preview-studio-body is the intermediate flex div between dialog and
-                     stage container — it must also be reset or overflow:hidden clips content. */
-                  #preview-studio-overlay, #preview-studio-dialog,
-                  #preview-studio-body, #preview-stage-container {
-                    position: static !important;
-                    height: auto !important;
-                    max-height: none !important;
-                    overflow: visible !important;
-                    padding: 0 !important;
-                    margin: 0 !important;
-                    display: block !important;
-                  }
-                  /* Never split the customer block, items table, or totals box across a
-                     page boundary — push the whole block to the next page instead. */
-                  .print-keep-together { break-inside: avoid-page; page-break-inside: avoid; }
-                  /* Undo the on-screen scale-to-fit so the export is true full A4. */
-                  .a4-spacer { width: auto !important; height: auto !important; margin: 0 !important; }
-                  #invoice-print-area {
-                    position: static !important;
-                    width: 210mm !important;
-                    min-height: 297mm !important;
-                    height: auto !important;
-                    overflow: visible !important;
-                    /* justify-between pushes the totals footer to the very bottom of the
-                       297mm container, creating a large blank gap between the line items
-                       and the footer. flex-start lets content flow naturally top-to-bottom
-                       with no artificial spacing. */
-                    justify-content: flex-start !important;
-                    transform: none !important;
-                    transform-origin: top left !important;
-                    background: white !important;
-                    border: none !important;
-                    box-shadow: none !important;
-                    margin: 0 !important;
-                    -webkit-print-color-adjust: exact !important;
-                    print-color-adjust: exact !important;
-                  }
-                }
-                /* On screen, just fill the available width up to a real A4 width and let it
-                   scroll vertically — the Tailwind classes (w-full max-w-[210mm]) already do
-                   this. No scale-down transform here: shrinking the whole page to fit a phone
-                   screen made every line of text microscopic. Only @media print forces the
-                   literal 210mm size. */
-              `}} />
-
-              <div id="preview-studio-dialog" className="bg-ink-100 text-ink-900 w-full max-w-6xl rounded-2xl shadow-2xl flex flex-col overflow-hidden text-left h-[90vh]">
-
-                {/* Header */}
-                <div id="preview-studio-header" className="px-6 py-4 bg-ink-900 text-white flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-ink-800 gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <h3 className="text-sm font-bold tracking-tight">Invoice Preview</h3>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
-                    <button
-                      onClick={() => window.print()}
-                      className="px-4 py-1.5 cursor-pointer bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-full flex items-center gap-1.5 transition-all shadow-md active:scale-95"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-                      Print / Save A4
-                    </button>
-                    <button
-                      onClick={() => { setIsPreviewOpen(false); setPreviewInvoiceId(null); }}
-                      className="p-1 px-1.5 hover:bg-white/10 rounded-lg transition-all text-ink-500 hover:text-white cursor-pointer"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Body */}
-                <div id="preview-studio-body" className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-
-                  {/* RIGHT: Paper canvas — no flex here on purpose; margin:auto on the page
-                      itself centers it reliably on every browser without depending on any
-                      flexbox cross-axis sizing behavior. */}
-                  <div id="preview-stage-container" ref={attachA4Scale} className="bg-ink-800 p-2 sm:p-8 rounded-2xl overflow-auto w-full">
-                    <div className="a4-spacer mx-auto">
+          const closePreview = () => { setIsPreviewOpen(false); setPreviewInvoiceId(null); };
+          return (
+            <DocumentViewer
+              title={`Invoice ${invoice.Invoice_ID}`}
+              fileName={pdfName('Invoice', invoice.Invoice_ID, invoice.Customer_Name)}
+              onClose={closePreview}
+            >
+                    <style>{`@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Playfair+Display:ital,wght@0,600;1,400&family=Space+Grotesk:wght@500;700&display=swap');`}</style>
                     <div
                       id="invoice-print-area"
                       className={`a4-page @container bg-white w-[794px] text-ink-800 shadow-2xl relative overflow-hidden min-h-[1123px] flex flex-col justify-between border border-ink-300 ${customStyles.padding || 'p-8'} ${customStyles.body_size || 'text-xs'}`}
@@ -1355,9 +1262,9 @@ export default function App() {
                           const rowsOf = (rows: InvoiceItem[]) => rows.map((item, ri) => (
                             <tr key={ri} className={ri % 2 === 0 ? 'bg-white' : 'bg-ink-50/50'}>
                               <td className="py-2 px-3 font-semibold text-ink-900 break-words">{item.Item_Name}</td>
-                              <td className="py-2 px-2 text-right font-mono text-ink-600">{priceCell(Number(item.Price) || 0)}</td>
+                              <td className="py-2 px-2 text-right font-mono text-ink-600 whitespace-nowrap">{priceCell(Number(item.Price) || 0)}</td>
                               <td className="py-2 px-2 text-center font-mono text-ink-600">{item.Quantity}</td>
-                              <td className="py-2 px-3 text-right font-bold text-ink-900 font-mono">{priceCell(Number(item.Subtotal ?? item.Quantity * item.Price) || 0)}</td>
+                              <td className="py-2 px-3 text-right font-bold text-ink-900 font-mono whitespace-nowrap">{priceCell(Number(item.Subtotal ?? item.Quantity * item.Price) || 0)}</td>
                             </tr>
                           ));
 
@@ -1365,9 +1272,9 @@ export default function App() {
                             <thead>
                               <tr className="bg-ink-50 text-ink-500 text-2xs font-bold uppercase tracking-wide">
                                 <th className="py-1.5 px-3 text-left">Item Description</th>
-                                <th className="py-1.5 px-2 text-right w-24">Unit Price</th>
+                                <th className="py-1.5 px-2 text-right w-28">Unit Price</th>
                                 <th className="py-1.5 px-2 text-center w-14">Qty</th>
-                                <th className="py-1.5 px-3 text-right w-24">Subtotal</th>
+                                <th className="py-1.5 px-3 text-right w-28">Subtotal</th>
                               </tr>
                             </thead>
                           );
@@ -1375,16 +1282,16 @@ export default function App() {
                           // ── Ordinary invoice (no dated groups): original flat table ──
                           if (grouped.length === 0) {
                             return (
-                              <div className="print-keep-together mb-6 overflow-hidden rounded-xl border border-ink-200">
+                              <div className="mb-6 overflow-hidden rounded-xl border border-ink-200">
                                 <table className="w-full table-fixed text-2xs border-collapse text-left">
                                   <thead>
                                     <tr className="text-white text-2xs font-bold uppercase tracking-wider"
                                       style={{ backgroundColor: customStyles.primary_color }}>
                                       <th className="py-2.5 px-3 w-8">#</th>
                                       <th className="py-2.5 px-2">Item Description</th>
-                                      <th className="py-2.5 px-2 text-right w-20">Unit Price</th>
+                                      <th className="py-2.5 px-2 text-right w-28">Unit Price</th>
                                       <th className="py-2.5 px-2 text-center w-14">Qty</th>
-                                      <th className="py-2.5 px-3 text-right w-20">Subtotal</th>
+                                      <th className="py-2.5 px-3 text-right w-28">Subtotal</th>
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-ink-100">
@@ -1392,9 +1299,9 @@ export default function App() {
                                       <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-ink-50/50'}>
                                         <td className="py-2.5 px-3 text-ink-500 font-mono">{idx + 1}</td>
                                         <td className="py-2.5 px-2 font-semibold text-ink-900 break-words">{item.Item_Name}</td>
-                                        <td className="py-2.5 px-2 text-right font-mono text-ink-600">{priceCell(Number(item.Price) || 0)}</td>
+                                        <td className="py-2.5 px-2 text-right font-mono text-ink-600 whitespace-nowrap">{priceCell(Number(item.Price) || 0)}</td>
                                         <td className="py-2.5 px-2 text-center font-mono text-ink-600">{item.Quantity}</td>
-                                        <td className="py-2.5 px-3 text-right font-bold text-ink-900 font-mono">{priceCell(Number(item.Subtotal ?? item.Quantity * item.Price) || 0)}</td>
+                                        <td className="py-2.5 px-3 text-right font-bold text-ink-900 font-mono whitespace-nowrap">{priceCell(Number(item.Subtotal ?? item.Quantity * item.Price) || 0)}</td>
                                       </tr>
                                     )) : (
                                       <tr>
@@ -1411,14 +1318,14 @@ export default function App() {
                           return (
                             <div className="mb-6 space-y-4">
                               {grouped.map((day, di) => (
-                                <div key={di} className="print-keep-together overflow-hidden rounded-xl border border-ink-200">
-                                  <div className="px-3 py-2.5 text-white" style={{ backgroundColor: customStyles.primary_color }}>
+                                <div key={di} className="print-block overflow-hidden rounded-xl border border-ink-200">
+                                  <div className="print-keep-with-next px-3 py-2.5 text-white" style={{ backgroundColor: customStyles.primary_color }}>
                                     <p className="text-2xs font-bold">{day.dayLabel}</p>
                                   </div>
                                   {day.sessions.map((sess, si) => (
-                                    <div key={si} className={`print-keep-together ${si > 0 ? 'border-t border-ink-200' : ''}`}>
+                                    <div key={si} className={`print-block ${si > 0 ? 'border-t border-ink-200' : ''}`}>
                                       {sess.label && (
-                                        <div className="px-3 py-2 bg-ink-50 border-l-[3px]" style={{ borderColor: customStyles.primary_color }}>
+                                        <div className="print-keep-with-next px-3 py-2 bg-ink-50 border-l-[3px]" style={{ borderColor: customStyles.primary_color }}>
                                           <span className="text-2xs font-extrabold uppercase tracking-wide" style={{ color: customStyles.primary_color }}>{sess.label}</span>
                                         </div>
                                       )}
@@ -1435,8 +1342,8 @@ export default function App() {
                               ))}
 
                               {ungrouped.length > 0 && (
-                                <div className="print-keep-together overflow-hidden rounded-xl border border-ink-200">
-                                  <div className="px-3 py-2.5 text-white" style={{ backgroundColor: customStyles.primary_color }}>
+                                <div className="print-block overflow-hidden rounded-xl border border-ink-200">
+                                  <div className="print-keep-with-next px-3 py-2.5 text-white" style={{ backgroundColor: customStyles.primary_color }}>
                                     <p className="text-2xs font-bold">Additional Charges</p>
                                   </div>
                                   <table className="w-full table-fixed text-2xs border-collapse text-left">
@@ -1537,20 +1444,7 @@ export default function App() {
                         <p className="text-[8px] font-mono text-ink-300 uppercase tracking-widest">Generated Securely by BizEazyInvoicing</p>
                       </div>
                     </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Footer bar */}
-                <div id="preview-studio-footer" className="p-4 flex justify-end bg-ink-900 border-t border-ink-800">
-                  <button onClick={() => { setIsPreviewOpen(false); setPreviewInvoiceId(null); }}
-                    className="px-5 py-2 cursor-pointer bg-ink-800 hover:bg-ink-700 text-ink-200 font-extrabold text-xs rounded-xl">
-                    Close Studio View
-                  </button>
-                </div>
-              </div>
-            </div>,
-            document.body,
+            </DocumentViewer>
           );
         })()
       )}

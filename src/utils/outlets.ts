@@ -117,14 +117,3 @@ export function outletUsage(
   const employees = db.employees.filter(r => matches(r.Assigned_Outlet)).length;
   return { invoices, quotations, employees, total: invoices + quotations + employees };
 }
-
-/** "#B45309" → [180, 83, 9], for jsPDF which takes component arrays. */
-export const hexToRgb = (hex: string): [number, number, number] => {
-  const clean = (hex || '').replace('#', '');
-  if (clean.length < 6) return [180, 83, 9];
-  return [
-    parseInt(clean.slice(0, 2), 16) || 30,
-    parseInt(clean.slice(2, 4), 16) || 140,
-    parseInt(clean.slice(4, 6), 16) || 120,
-  ];
-};
