@@ -42,6 +42,8 @@ ok(early.length === 2 && early[1].description === 'Bonus paid 2026-11-10' && ear
 ok(advanceMonth(monthly, { id: 'A', date: '2026-11-16', amount: 100 }) === 'November 2026', 'default: the month it was taken');
 ok(advanceMonth(monthly, { id: 'A', date: '2026-11-16', amount: 100, deduct_from: 'January 2027' }) === 'January 2027', 'a chosen month wins');
 const opts = advanceMonthOptions({ ...monthly, End_Date: '2027-01-31' }, new Date(2026, 10, 16));
-ok(opts.join() === 'November 2026,December 2026,January 2027', `months offered while employed, got ${opts.join()}`);
+ok(opts.join() === 'September 2026,October 2026,November 2026,December 2026,January 2027', `months offered while employed, got ${opts.join()}`);
+const unsaved = advanceMonthOptions({ ...monthly, Joining_Date: '2026-10-01' }, new Date(2026, 10, 16), l => l === 'October 2026');
+ok(unsaved[0] === 'November 2026', `a saved or pre-joining month is not offered, got ${unsaved.join()}`);
 
 console.log('All payroll pay self-checks passed.');

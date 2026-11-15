@@ -401,6 +401,9 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
   };
 
   /** Saved payslips already recovering this advance — it cannot be deleted under them. */
+  const slipSaved = (emp: Employee) => (label: string) =>
+    db.payslips.some(p => p.Is_Saved && p.Employee_ID === emp.Employee_ID && normaliseMonthLabel(p.Month_Year) === label);
+
   const advanceOnPayslip = (advanceId: string) =>
     db.payslips.find(p => p.Is_Saved && (p.Deductions_JSON || '').includes(advanceId));
 
@@ -439,7 +442,7 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
       date: advDate,
       amount: round2(advAmount),
       note: advNote.trim() || undefined,
-      deduct_from: advanceMonthOptions(advancesFor, taken).includes(advMonth) ? advMonth : undefined,
+      deduct_from: advanceMonthOptions(advancesFor, taken, slipSaved(advancesFor)).includes(advMonth) ? advMonth : undefined,
     };
     saveAdvances(advancesFor, [...(advancesFor.Advances || []), advance],
       `Advance recorded. It will be deducted from the ${advanceMonth(advancesFor, advance)} payslip.`);
@@ -2379,7 +2382,8 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
               />
             </div>
             {parseLocalDate(advDate) && (() => {
-              const options = advanceMonthOptions(advancesFor, parseLocalDate(advDate)!);
+              const own = periodLabelFor(advancesFor, parseLocalDate(advDate)!);
+              const options = advanceMonthOptions(advancesFor, parseLocalDate(advDate)!, slipSaved(advancesFor));
               return (
                 <div>
                   <label htmlFor="adv-month" className="block text-2xs font-bold uppercase tracking-wider text-ink-600 dark:text-ink-300 mb-1">Deduct from payslip</label>
@@ -2389,8 +2393,8 @@ export const PayrollDashboard: React.FC<PayrollDashboardProps> = ({
                     onChange={e => setAdvMonth(e.target.value)}
                     className="w-full px-3 py-2.5 text-xs rounded-lg border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-950 text-ink-900 dark:text-ink-100"
                   >
-                    {options.map((label, i) => (
-                      <option key={label} value={i === 0 ? '' : label}>{label}{i === 0 ? ' (month it was paid)' : ''}</option>
+                    {options.map(label => (
+                      <option key={label} value={label === own ? '' : label}>{label}{label === own ? ' (month it was paid)' : ''}</option>
                     ))}
                   </select>
                 </div>

@@ -106,11 +106,16 @@ export function advanceMonth(emp: Employee, a: SalaryAdvance): string {
   return a.deduct_from || (taken ? periodLabelFor(emp, taken) : '');
 }
 
-/** Payslips an advance taken on `date` can be recovered from: its own period and the next five, while employed. */
-export function advanceMonthOptions(emp: Employee, date: Date): string[] {
-  const first = parseMonthLabel(periodLabelFor(emp, date))!;
-  return Array.from({ length: 6 }, (_, i) => monthLabel(new Date(first.year, first.month + i, 1)))
-    .filter(label => payPeriodForLabel(emp, label));
+/**
+ * Payslips an advance taken on `date` can be recovered from, while employed:
+ * the two before its own period if not yet saved (`saved`), since wages are
+ * often paid the month after, then its own period and the next five.
+ */
+export function advanceMonthOptions(emp: Employee, date: Date, saved: (label: string) => boolean = () => false): string[] {
+  const own = parseMonthLabel(periodLabelFor(emp, date))!;
+  return Array.from({ length: 8 }, (_, i) => [i < 2, monthLabel(new Date(own.year, own.month + i - 2, 1))] as const)
+    .filter(([past, label]) => payPeriodForLabel(emp, label) && !(past && saved(label)))
+    .map(([, label]) => label);
 }
 
 /**
