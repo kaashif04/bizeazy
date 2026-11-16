@@ -8,8 +8,8 @@
  */
 import { supabase, setRemember, remembered, loginEmail } from './supabase';
 
-export type ModuleName = 'invoicing' | 'quotations' | 'payroll' | 'settings' | 'team';
-export const ALL_MODULES: ModuleName[] = ['invoicing', 'quotations', 'payroll', 'settings', 'team'];
+export type ModuleName = 'invoicing' | 'quotations' | 'payroll' | 'settings' | 'team' | 'accounting';
+export const ALL_MODULES: ModuleName[] = ['invoicing', 'quotations', 'payroll', 'settings', 'team', 'accounting'];
 
 export const MODULE_LABELS: Record<ModuleName, string> = {
   invoicing: 'Invoicing',
@@ -17,6 +17,7 @@ export const MODULE_LABELS: Record<ModuleName, string> = {
   payroll: 'Payroll & Payslips',
   settings: 'Settings & Company Profiles',
   team: 'Team: attendance & leave',
+  accounting: 'Accounting',
 };
 
 /** Staff sign in to the BizEazy Staff app only; the Hub turns them away. */

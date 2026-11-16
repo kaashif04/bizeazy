@@ -21,7 +21,7 @@
  */
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const ALL_MODULES = ['invoicing', 'quotations', 'payroll', 'settings', 'team'];
+const ALL_MODULES = ['invoicing', 'quotations', 'payroll', 'settings', 'team', 'accounting'];
 const loginEmail = (code: string) => `${code}@users.bizeazy.invalid`;
 
 const cors = {

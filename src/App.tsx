@@ -52,6 +52,7 @@ import { CONFIRMED_EVENT, Confirmation } from './utils/confirm';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 // BizPos, for companies that use it too (company_apps has 'pos').
+const ACCOUNTING_URL = 'https://bizaccounting.vercel.app';
 const POS_URL = (import.meta as any).env?.VITE_POS_URL || 'https://bizpos-bice.vercel.app';
 
 type AppView = 'hub' | 'invoicing' | 'payroll' | 'quotations' | 'reports' | 'team';
@@ -404,7 +405,7 @@ const NAV_ITEMS: { view: AppView; Icon: React.FC<React.SVGProps<SVGSVGElement>>;
 function Sidebar({
   activeView, setActiveView, profiles, activeBranchLocation, setActiveBranchLocation,
   isDark, setIsDark, isDataLoading, onRefresh, onSignOut, onOpenSettings, onOpenProfiles,
-  onOpenUsers, onOpenKaida, user, companyName, allowed, posUrl,
+  onOpenUsers, onOpenKaida, user, companyName, allowed, posUrl, accountingUrl,
   isMobileOpen, onMobileClose,
 }: {
   activeView: AppView;
@@ -427,6 +428,8 @@ function Sidebar({
   allowed: (v: AppView | ModuleName) => boolean;
   /** Set when the company also uses BizPos. */
   posUrl?: string;
+  /** Set when the user has the Accounting module. */
+  accountingUrl?: string;
   isMobileOpen: boolean;
   onMobileClose: () => void;
 }) {
@@ -498,6 +501,15 @@ function Sidebar({
             >
               <MonitorSmartphone className="w-[18px] h-[18px] flex-shrink-0" />
               Open POS
+            </a>
+          )}
+          {accountingUrl && (
+            <a
+              href={accountingUrl} target="_blank" rel="noopener"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-brand-950/40 transition-colors cursor-pointer"
+            >
+              <BarChart3 className="w-[18px] h-[18px] flex-shrink-0" />
+              Open Accounting
             </a>
           )}
         </nav>
@@ -877,6 +889,7 @@ export default function App() {
           companyName={session.company.company_name}
           allowed={allowed}
           posUrl={session.apps?.includes('pos') ? POS_URL : undefined}
+          accountingUrl={allowed('accounting') ? ACCOUNTING_URL : undefined}
           isMobileOpen={isMobileNavOpen}
           onMobileClose={() => setIsMobileNavOpen(false)}
         />
